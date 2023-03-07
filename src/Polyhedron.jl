@@ -5,7 +5,7 @@ using LinearAlgebra
 
 struct Polyhedron
     verts::Vector{Vector{T}} where T<:Number # vertex array. Every vertex is an array of 3 spatial coordinates
-    edges::Vector{Tuple{Int, Int}} # edge array. Every edge is an array of the indices of the adjacent vertices
+    edges::Vector{Vector{Int}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{Vector{Int}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
 end
 
@@ -144,6 +144,7 @@ function triangulatePolyhedron(poly::Polyhedron)::Polyhedron
     return Polyhedron(newVerts, newEdges, newFacets)
 end
 
+
 # decide whether point is inside of polyhedron
 
 
@@ -186,5 +187,3 @@ function inpolyhedron(point::Vector{T}, poly::Polyhedron)::Int where T<:Number
         end
     end
 end
-
-# combinatorics
