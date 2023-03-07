@@ -28,16 +28,10 @@ end
 
 function EdgesOfFace(poly::Polyhedron,face::Vector{Int})
     res=[]
-    edges=poly.edges
-    for edge in edges 
-	p1=help_Position(face,edge[1])
-	p2=help_Position(face,edge[2])
-	if p1!= false && p2 != false 
-	    if abs(p1-p2)==1 || abs(p1-p2)==length(face)-1
-		push!(res,edge)
-	    end
-	end
+    for i in 1:length(face)-1
+	push!(res,[face[i],face[i+1]])
     end
+    push!(res,[face[length(face)],face[1]])
     return res
 end
 
@@ -267,18 +261,25 @@ end
 function OrientatePolyhedron(poly::Polyhedron)
     faces=poly.facets
     visitedFaces=[faces[1]]
+    res=[faces[1]]
     visitedEdges=EdgesOfFace(poly,faces[1])
     faces=filter(f->f!=faces[1],faces)
     tempFaces=0
-    while tempFaces != visitedFaces 
+    while NumberOfFaces(poly) != length(visitedFaces) 
 	tempF=visitedFaces
 	tempE=visitedEdges
 	for edge in tempE
 	    foe=FacesOfEdge(poly,edge)
 	    for f in foe 
 		if !(f in visitedFaces)
-		    push!(tempF,f)
-		    for edge2 in EdgesOfFace(poly,f) 
+		    push!(tempF, f)
+		    if edge in EdgesOfFace(poly,f)
+			ff=help_OrientateFace(poly,f,edge)
+		    else
+			ff=f
+		    end
+		    push!(res,ff)
+		    for edge2 in EdgesOfFace(poly,ff) 			
 			if !(edge2 in visitedEdges) && !([edge2[2],edge2[1]] in visitedEdges) 
 			    push!(tempE,edge2)
 			end
@@ -286,11 +287,10 @@ function OrientatePolyhedron(poly::Polyhedron)
 		end
 	    end
 	end
-	tempFaces=visitedFaces
 	visitedFaces=tempF
 	visitedEdges=tempE
     end
-
+    return res
 end
 
 ####NeighbourFaceByEdge
@@ -368,7 +368,6 @@ function help_OrientateFace(poly::Polyhedron,face::Vector{Int},edge::Vector{Int}
     orientFace=[]
     p1=help_Position(face,edge[1])
     p2=help_Position(face,edge[2])
-    print(p1," ",p2,"\n")
     if p1-p2==-1 || p1-p2==length(face)-1
         for i in 1:length(face)
 	    push!(orientFace,face[length(face)-i+1])
@@ -377,7 +376,7 @@ function help_OrientateFace(poly::Polyhedron,face::Vector{Int},edge::Vector{Int}
         orientFace=face
     end
 
-    return orientFace
+    return Vector{Int}(orientFace)
 
 end
 
