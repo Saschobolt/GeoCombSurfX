@@ -290,7 +290,7 @@ function OrientatePolyhedron(poly::Polyhedron)
 	visitedFaces=tempF
 	visitedEdges=tempE
     end
-    return res
+    return Polyhedron(poly.verts,poly.edges,res)
 end
 
 ####NeighbourFaceByEdge
