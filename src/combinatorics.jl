@@ -1,3 +1,9 @@
+include("Polyhedron.jl")
+
+#########################################################################
+#  TODO: Methode, welche die Facets von Polyeder so umschreibt, dass aufeinanderfolgende Vertizes in Facet durch Kante verbunden sind (siehe bspw. Cuboctahedron, Facet [1,3,5,7])
+#########################################################################
+
 #########################################################################
 ################################## combinatorics
 ##########################################################################

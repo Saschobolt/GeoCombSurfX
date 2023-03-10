@@ -1,9 +1,7 @@
-using Plots
-using PolygonOps
 using LinearAlgebra
+using PolygonOps
 
-
-struct Polyhedron
+mutable struct Polyhedron
     verts::Vector{Vector{T}} where T<:Number # vertex array. Every vertex is an array of 3 spatial coordinates
     edges::Vector{Vector{Int}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{Vector{Int}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
@@ -20,24 +18,12 @@ struct Plane
 end
 
 
-# plot Polyhedron
-function plotPolyhedron!(p::Plots.Plot, poly::Polyhedron; fill_color = :red, kwargs...)
-    for facet in poly.facets
-        xvals = append!(map(ind -> verts[ind][1], facet), verts[facet[1]][1])
-        yvals = append!(map(ind -> verts[ind][2], facet), verts[facet[1]][2])
-        zvals = append!(map(ind -> verts[ind][3], facet), verts[facet[1]][3])
-
-        plot!(p, xvals, yvals, zvals, kwargs...)
-    end
-    return p
-end
-
 """
 A::Matrix
 cond::Float64
 Returns an orthonormal basis for the columnspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
 """
-function colspace(A::Matrix{T}, cond::Float64 = 1e-8)::Vector{Vector{Float64}} where T<:Number
+function colspace(A::Matrix{T}, cond::Float64 = 1e-5)::Vector{Vector{Float64}} where T<:Number
     F = svd(A)
     return [c[:] for c in eachcol(F.U[:, findall(>(cond), abs.(F.S))])]
 end
@@ -48,7 +34,7 @@ A::Matrix
 cond::Float64
 Returns an orthonormal basis for the nullspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
 """
-function nullspace(A::Matrix{T}, cond::Float64 = 1e-8)::Vector{Vector{Float64}} where T<:Number
+function nullspace(A::Matrix{T}, cond::Float64 = 1e-5)::Vector{Vector{Float64}} where T<:Number
     F = svd(A)
     return [c[:] for c in eachcol(F.V[:, findall(<(cond), abs.(F.S))])]
 end
@@ -71,12 +57,12 @@ function intersect(ray::Ray, plane::Plane)
     vr = ray.point
     vp = plane.point
 
-    A = hcat(union(plane.vectors, ray.vector)...)
+    A = hcat(union(plane.vectors, [-ray.vector])...)
     if length(colspace(A)) < 3
         throw(ErrorException("ray and plane are parallel."))
     end
     
-    coeffs = A\(-vp-vr)
+    coeffs = A\(vr - vp)
     if coeffs[3] < 0
         throw(ErrorException("ray and plane don't intersect"))
     end
@@ -88,74 +74,35 @@ end
 """
 returns 1 if the 3d point p lies in the polygon poly embedded into R^3, -1 if it lies on its boundary and 0 otherwise
 """
-function inpolygon3d(p::AbstractVector, poly::AbstractVector, tol::Float64=1e-8)
+function inpolygon3d(p::AbstractVector, poly::AbstractVector, tol::Float64=1e-5)
     E = plane(poly)
-    point = p
+    point = deepcopy(p)
+
+    trafo = hcat(union(E.vectors, [normalize(cross(E.vectors...))])...)' # transformation so that E is parallel to the xy plane
+    E = Plane(trafo * E.point, map(v -> trafo * v, E.vectors))
+    point = trafo * point
+    polytransformed = map(v -> trafo * v, poly)
 
     # display(hcat(E.vectors...))
-    # print((hcat(E.vectors...) * (hcat(E.vectors...)\(point-E.point))) - (point-E.point))
+    # println((hcat(E.vectors...) * (hcat(E.vectors...)\(point-E.point))) - (point-E.point))
 
     if max(abs.((hcat(E.vectors...) * (hcat(E.vectors...)\(point-E.point))) - (point-E.point))...) < tol
-        return inpolygon(point, poly) # inpolygon projects onto the xy plane and decides the problem. If p and poly lie in the same plane, then this is enough to decide the problem
+        return inpolygon(point, polytransformed) # inpolygon projects onto the xy plane and decides the problem. If p and poly lie in the same plane, then this is enough to decide the problem
     else
         return 0 # p and poly don't lie in the same plane
     end
 end
 
-# triangulate surface of Polyhedron
-"""
-returns a polyhedron containing the vertices and edges of poly such that every facet is triangular.
-"""
-function triangulatePolyhedron(poly::Polyhedron)::Polyhedron
-    newVerts = poly.verts
-    newEdges = poly.edges
-    newFacets = []
-
-
-    for facet in poly.facets
-        subfacet = facet
-
-        while length(subfacet) > 3
-            if inpolygon((poly.verts[subfacet[length(subfacet)]] + poly.verts[subfacet[2]]) / 2, append!(map(i -> poly.verts[i], subfacet), [poly.verts[subfacet[1]]])) == 1
-                append!(newEdges, [(subfacet[length(subfacet)], subfacet[2])])
-                append!(newFacets, [[subfacet[length(subfacet)], subfacet[1], subfacet[2]]])
-                subfacet = subfacet[2:length(subfacet)]
-                continue
-            elseif inpolygon((poly.verts[subfacet[length(subfacet) - 1]] + poly.verts[subfacet[1]]) / 2, append!(map(i -> poly.verts[i], subfacet), [poly.verts[subfacet[1]]])) == 1
-                append!(newEdges, [(subfacet[length(subfacet) - 1], subfacet[1])])
-                append!(newFacets, [[subfacet[length(subfacet) - 1], subfacet[length(subfacet)], subfacet[1]]])
-                subfacet = subfacet[1:length(subfacet) - 1]
-                continue
-            else
-                for ind in 2:length(subfacet) - 1
-                    if inpolygon((poly.verts[subfacet[ind - 1]] + poly.verts[subfacet[ind + 1]]) / 2, append!(map(i -> poly.verts[i], subfacet), [poly.verts[subfacet[1]]])) == 1
-                        append!(newEdges, [(subfacet[ind - 1], subfacet[ind + 1])])
-                        append!(newFacets, [[subfacet[ind - 1], subfacet[ind], subfacet[ind + 1]]])
-                        subfacet = subfacet[1:end .!= ind]
-                        break
-                    end
-                end
-            end
-        end
-
-        append!(newFacets, [subfacet])
-    end
-
-    return Polyhedron(newVerts, newEdges, newFacets)
-end
-
 
 # decide whether point is inside of polyhedron
-
-
 """
     Randomized algorithm to check whether a point is contained in a polyhedron.
 """
-function inpolyhedron(point::Vector{T}, poly::Polyhedron)::Int where T<:Number
+function inpolyhedron(point::Vector{T}, poly::Polyhedron, tol::Float64=1e-5)::Int where T<:Number
     # check whether point lies on the boundary of poly
     for facet in poly.facets
-        polygon = append!(map(v -> poly.verts[v], facet), [poly.verts[facet[1]]])
-        if  inpolygon3d(point, polygon) != 0
+        polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
+        if  inpolygon3d(point, polygon, tol) != 0
             return -1
         end
     end
@@ -165,17 +112,20 @@ function inpolyhedron(point::Vector{T}, poly::Polyhedron)::Int where T<:Number
         numIntersections = 0 # number of intersections of r and the facets of poly
 
         for facet in poly.facets
-            polygon = append!(map(v -> poly.verts[v], facet), [poly.verts[facet[1]]])
+            polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
             E = plane(polygon)
+
             try
-                p = intersect(r, E)
+                intersect(r, E)
             catch error
                 continue
             end
 
-            if inpolygon3d(p, polygon) == -1
+            p = intersect(r, E)
+
+            if inpolygon3d(p, polygon, tol) == -1
                 break
-            elseif inpolygon3d(p, polygon) == 1
+            elseif inpolygon3d(p, polygon, tol) == 1
                 numIntersections = numIntersections + 1
             end
         end
@@ -187,3 +137,6 @@ function inpolyhedron(point::Vector{T}, poly::Polyhedron)::Int where T<:Number
         end
     end
 end
+
+
+
