@@ -104,14 +104,14 @@ function convexDecomposition(poly::Polyhedron)::Vector{Polyhedron}
 
         # remove a tetrahedron from subPoly if one exists
         if any(vertexDegrees.==3)
-            println("\nsubPoly:", subPoly)
-            println("vertexDegrees.==3:", [vertexDegrees.==3])
+            # println("\nsubPoly:", subPoly)
+            # println("vertexDegrees.==3:", [vertexDegrees.==3])
             v = indexin(3, vertexDegrees)[1]
             
             tetraVerts = push!(union(map(e -> setdiff(e, [v]), EdgesOfVertex(subPoly, v))...), v) # determine vertex indices of tetrahedron
-            println("tetraverts:", tetraVerts)
+            # println("tetraverts:", tetraVerts)
             tetra = Polyhedron(map(w -> subPoly.verts[w], tetraVerts), [[1,2], [2,3], [3,4], [4,1]], [[1,2,3], [1,2,4], [1,3,4], [2,3,4]]) # resulting tetrahedron
-            println("found tetra:", tetra)
+            # println("found tetra:", tetra)
             push!(sol, tetra)
 
             # remove v and adjacent edges and facets from subPoly
@@ -137,9 +137,9 @@ function convexDecomposition(poly::Polyhedron)::Vector{Polyhedron}
                 butterfly = subPoly.facets[map(f -> length(Base.intersect(f, edge)) == 2, subPoly.facets)]
                 butterflyTips = setdiff(union(butterfly...), edge)
 
-                println("\nsubpoly: ", subPoly)
-                println("evaluated edge: ", edge)
-                println("corresponding butterfly: ", butterfly)
+                # println("\nsubpoly: ", subPoly)
+                # println("evaluated edge: ", edge)
+                # println("corresponding butterfly: ", butterfly)
                 setdiff!(subPoly.edges, [edge])
                 push!(subPoly.edges, butterflyTips)
 
@@ -148,7 +148,7 @@ function convexDecomposition(poly::Polyhedron)::Vector{Polyhedron}
 
                 tetra = Polyhedron(subPoly.verts[[edge[1], edge[2], butterflyTips[1], butterflyTips[2]]], [[1,2], [2,3], [3,4], [4,1]], [[1,2,3], [1,2,4], [1,3,4], [2,3,4]])
                 push!(sol, tetra)
-                println("length(sol) = ", length(sol))
+                # println("length(sol) = ", length(sol))
                 break
             end
         end
