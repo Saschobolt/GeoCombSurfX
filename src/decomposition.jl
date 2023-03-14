@@ -110,7 +110,7 @@ function convexDecomposition(poly::Polyhedron)::Vector{Polyhedron}
             
             tetraVerts = push!(union(map(e -> setdiff(e, [v]), EdgesOfVertex(subPoly, v))...), v) # determine vertex indices of tetrahedron
             # println("tetraverts:", tetraVerts)
-            tetra = Polyhedron(map(w -> subPoly.verts[w], tetraVerts), [[1,2], [2,3], [3,4], [4,1]], [[1,2,3], [1,2,4], [1,3,4], [2,3,4]]) # resulting tetrahedron
+            tetra = Polyhedron(map(w -> subPoly.verts[w], tetraVerts), [[1,2], [1,3], [1,4], [2,3], [2,4], [3,4]], [[1,2,3], [1,2,4], [1,3,4], [2,3,4]]) # resulting tetrahedron
             # println("found tetra:", tetra)
             push!(sol, tetra)
 
@@ -146,7 +146,7 @@ function convexDecomposition(poly::Polyhedron)::Vector{Polyhedron}
                 setdiff!(subPoly.facets, butterfly)
                 append!(subPoly.facets, [[edge[1], butterflyTips[1], butterflyTips[2]], [edge[2], butterflyTips[1], butterflyTips[2]]])
 
-                tetra = Polyhedron(subPoly.verts[[edge[1], edge[2], butterflyTips[1], butterflyTips[2]]], [[1,2], [2,3], [3,4], [4,1]], [[1,2,3], [1,2,4], [1,3,4], [2,3,4]])
+                tetra = Polyhedron(subPoly.verts[[edge[1], edge[2], butterflyTips[1], butterflyTips[2]]], [[1,2], [1,3], [1,4], [2,3], [2,4], [3,4]], [[1,2,3], [1,2,4], [1,3,4], [2,3,4]])
                 push!(sol, tetra)
                 # println("length(sol) = ", length(sol))
                 break
