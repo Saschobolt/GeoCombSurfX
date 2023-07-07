@@ -6,6 +6,27 @@ mutable struct Polyhedron <:AbstractPolyhedron
     verts::Vector{<:Vector{<:Real}} # vertex array. Every vertex is an array of 3 spatial coordinates
     edges::Vector{<:Vector{<:Integer}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{Vector{<:Integer}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
+    # TODO: Neuen constructor mit optionalen Argumenten (wenn nur coordinates gegeben werden, ist Ergebnis die konvexe Hülle der Punkte
+    # wenn nur Facets gegeben sind, werden Edges automatisch gesetzt und es wird gecheckt, dass Vertizes auf einer Facet koplanar aber nicht kollinear sind)
+end
+
+function verts(poly::Polyhedron)
+    return poly.verts
+end
+
+function edges(poly::Polyhedron)
+    return poly.edges
+end
+
+function facets(poly::Polyhedron)
+    return poly.facets
+end
+
+function set_verts!(poly::Polyhedron, verts::Vector{<:Vector{<:Real}})
+    d = length(verts[1])
+    @assert d == 3 "Dimension of underlying space has to be 3. Other cases not implemented."
+    @assert all([length(v) == d for v in verts]) "Dimension mismatch in verts."
+    poly.verts = verts
 end
 
 struct Ray
