@@ -1,7 +1,8 @@
 using LinearAlgebra
 using PolygonOps
 
-mutable struct Polyhedron
+abstract type AbstractPolyhedron end
+mutable struct Polyhedron <:AbstractPolyhedron
     verts::Vector{<:Vector{<:Real}} # vertex array. Every vertex is an array of 3 spatial coordinates
     edges::Vector{<:Vector{<:Integer}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{Vector{<:Integer}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
@@ -23,7 +24,7 @@ A::Matrix
 cond::Float64
 Returns an orthonormal basis for the columnspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
 """
-function colspace(A::Matrix{<:Real}, cond::Real = 1e-5)
+function colspace(A::Matrix{<:Real}; cond::Real = 1e-5)
     F = svd(A)
     return [c[:] for c in eachcol(F.U[:, findall(>(cond), abs.(F.S))])]
 end
