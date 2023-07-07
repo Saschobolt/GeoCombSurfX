@@ -54,7 +54,7 @@ Checks whether the edge e is turnable edge of poly. I.e. poly is
     - the line connecting the wingtips of the butterfly with inner edge e is contained in poly.
 Floats with abs value <tol are considered zeros
 """
-function isturnable(e::Vector{Int}, polyhedron::Polyhedron, tol::Float64=1e-5)::Bool
+function isturnable(e::Vector{<:Int}, polyhedron::Polyhedron, tol::Real=1e-5)::Bool
     @assert all(length.(polyhedron.facets).==3) "poly may only have triangle facets"
     @assert in(e, polyhedron.edges) || in(reverse(e), poly.edges) "e has to be an edge of poly"
     
@@ -74,7 +74,7 @@ tol::Float64
 returns whether poly is convex
 Floats with abs value <tol are considered zeros
 """
-function isconvex(poly::Polyhedron, tol::Float64=1e-5)::Bool
+function isconvex(poly::Polyhedron, tol::Real=1e-5)::Bool
     polyhedron = deepcopy(poly)
     if any(length.(polyhedron.facets).!=3)
         polyhedron = triangulatePolyhedron(polyhedron)

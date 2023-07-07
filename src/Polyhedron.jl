@@ -2,19 +2,19 @@ using LinearAlgebra
 using PolygonOps
 
 mutable struct Polyhedron
-    verts::Vector{Vector{T}} where T<:Number # vertex array. Every vertex is an array of 3 spatial coordinates
-    edges::Vector{Vector{Int}} # edge array. Every edge is an array of the indices of the adjacent vertices
-    facets::Vector{Vector{Int}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
+    verts::Vector{<:Vector{<:Real}} # vertex array. Every vertex is an array of 3 spatial coordinates
+    edges::Vector{<:Vector{<:Integer}} # edge array. Every edge is an array of the indices of the adjacent vertices
+    facets::Vector{Vector{<:Integer}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
 end
 
 struct Ray
-    point::Vector{T} where T<:Number
-    vector::Vector{T} where T<:Number
+    point::Vector{<:Real}
+    vector::Vector{<:Real} 
 end
 
 struct Plane
-    point::Vector{T} where T<:Number
-    vectors::Vector{Vector{T}} where T<:Number
+    point::Vector{<:Real} 
+    vectors::Vector{<:Vector{<:Real}} 
 end
 
 
@@ -23,7 +23,7 @@ A::Matrix
 cond::Float64
 Returns an orthonormal basis for the columnspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
 """
-function colspace(A::Matrix{T}, cond::Float64 = 1e-5)::Vector{Vector{Float64}} where T<:Number
+function colspace(A::Matrix{<:Real}, cond::Real = 1e-5)
     F = svd(A)
     return [c[:] for c in eachcol(F.U[:, findall(>(cond), abs.(F.S))])]
 end
@@ -34,7 +34,7 @@ A::Matrix
 cond::Float64
 Returns an orthonormal basis for the nullspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
 """
-function nullspace(A::Matrix{T}, cond::Float64 = 1e-5)::Vector{Vector{Float64}} where T<:Number
+function nullspace(A::Matrix{Real}, cond::Real = 1e-5)
     F = svd(A)
     return [c[:] for c in eachcol(F.V[:, findall(<(cond), abs.(F.S))])]
 end
@@ -42,7 +42,7 @@ end
 """
 returns the plane, in which polygon lies.
 """
-function plane(polygon::Vector{Vector{T}})::Plane where T<:Number
+function plane(polygon::Vector{<:Vector{<:Real}})::Plane 
     @assert polygon[1] == polygon[end] "First and last vertex of polygon have to equal."
 
     v = polygon[1]
@@ -74,7 +74,7 @@ end
 """
 returns 1 if the 3d point p lies in the polygon poly embedded into R^3, -1 if it lies on its boundary and 0 otherwise
 """
-function inpolygon3d(p::AbstractVector, poly::AbstractVector, tol::Float64=1e-5)
+function inpolygon3d(p::AbstractVector, poly::AbstractVector, tol::Real=1e-5)
     E = plane(poly)
     point = deepcopy(p)
 
@@ -98,7 +98,7 @@ end
 """
     Randomized algorithm to check whether a point is contained in a polyhedron.
 """
-function inpolyhedron(point::Vector{T}, poly::Polyhedron, tol::Float64=1e-5)::Int where T<:Number
+function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron, tol::Real=1e-5)::Int 
     # check whether point lies on the boundary of poly
     for facet in poly.facets
         polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
