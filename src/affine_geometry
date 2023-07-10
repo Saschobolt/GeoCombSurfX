@@ -91,5 +91,5 @@ end
 Affine dimension of the affine space spanned by the entries of s.
 """
 function affinedim(s::Vector{<:Vector{<:Real}})
-    return length(affinebasis(s))
+    return length(affinebasis(s)) - 1
 end
