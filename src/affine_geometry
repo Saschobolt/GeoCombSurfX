@@ -84,3 +84,12 @@ Find an affine basis of the affine space spanned by the points in s.
 function affinebasis(s::Vector{<:Vector{<:Real}})
     return s[affinebasis_indices(s)]
 end
+
+"""
+    affinedim(s::Vector{<:Vector{<:Real}})
+
+Affine dimension of the affine space spanned by the entries of s.
+"""
+function affinedim(s::Vector{<:Vector{<:Real}})
+    return length(affinebasis(s))
+end
