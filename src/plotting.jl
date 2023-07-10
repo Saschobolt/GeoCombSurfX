@@ -1,5 +1,6 @@
 using PlotlyJS
 using Colors
+import PlotlyJS.plot
 
 include("Polyhedron.jl")
 include("decomposition.jl")
@@ -58,15 +59,15 @@ function trace_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels:
 end
 
 
-function plot_assembly(assembly::Vector{Polyhedron}; text::Bool = false, width::Int = 600, height::Int = 600)
+function plot(assembly::Vector{Polyhedron}; labels::Bool = false, width::Int = 600, height::Int = 600)
     colors = distinguishable_colors(length(assembly), RGB(0,0,0))
 
-    plot(reverse(union([trace_polyhedron(poly; color = colors[i], text = text) for (i, poly) in enumerate(assembly)]...)), 
+    plot(reverse(union([trace_polyhedron(poly; color = colors[i], labels = labels) for (i, poly) in enumerate(assembly)]...)), 
          Layout(showlegend = false, autosize = false, width = width, height = height))
 end
 
 
-function plot_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), text::Bool = false, width::Int = 600, height::Int = 600)
-    plot(trace_polyhedron(poly; color = color, text = text), 
+function plot(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels::Bool = false, width::Int = 600, height::Int = 600)
+    plot(trace_polyhedron(poly; color = color, labels = labels), 
          Layout(showlegend = false, autosize = false, width=width, height = height))
 end
