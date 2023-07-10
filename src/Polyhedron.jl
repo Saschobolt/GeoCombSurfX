@@ -1,6 +1,8 @@
 using LinearAlgebra
 using PolygonOps
 
+include("affine_geometry")
+
 abstract type AbstractPolyhedron end
 mutable struct Polyhedron <:AbstractPolyhedron
     verts::Vector{<:Vector{<:Real}} # vertex array. Every vertex is an array of 3 spatial coordinates
@@ -14,12 +16,33 @@ function get_verts(poly::Polyhedron)
     return poly.verts
 end
 
+function set_verts!(poly::Polyhedron, verts::Vector{<:Vector{<:Real}})
+    d = length(verts[1])
+    @assert d == 3 "Only 3-dimensional polyhedra supported."
+    @assert all([length(v) == d for v in verts]) "Dimension mismatch in vertices."
+    poly.verts = verts
+end
+
 function get_edges(poly::Polyhedron)
     return poly.edges
 end
 
+function set_edges!(poly::Polyhedron, edges::Vector{<:Vector{<:Int}})
+    @assert all(length(e) == 2 for e in edges) "Edges need to consist of vectors of length 2."
+    @assert sort(unique(vcat(edges...))) == [1:max(unique(vcat(edges...))...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(edges...))))."
+    # TODO: Assert, dass die Kanten auch tatsächlich auf Rand von Facets liegen?
+    poly.edges = edges
+end
+
+
 function get_facets(poly::Polyhedron)
     return poly.facets
+end
+
+function set_facets!(poly::Polyhedron, facets::Vector{<:Vector{<:Int}})
+    @assert sort(unique(vcat(facets...))) == [1:max(unique(vcat(facets...))...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
+    @assert all([affinedim(get_verts(poly)[f]) == 2 for f in facets]) "Facets have to span affine spaces of dimension 2."
+    poly.facets = facets
 end
 
 """
@@ -131,7 +154,7 @@ end
 """
 function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron, tol::Real=1e-5)::Int 
     # check whether point lies on the boundary of poly
-    for facet in poly.facets
+    for facet in get_facets(poly)
         polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
         if  inpolygon3d(point, polygon, tol) != 0
             return -1
@@ -142,7 +165,7 @@ function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron, tol::Real=1e-5)::
         r = Ray(point, normalize!(randn(Float64, 3)))
         numIntersections = 0 # number of intersections of r and the facets of poly
 
-        for facet in poly.facets
+        for facet in get_facets(poly)
             polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
             E = plane(polygon)
 
