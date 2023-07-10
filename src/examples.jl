@@ -1,4 +1,22 @@
 include("Polyhedron.jl")
+include("merging.jl")
+
+##################################################################################
+################# n-prisms
+##################################################################################
+"""
+    nprism(n::Integer)
+
+TBW
+"""
+function nprism(n::Integer)
+  alpha = 1/dist([1,0], [cos(2*pi/n), sin(2*pi/n)])
+  verts = vcat([[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 0] for k in 1:n], [[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 1] for k in 1:n])
+  facets = vcat([[1:n...]], [[(n+1):(2*n)...]], [[k, k+1, k+n+1, k+n] for k in 1:(n-1)], [[n,1,n+1,2*n]])
+  edges = vcat([[k, k+1] for k in 1:(n-1)], [[n,1]], [[n+k, n+k+1] for k in 1:(n-1)], [[2*n, n+1]], [[k, k+n] for k in 1:n])
+  return Polyhedron(verts, edges, facets)
+end
+
 
 ##################################################################################
 ################# platonic solids
