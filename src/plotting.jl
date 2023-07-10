@@ -7,7 +7,7 @@ include("decomposition.jl")
 """
 Aux function to plot a polyhedron. Returns array of traces that can be handled by PlotlyJS.
 """
-function tracePolyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), text::Bool = false, opacity::Real = 0.6)
+function trace_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels::Bool = false, opacity::Real = 0.6)
     polyTriang = triangulatePolyhedron(poly)
 
     facecolor = repeat([color], length(polyTriang.facets))
@@ -41,7 +41,7 @@ function tracePolyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), text::Bo
     end
 
     # plot vertices
-    mode = text ? "markers+text" : "markers"
+    mode = labels ? "markers+text" : "markers"
     trace = scatter3d(
     	x = [v[1] for v in poly.verts],
         y = [v[2] for v in poly.verts],
@@ -58,15 +58,15 @@ function tracePolyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), text::Bo
 end
 
 
-function plotAssembly(assembly::Vector{Polyhedron}; text::Bool = false, width::Int = 600, height::Int = 600)
+function plot_assembly(assembly::Vector{Polyhedron}; text::Bool = false, width::Int = 600, height::Int = 600)
     colors = distinguishable_colors(length(assembly), RGB(0,0,0))
 
-    plot(reverse(union([tracePolyhedron(poly; color = colors[i], text = text) for (i, poly) in enumerate(assembly)]...)), 
+    plot(reverse(union([trace_polyhedron(poly; color = colors[i], text = text) for (i, poly) in enumerate(assembly)]...)), 
          Layout(showlegend = false, autosize = false, width = width, height = height))
 end
 
 
-function plotPolyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), text::Bool = false, width::Int = 600, height::Int = 600)
-    plot(tracePolyhedron(poly; color = color, text = text), 
+function plot_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), text::Bool = false, width::Int = 600, height::Int = 600)
+    plot(trace_polyhedron(poly; color = color, text = text), 
          Layout(showlegend = false, autosize = false, width=width, height = height))
 end
