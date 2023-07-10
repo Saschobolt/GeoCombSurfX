@@ -8,7 +8,7 @@ include("decomposition.jl")
 Aux function to plot a polyhedron. Returns array of traces that can be handled by PlotlyJS.
 """
 function trace_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels::Bool = false, opacity::Real = 0.6)
-    polyTriang = triangulatePolyhedron(poly)
+    polyTriang = triangulate(poly)
 
     facecolor = repeat([color], length(polyTriang.facets))
 

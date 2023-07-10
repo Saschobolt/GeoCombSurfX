@@ -6,7 +6,7 @@ include("combinatorics.jl")
 """
 returns a polyhedron containing the vertices and edges of poly such that every facet is triangular.
 """
-function triangulatePolyhedron(poly::Polyhedron)::Polyhedron
+function triangulate(poly::Polyhedron)::Polyhedron
     newVerts = deepcopy(poly.verts)
     newEdges = deepcopy(poly.edges)
     newFacets = Vector{Int}[]
@@ -77,7 +77,7 @@ Floats with abs value <tol are considered zeros
 function isconvex(poly::Polyhedron, tol::Real=1e-5)::Bool
     polyhedron = deepcopy(poly)
     if any(length.(polyhedron.facets).!=3)
-        polyhedron = triangulatePolyhedron(polyhedron)
+        polyhedron = triangulate(polyhedron)
     end
 
     for edge in polyhedron.edges
@@ -93,10 +93,10 @@ end
 poly::Polyhedron
 returns a vector of tetrahedra, which union is the Polyhedron poly.
 """
-function convexDecomposition(poly::Polyhedron)::Vector{Polyhedron}
+function convexdecomp(poly::Polyhedron)::Vector{Polyhedron}
     sol = Polyhedron[]
 
-    triangPoly = triangulatePolyhedron(poly)
+    triangPoly = triangulate(poly)
     subPoly = deepcopy(triangPoly)
 
     while !isconvex(subPoly)
