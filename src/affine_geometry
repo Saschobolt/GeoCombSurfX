@@ -26,7 +26,6 @@ function affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}
     b = vcat(b, reshape(repeat([1], d_im + 1), (1, d_pre + 1))) # embed image into higher dimensional space
 
     @assert length(colspace(A, cond = 1e-8)) == d_pre + 1 "The preimage needs to consist of an affine basis."
-    display(b * inv(A))
 
     function aff(x::Vector{<:Real})
         M = b * inv(A)
