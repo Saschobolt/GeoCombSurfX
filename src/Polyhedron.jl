@@ -1,4 +1,4 @@
-using LinearAlgebra
+using GenericLinearAlgebra
 using PolygonOps
 
 include("affine_geometry")
@@ -29,7 +29,7 @@ end
 
 function set_edges!(poly::Polyhedron, edges::Vector{<:Vector{<:Int}})
     @assert all(length(e) == 2 for e in edges) "Edges need to consist of vectors of length 2."
-    @assert sort(unique(vcat(edges...))) == [1:max(unique(vcat(edges...))...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(edges...))))."
+    # @assert sort(union(edges...)) == [1:max(union(edges...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(edges...))))."
     # TODO: Assert, dass die Kanten auch tatsächlich auf Rand von Facets liegen?
     poly.edges = edges
 end
@@ -40,7 +40,7 @@ function get_facets(poly::Polyhedron)
 end
 
 function set_facets!(poly::Polyhedron, facets::Vector{<:Vector{<:Int}})
-    @assert sort(unique(vcat(facets...))) == [1:max(unique(vcat(facets...))...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
+    # @assert sort(union(facets...)) == [1:max(union(facets...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
     @assert all([affinedim(get_verts(poly)[f]) == 2 for f in facets]) "Facets have to span affine spaces of dimension 2."
     poly.facets = facets
 end
@@ -52,13 +52,6 @@ Get the dimension of the unerlying space the polyhedron is embedded into.
 """
 function dimension(poly::Polyhedron)
     return length(get_verts(poly)[1])
-end
-
-function set_verts!(poly::Polyhedron, verts::Vector{<:Vector{<:Real}})
-    d = length(verts[1])
-    @assert d == 3 "Dimension of underlying space has to be 3. Other cases not implemented."
-    @assert all([length(v) == d for v in verts]) "Dimension mismatch in verts."
-    poly.verts = verts
 end
 
 struct Ray
@@ -77,9 +70,9 @@ A::Matrix
 cond::Float64
 Returns an orthonormal basis for the columnspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
 """
-function colspace(A::Matrix{<:Real}; cond::Real = 1e-5)
+function colspace(A::Matrix{<:Real}; tol::Real = 1e-5)
     F = svd(A)
-    return [c[:] for c in eachcol(F.U[:, findall(>(cond), abs.(F.S))])]
+    return [c[:] for c in eachcol(F.U[:, findall(>(tol), abs.(F.S))])]
 end
 
 
@@ -88,31 +81,33 @@ A::Matrix
 cond::Float64
 Returns an orthonormal basis for the nullspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
 """
-function nullspace(A::Matrix{Real}, cond::Real = 1e-5)
+function nullspace(A::Matrix{<:Real}, tol::Real = 1e-5)
     F = svd(A)
-    return [c[:] for c in eachcol(F.V[:, findall(<(cond), abs.(F.S))])]
+    return [c[:] for c in eachcol(F.V[:, findall(<(tol), abs.(F.S))])]
 end
 
 """
 returns the plane, in which polygon lies.
 """
-function plane(polygon::Vector{<:Vector{<:Real}})::Plane 
+function plane(polygon::Vector{<:Vector{<:Real}}; tol::Real=1e-8)::Plane 
     @assert polygon[1] == polygon[end] "First and last vertex of polygon have to equal."
 
-    v = polygon[1]
-    A = hcat(map(w -> w-v, polygon[2:end-1])...)
-    return Plane(v, colspace(A))
+    basis = affinebasis(polygon, atol = tol)
+    @assert length(basis) == 3 "polygon doesn't span a plane."
+    v = basis[1]
+    A = map(b -> b-v, basis[2:end])
+    return Plane(v, A)
 end
 
 """
 returns the intersection between a ray and a plane if it exists.
 """
-function intersect(ray::Ray, plane::Plane)
+function intersect(ray::Ray, plane::Plane; tol::Real = 1e-8)
     vr = ray.point
     vp = plane.point
 
     A = hcat(union(plane.vectors, [-ray.vector])...)
-    if length(colspace(A)) < 3
+    if length(colspace(A, tol=tol)) < 3
         throw(ErrorException("ray and plane are parallel."))
     end
     
@@ -128,22 +123,32 @@ end
 """
 returns 1 if the 3d point p lies in the polygon poly embedded into R^3, -1 if it lies on its boundary and 0 otherwise
 """
-function inpolygon3d(p::AbstractVector, poly::AbstractVector, tol::Real=1e-5)
-    E = plane(poly)
+function inpolygon3d(p::AbstractVector, poly::AbstractVector; tol::Real=1e-5)
+    d = 3
+    @assert length(p) == 3 "Only 3d case."
+    @assert all([length(v) == 3 for v in poly]) "Only 3d case."
+
+    E = plane(poly, tol = tol)
     point = deepcopy(p)
 
-    trafo = hcat(union(E.vectors, [normalize(cross(E.vectors...))])...)' # transformation so that E is parallel to the xy plane
-    E = Plane(trafo * E.point, map(v -> trafo * v, E.vectors))
-    point = trafo * point
-    polytransformed = map(v -> trafo * v, poly)
+    preim = [E.point, E.point + E.vectors[1], E.point + E.vectors[2], E.point + normalize(cross(E.vectors[1], E.vectors[2]))]
+    im = [[0,0,0], [1,0,0], [0,1,0], [0,0,1]]
 
-    # display(hcat(E.vectors...))
-    # println((hcat(E.vectors...) * (hcat(E.vectors...)\(point-E.point))) - (point-E.point))
+    # affine map so that the affine basis of the polygon is mapped to the xy plane
+    aff = affinemap(preim, im, atol = tol)
 
-    if max(abs.((hcat(E.vectors...) * (hcat(E.vectors...)\(point-E.point))) - (point-E.point))...) < tol
-        return inpolygon(point, polytransformed) # inpolygon projects onto the xy plane and decides the problem. If p and poly lie in the same plane, then this is enough to decide the problem
+    # transformed polygon and point
+    polytransformed = aff.(poly)
+    pointtransformed = aff(point)
+    
+
+    if abs(pointtransformed[3]) < tol
+         # inpolygon projects onto the xy plane and decides the problem.
+         # If p and poly lie in the same plane, then this is enough to decide the problem
+        return inpolygon(pointtransformed, polytransformed)
     else
-        return 0 # p and poly don't lie in the same plane
+        # p and poly don't lie in the same plane
+        return 0 
     end
 end
 
@@ -152,11 +157,11 @@ end
 """
     Randomized algorithm to check whether a point is contained in a polyhedron.
 """
-function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron, tol::Real=1e-5)::Int 
+function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron; tol::Real=1e-5)::Int 
     # check whether point lies on the boundary of poly
     for facet in get_facets(poly)
         polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
-        if  inpolygon3d(point, polygon, tol) != 0
+        if  inpolygon3d(point, polygon, tol=tol) != 0
             return -1
         end
     end
@@ -177,9 +182,9 @@ function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron, tol::Real=1e-5)::
 
             p = intersect(r, E)
 
-            if inpolygon3d(p, polygon, tol) == -1
+            if inpolygon3d(p, polygon, tol = tol) == -1
                 break
-            elseif inpolygon3d(p, polygon, tol) == 1
+            elseif inpolygon3d(p, polygon, tol = tol) == 1
                 numIntersections = numIntersections + 1
             end
         end
