@@ -58,7 +58,7 @@ function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<
     sol_edges = vcat(sol_edges1, sol_edges2)
 
     sol_facets1 = get_facets(poly1)[map(f -> !(Set(f) in Set.(facets1)), get_facets(poly1))]
-    sol_facets2 = get_facets(poly2)[map(f -> !(Set(f) in Set.(facets1)), get_facets(poly2))]
+    sol_facets2 = get_facets(poly2)[map(f -> !(Set(f) in Set.(facets2)), get_facets(poly2))]
     sol_facets2 = [index_map2.(f) for f in sol_facets2]
     sol_facets = vcat(sol_facets1, sol_facets2)
 
