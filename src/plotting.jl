@@ -63,11 +63,16 @@ function plot(assembly::Vector{Polyhedron}; labels::Bool = false, width::Int = 6
     colors = distinguishable_colors(length(assembly), RGB(0,0,0))
 
     plot(reverse(union([trace_polyhedron(poly; color = colors[i], labels = labels) for (i, poly) in enumerate(assembly)]...)), 
-         Layout(showlegend = false, autosize = false, width = width, height = height))
+         Layout(showlegend = false, 
+                autosize = false, 
+                width = width, 
+                height = height,
+                scene_aspectmode = "data"
+         ))
 end
 
 
 function plot(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels::Bool = false, width::Int = 600, height::Int = 600)
     plot(trace_polyhedron(poly; color = color, labels = labels), 
-         Layout(showlegend = false, autosize = false, width=width, height = height))
+         Layout(showlegend = false, autosize = false, width=width, height = height, scene_aspectmode = "data"))
 end
