@@ -54,6 +54,32 @@ function dimension(poly::Polyhedron)
     return length(get_verts(poly)[1])
 end
 
+
+"""
+    isadjacent(poly::Polyhedron, facetoredge::Vector{<:Int}, facet::Vector{<:Int})
+
+
+Calculate whether the facet or edge facetoredge and the facet facet of the polyhedron poly are adjacent, i.e. share a common edge.
+"""
+function isadjacent(poly::Polyhedron, facetoredge::Vector{<:Int}, facet::Vector{<:Int})
+    @assert Set(facetoredge) in Set.(get_facets(poly)) || Set(facetoredge) in Set.(get_edges(poly)) "facetoredge has to be a facet or an edge of poly."
+    @assert Set(facet) in Set.(get_facets(poly)) "facet2 has to be a facet of poly."
+
+    intersection = Base.intersect(facetoredge, facet)
+
+    return any(map(edge -> Base.intersect(edge, intersection) == edge, get_edges(poly)))
+end
+
+
+"""
+    adjfacets(poly::Polyhedron, facetoredge::Vector{<:Int})
+
+Calculate the adjacent facets of the facet or edge facet in the Polyhedron poly, i.e. the facets sharing at least one edge with facet.
+"""
+function adjfacets(poly::Polyhedron, facetoredge::Vector{<:Int})
+    return setdiff(get_facets(poly)[map(facet2 -> isadjacent(poly, facetoredge, facet2), get_facets(poly))], [facetoredge])
+end
+
 struct Ray
     point::Vector{<:Real}
     vector::Vector{<:Real} 
