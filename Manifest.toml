@@ -2,7 +2,7 @@
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "ec153b3a07b483ed711c4c6fe8e9dbc0c14ba29a"
+project_hash = "29b9d76d1fbc70b247801d857b07f0b241abc455"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -300,9 +300,9 @@ version = "0.71.7+0"
 
 [[deps.GenericLinearAlgebra]]
 deps = ["LinearAlgebra", "Printf", "Random", "libblastrampoline_jll"]
-git-tree-sha1 = "856610594f8759d2a3d3afe3397ce5242982bfdd"
+git-tree-sha1 = "02be7066f936af6b04669f7c370a31af9036c440"
 uuid = "14197337-ba66-59df-a3e3-ca00e7dcff7a"
-version = "0.3.5"
+version = "0.3.11"
 
 [[deps.GeoInterface]]
 deps = ["Extents"]
