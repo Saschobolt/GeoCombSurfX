@@ -12,7 +12,7 @@ end
 
 TBW
 """
-function affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}})
+function affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}; atol = 1e-8)
     @assert length(preim) == length(im) "Preimage ind image have to have the same length"
 
     d_pre = length(preim[1]) # dimension of underlying space of preimage
@@ -25,7 +25,7 @@ function affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}
     b = hcat(im...)
     b = vcat(b, reshape(repeat([1], d_im + 1), (1, d_pre + 1))) # embed image into higher dimensional space
 
-    @assert length(colspace(A, cond = 1e-8)) == d_pre + 1 "The preimage needs to consist of an affine basis."
+    @assert length(colspace(A, tol = atol)) == d_pre + 1 "The preimage needs to consist of an affine basis."
 
     function aff(x::Vector{<:Real})
         M = b * inv(A)
@@ -49,7 +49,7 @@ function rigidmap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}};
         end
     end
 
-    return affinemap(preim, im)
+    return affinemap(preim, im, atol=atol)
 end
 
 """
@@ -65,7 +65,7 @@ function affinebasis_indices(s::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
     for (i,v) in enumerate(s)
         A = hcat(s[sol]..., v)
         A = vcat(A, reshape(repeat([1], length(sol) + 1), (1, length(sol) + 1)))
-        if length(colspace(A, cond = atol)) == length(sol) + 1
+        if length(colspace(A, tol = atol)) == length(sol) + 1
             append!(sol, i)
         end
         if length(sol) == d+1
