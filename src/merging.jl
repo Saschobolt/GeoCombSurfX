@@ -7,14 +7,15 @@ include("affine_geometry")
 
 Merge the two polyhedra poly1 and poly2 such that the corresponding vertices of the faces in faces1 and faces2 align. 
 The aligned faces are deleted in the resulting polyhedron so that the result itself is a 2-dimensional piecewise linear manifold.
+Real values < atol are considered zero.
 """
-function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}})
+function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
     @assert all([Set(f) in Set.(get_facets(poly1)) for f in facets1]) "faces1 needs to consist of facets of poly1."
     @assert all([Set(f) in Set.(get_facets(poly2)) for f in facets2]) "faces2 needs to consist of facets of poly2."
 
     @assert dimension(poly1) == dimension(poly2) "poly1 and poly2 need to be embedded into the same space."
 
-    ind_to_align = sort(unique(hcat(vcat(facets1...), vcat(facets2...)), dims = 1), dims = 1)
+    ind_to_align = unique(hcat(vcat(facets1...), vcat(facets2...)), dims = 1)
     # display(ind_to_align)
     @assert length(unique(ind_to_align[:,1])) == length(ind_to_align[:,1]) "Merging isn't well defined"
     @assert length(unique(ind_to_align[:,1])) == length(ind_to_align[:,2]) "Merging isn't well defined"
@@ -24,11 +25,11 @@ function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<
 
     for i in 1:length(verts_to_align1)
         for j in i+1:length(verts_to_align2)
-            @assert dist(verts_to_align1[i], verts_to_align1[j]) == dist(verts_to_align2[i], verts_to_align2[j]) "Polyhedra cannot be merged. Distance between Vertex $(ind_to_align[i,1]) and $(ind_to_align[j,1]) of poly1 is $(dist(verts_to_align1[i], verts_to_align1[j])), but the distance between vertex $(ind_to_align[i,2]) and $(ind_to_align[j,2]) of poly2 is $(dist(verts_to_align2[i], verts_to_align2[j]))"
+            @assert abs(dist(verts_to_align1[i], verts_to_align1[j]) - dist(verts_to_align2[i], verts_to_align2[j])) < atol "Polyhedra cannot be merged. Distance between Vertex $(ind_to_align[i,1]) and $(ind_to_align[j,1]) of poly1 is $(dist(verts_to_align1[i], verts_to_align1[j])), but the distance between vertex $(ind_to_align[i,2]) and $(ind_to_align[j,2]) of poly2 is $(dist(verts_to_align2[i], verts_to_align2[j]))"
         end
     end
-    preim = verts_to_align2[affinebasis_indices(verts_to_align2)]
-    im = verts_to_align1[affinebasis_indices(verts_to_align2)]
+    preim = verts_to_align2[affinebasis_indices(verts_to_align2, atol = atol)]
+    im = verts_to_align1[affinebasis_indices(verts_to_align2, atol = atol)]
     @assert length(preim) >= 3 "Polyhedra cannot be merged along degenerate faces."
 
     if length(preim) == 3
@@ -36,7 +37,7 @@ function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<
         append!(im, [im[1] - cross(im[2] - im[1], im[3] - im[1])])
     end
 
-    tau = rigidmap(preim, im) # rigid map mapping facets2 to facets1
+    tau = rigidmap(preim, im, atol = atol) # rigid map mapping facets2 to facets1
     
     # function that maps the index of a vertex of poly2 to the resulting vertex after merging
     function index_map2(i::Integer)
@@ -72,10 +73,11 @@ end
 
 Merge the two polyhedra poly1 and poly2 such that the corresponding vertices of the faces in faces1 and faces2 align. 
 The aligned faces are deleted in the resulting polyhedron so that the result itself is a 2-dimensional piecewise linear manifold.
+Real values < atol are considered zero.
 """
-function merge(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}})
+function merge(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
     poly1_copy = deepcopy(poly1)
-    merge!(poly1_copy, poly2, facets1, facets2)
+    merge!(poly1_copy, poly2, facets1, facets2, atol = atol)
 
     return poly1_copy
 end
