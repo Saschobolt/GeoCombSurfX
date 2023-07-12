@@ -40,7 +40,7 @@ function ComputeIntersections(poly1::Polyhedron,poly2::Polyhedron)
 			push!(intersection,coordinates1[facet1[i]])
 		    end
 		    if temp2[i]^2==1
-			push!(intersection,coordinates2[facet1[i]])
+			push!(intersection,coordinates2[facet2[i]])
 		    end
 		end
 		print("a",intersection,"\n")
@@ -84,15 +84,12 @@ function ComputeIntersections(poly1::Polyhedron,poly2::Polyhedron)
 			push!(inter,intersection[i])
 		    end
 		end
-		if length(inter) != 3 
-			
-		     #TODO order the vertices
-		end
-		push!(res,inter)
+		#if length(inter) >= 3 
+		    push!(res,inter)
+		#end
 	    end
 	end
     end
-    #end 
     return res
 end
 
@@ -110,7 +107,7 @@ function testComputeIntersection(num::Int)
 	surf2=Polyhedron([[1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.2, 0.5, 0.0]], [[1, 2], [2, 3], [1, 3]], [[1, 2, 3]])
     elseif num==4 
 	surf1=Polyhedron([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]], [[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]])
-	aurf2=Polyhedron([[1, 1, 1], [1, 0, 0], [0, 1, 0], [0, 0, 1]], [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]], [[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]])
+	surf2=Polyhedron([[1, 1, 1], [1, 0, 0], [0, 1, 0], [0, 0, 1]], [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]], [[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]])
     end
 return ComputeIntersections(surf1,surf2)
 
