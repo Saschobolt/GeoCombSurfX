@@ -1,5 +1,6 @@
 include("Polyhedron.jl")
 include("merging.jl")
+include("decomposition.jl")
 
 ##################################################################################
 ################# n-prisms
@@ -15,6 +16,31 @@ function nprism(n::Integer)
   facets = vcat([[1:n...]], [[(n+1):(2*n)...]], [[k, k+1, k+n+1, k+n] for k in 1:(n-1)], [[n,1,n+1,2*n]])
   edges = vcat([[k, k+1] for k in 1:(n-1)], [[n,1]], [[n+k, n+k+1] for k in 1:(n-1)], [[2*n, n+1]], [[k, k+n] for k in 1:n])
   return Polyhedron(verts, edges, facets)
+end
+
+function tiblock(n1::Integer, n2::Integer, nmerges::Integer; atol::Real = 1e-8)
+  @assert mod(n1, nmerges) == 0 "Number of blocks on the side needs to divide n1."
+
+  if n2 == 3
+    sideelem = nprism(3)
+    merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]])
+    merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]])
+    flattenfacets!(sideelem, atol = atol)
+  elseif n2 == 4
+    sideelem = nprism(4)
+    merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]])
+    merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]])
+    flattenfacets!(sideelem, atol = atol)
+  else
+    sideelem = nprism(n2)
+  end
+
+  block = nprism(n1)
+  for k in 3:Int(n1 / nmerges):length(get_facets(nprism(n1)))
+    merge!(block, sideelem, [get_facets(nprism(n1))[k]], [[n2+1,1,2, n2+2]])
+  end
+
+  return block
 end
 
 
