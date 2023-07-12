@@ -13,7 +13,7 @@ mutable struct Polyhedron <:AbstractPolyhedron
 end
 
 function get_verts(poly::Polyhedron)
-    return poly.verts
+    return deepcopy(poly.verts)
 end
 
 function set_verts!(poly::Polyhedron, verts::Vector{<:Vector{<:Real}})
@@ -24,7 +24,7 @@ function set_verts!(poly::Polyhedron, verts::Vector{<:Vector{<:Real}})
 end
 
 function get_edges(poly::Polyhedron)
-    return poly.edges
+    return deepcopy(poly.edges)
 end
 
 function set_edges!(poly::Polyhedron, edges::Vector{<:Vector{<:Int}})
@@ -36,7 +36,7 @@ end
 
 
 function get_facets(poly::Polyhedron)
-    return poly.facets
+    return deepcopy(poly.facets)
 end
 
 function set_facets!(poly::Polyhedron, facets::Vector{<:Vector{<:Int}})
@@ -78,6 +78,40 @@ Calculate the adjacent facets of the facet or edge facet in the Polyhedron poly,
 """
 function adjfacets(poly::Polyhedron, facetoredge::Vector{<:Int})
     return setdiff(get_facets(poly)[map(facet2 -> isadjacent(poly, facetoredge, facet2), get_facets(poly))], [facetoredge])
+end
+
+"""
+    formpath!(vertexindices::Vector{<:Int}, poly::Polyhedron)
+
+Sort the vector vertexindices such that the corresponding vertices of the Polyhedron poly form a vertex edges path.
+"""
+function formpath!(vertexindices::Vector{<:Int}, poly::Polyhedron)
+    endpoints = vertexindices[map( i -> length( Base.intersect([Set([i,j]) for j in vertexindices], Set.(get_edges(poly))) ) == 1, vertexindices )]
+    @assert length(endpoints) <= 2 "Vertices don't lie on a common path"
+    intersectionverts = vertexindices[map( i -> length( Base.intersect([Set([i,j]) for j in vertexindices], Set.(get_edges(poly))) ) > 2, vertexindices )]
+    @assert length(intersectionverts) == 0 "No intersections allowed."
+
+    tosort = deepcopy(vertexindices)
+    if length(endpoints) == 0
+        start = vertexindices[1]
+    else
+        start = endpoints[1]
+    end
+    path = [start]
+    setdiff!(tosort, [start])
+    vertexindices[1] = start
+
+    for i =2:length(vertexindices)
+        next = tosort[map( j -> (Set([vertexindices[i-1], j]) in Set.(get_edges(poly))), tosort )][1]
+        vertexindices[i] = next
+        setdiff!(tosort, [next])
+    end
+end
+
+function formpath(vertexindices::Vector{<:Int}, poly::Polyhedron)
+    vertexindicescopy = deepcopy(vertexindices)
+    formpath!(vertexindicescopy, poly)
+    return vertexindicescopy
 end
 
 struct Ray
