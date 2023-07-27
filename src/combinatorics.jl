@@ -107,6 +107,7 @@ function EdgesOfVertices(poly::Polyhedron)
     return map(i->EdgesOfVertex(poly,i),1:NumberOfVertices(poly))
 end
 
+
 ####FaceDegreesOfVertices
 function FaceDegreesOfVertices(poly::Polyhedron)
     fov=FacesOfVertices(poly)
@@ -255,15 +256,7 @@ function InnerVertices(poly::Polyhedron)
     filter(v->IsInnerVertex(poly,v),1:NumberOfVertices(poly))
 end
 
-
-#TODO
-#function IsRamifiedVertex(poly::Polyhedron,v::Int)
-#end
-
-#function RamifiedVertices()
-#end
-
-#TODO
+## Orientation
 function OrientatePolyhedron(poly::Polyhedron)
     faces=poly.facets
     visitedFaces=[faces[1]]
@@ -336,6 +329,23 @@ function DisjointUnion(poly::Polyhedron,poly2::Polyhedron)
     return p
 end
 
+## face defining vertex cycles
+function FaceDefiningVertexCycles(poly::Polyhedron)
+  res=[]
+  for facet in poly.facets 
+    faceCycle=[facet[1]]
+    len=1
+    while len != length(facet)
+      v=faceCycle[len]
+      eov=EdgesOfVertex(poly,v)
+      temp=filter(v2->[v,v2] in eov || [v2,v] in eov, setdiff(facet,faceCycle))
+      push!(faceCycle,temp[1])
+      len=len+1
+    end    
+    push!(res,faceCycle)
+  end
+  return res
+end
 
 ################helperfunctions
 
