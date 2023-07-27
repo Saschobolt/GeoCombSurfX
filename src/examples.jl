@@ -160,3 +160,33 @@ function star(n::Int)
     end
    return Polyhedron(vertices,edges,facets) 
 end
+
+
+function Prisma(n::Int)
+  #vertices 
+  t=1/sqrt((cos(3.14159*2*1/n)-cos(3.14159*2*2/n))^2+
+           (sin(3.14159*2*1/n)-sin(3.14159*2*2/n))^2);
+  vertices=map(i->[t*cos(3.14159*2*i/n),t*sin(3.14159*2*i/n),0.0],1:n)
+  for i in 1:n 
+    push!(vertices,[t*cos(3.14159*2*i/n),t*sin(3.14159*2*i/n),1.0])
+  end
+  #facets
+  facets=[]
+  for i in 1:n-1
+    push!(facets,[i,i+1,n+i+1,n+i])
+  end 
+  push!(facets,[n,1,n+1,2*n]) 
+  push!(facets,Vector((1:n)))
+  push!(facets,Vector((n+1:2*n)))
+  #edges
+  edges=[]
+  for i in 1:n-1
+    push!(edges,[i,i+1])
+    push!(edges,[n+i,n+i+1])
+    push!(edges,[i,n+i])
+  end
+  push!(edges,[1,n])
+  push!(edges,[n+1,2*n])
+  push!(edges,[n,2*n])
+  return Polyhedron(vertices,edges,facets) 
+end;
