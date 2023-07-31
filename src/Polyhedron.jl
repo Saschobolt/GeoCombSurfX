@@ -89,34 +89,62 @@ function adjfacets(poly::Polyhedron, facetoredge::Vector{<:Int})
     return setdiff(get_facets(poly)[map(facet2 -> isadjacent(poly, facetoredge, facet2), get_facets(poly))], [facetoredge])
 end
 
+
+"""
+    formpath!(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+
+Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
+"""
+function formpath!(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+    endpoints = vertexarray[map( i -> length( Base.intersect([Set([i,j]) for j in vertexarray], Set.(edges)) ) == 1, vertexarray )]
+    @assert length(endpoints) <= 2 "Vertices don't lie on a common path"
+    intersectionverts = vertexarray[map( i -> length( Base.intersect([Set([i,j]) for j in vertexarray], Set.(edges)) ) > 2, vertexarray )]
+    @assert length(intersectionverts) == 0 "No intersections allowed."
+
+    tosort = deepcopy(vertexarray)
+    if length(endpoints) == 0
+        start = vertexarray[1]
+    else
+        start = endpoints[1]
+    end
+    path = [start]
+    setdiff!(tosort, [start])
+    vertexarray[1] = start
+
+    for i = 2:length(vertexarray)
+        next = tosort[map( j -> (Set([vertexarray[i-1], j]) in Set.(edges)), tosort )][1]
+        vertexarray[i] = next
+        setdiff!(tosort, [next])
+    end
+end
+
+
+"""
+    formpath(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+
+Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
+"""
+function formpath(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+    vertexarraycopy = deepcopy(vertexarray)
+    formpath!(vertexarraycopy, edges)
+    return vertexarraycopy
+end
+
 """
     formpath!(vertexindices::Vector{<:Int}, poly::Polyhedron)
 
 Sort the vector vertexindices such that the corresponding vertices of the Polyhedron poly form a vertex edges path.
 """
 function formpath!(vertexindices::Vector{<:Int}, poly::Polyhedron)
-    endpoints = vertexindices[map( i -> length( Base.intersect([Set([i,j]) for j in vertexindices], Set.(get_edges(poly))) ) == 1, vertexindices )]
-    @assert length(endpoints) <= 2 "Vertices don't lie on a common path"
-    intersectionverts = vertexindices[map( i -> length( Base.intersect([Set([i,j]) for j in vertexindices], Set.(get_edges(poly))) ) > 2, vertexindices )]
-    @assert length(intersectionverts) == 0 "No intersections allowed."
-
-    tosort = deepcopy(vertexindices)
-    if length(endpoints) == 0
-        start = vertexindices[1]
-    else
-        start = endpoints[1]
-    end
-    path = [start]
-    setdiff!(tosort, [start])
-    vertexindices[1] = start
-
-    for i =2:length(vertexindices)
-        next = tosort[map( j -> (Set([vertexindices[i-1], j]) in Set.(get_edges(poly))), tosort )][1]
-        vertexindices[i] = next
-        setdiff!(tosort, [next])
-    end
+    edges = get_edges(poly)
+    formpath!(vertexindices, edges)
 end
 
+"""
+    formpath(vertexindices::Vector{<:Int}, poly::Polyhedron)
+
+Sort the vector vertexindices such that the corresponding vertices of the Polyhedron poly form a vertex edges path.
+"""
 function formpath(vertexindices::Vector{<:Int}, poly::Polyhedron)
     vertexindicescopy = deepcopy(vertexindices)
     formpath!(vertexindicescopy, poly)
