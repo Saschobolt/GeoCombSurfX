@@ -42,6 +42,15 @@ end
 function set_facets!(poly::Polyhedron, facets::Vector{<:Vector{<:Int}})
     # @assert sort(union(facets...)) == [1:max(union(facets...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
     @assert all([affinedim(get_verts(poly)[f]) == 2 for f in facets]) "Facets have to span affine spaces of dimension 2."
+    for j = 1:length(facets)
+        facet1 = facets[j]
+        edges1 = Set.(union([[facet1[i], facet1[i+1]] for i in 1:length(facet1)-1], [[facet1[end], facet1[1]]]))
+        for k = j+1:length(facets)
+            facet2 = facets[k]
+            edges2 = Set.(union([[facet2[i], facet2[i+1]] for i in 1:length(facet2)-1], [[facet2[end], facet2[1]]]))
+            @assert setdiff(edges1, edges2) != [] && setdiff(edges2, edges1) != [] "One of facets $(facet1) and $(facet2) is contained in the other."
+        end
+    end
     poly.facets = facets
 end
 
