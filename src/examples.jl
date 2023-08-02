@@ -1,6 +1,5 @@
 include("Polyhedron.jl")
 include("merging.jl")
-include("decomposition.jl")
 
 ##################################################################################
 ################# n-prisms
@@ -25,12 +24,10 @@ function tiblock(n1::Integer, n2::Integer, nmerges::Integer; atol::Real = 1e-8)
     sideelem = nprism(3)
     merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]])
     merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]])
-    flattenfacets!(sideelem, atol = atol)
   elseif n2 == 4
     sideelem = nprism(4)
     merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]])
     merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]])
-    flattenfacets!(sideelem, atol = atol)
   else
     sideelem = nprism(n2)
   end
