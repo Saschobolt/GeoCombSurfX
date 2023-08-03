@@ -59,10 +59,14 @@ function trace_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels:
 end
 
 
-function plot(assembly::Vector{Polyhedron}; labels::Bool = false, opacity::Real = 0.6, width::Int = 600, height::Int = 600)
-    colors = distinguishable_colors(length(assembly), RGB(0,0,0))
+function plot(assembly::Vector{Polyhedron}; colors::Vector{<:Color} = [RGB(0,0.9,1)], labels::Bool = false, opacity::Real = 0.6, width::Int = 600, height::Int = 600)
+    if length(colors) == 1
+        colorvec = distinguishable_colors(length(assembly), colors[1])
+    end
 
-    plot(reverse(union([trace_polyhedron(poly; color = colors[i], labels = labels, opacity = opacity) for (i, poly) in enumerate(assembly)]...)), 
+    @assert length(colorvec) == length(assembly) "Only $(length(colors)) colors supplied for $(length(assembly)) blocks."
+
+    plot(reverse(union([trace_polyhedron(poly; color = colorvec[i], labels = labels, opacity = opacity) for (i, poly) in enumerate(assembly)]...)), 
          Layout(showlegend = false, 
                 autosize = false, 
                 width = width, 
