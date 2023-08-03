@@ -86,6 +86,30 @@ function ==(poly1::Polyhedron, poly2::Polyhedron; atol = 1e-12)
 end
 
 """
+    iscongruent(poly1::Polyhedron, poly2::Polyhedron)
+
+Determine whether two polyhedra are congruent, 
+i.e. they have the same combinatorics and there exists a rigid map mapping the verts of poly1 to the verts of poly2.
+"""
+function iscongruent(poly1::Polyhedron, poly2::Polyhedron)
+    if Set.(get_edges(poly1)) != Set.(get_edges(poly2))
+        return false
+    end
+
+    if !all([facet in get_facets(poly2) || reverse(facet) in get_facets(poly2) for facet in get_facets(poly1)])
+        return false
+    end
+
+    try
+        aff = rigidmap(get_verts(poly1), get_verts(poly2))
+    catch AssertionError
+        return false
+    end
+
+    return true
+end
+
+"""
     dimension(poly::Polyhedron)
 
 Get the dimension of the unerlying space the polyhedron is embedded into.
