@@ -242,6 +242,52 @@ poly::Polyhedron
 returns a vector of tetrahedra, which union is the Polyhedron poly.
 """
 function convexdecomp(poly::Polyhedron; tol::Real=1e-5)::Vector{Polyhedron}
+    #############################################
+    # Workaround für tiblöcke!! TODO: debug convex decomposition!
+    #############################################
+    for n1 in 3:20
+        for n2 in 3:10
+            for nmerges in (1:n1)[mod.(n1, 1:n1) .== 0]
+                if iscongruent(tiblock(n1, n2, nmerges), poly)
+                    sol = Polyhedron[]
+
+                    if n2 == 3
+                        sideelem = nprism(3)
+                        merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]])
+                        merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]])
+                    elseif n2 == 4
+                        sideelem = nprism(4)
+                        merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]])
+                        merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]])
+                    else
+                        sideelem = nprism(n2)   
+                    end
+
+                    block = nprism(n1)
+                    for k in 3:Int(n1 / nmerges):length(get_facets(nprism(n1)))
+                        preim = get_verts(sideelem)[[n2+1,1,2]]
+                        push!(preim, preim[1] + cross(preim[2] - preim[1], preim[3] - preim[1]))
+                        im = get_verts(nprism(n1))[get_facets(nprism(n1))[k][1:3]]
+                        push!(im, im[1] - cross(im[2] - im[1], im[3] - im[1]))
+                        
+                        aff = rigidmap(preim, im)
+                        newsideelem = deepcopy(sideelem)
+                        set_verts!(newsideelem, aff.(get_verts(newsideelem)))
+                        push!(sol, newsideelem)
+                    end
+                    push!(sol, block)
+
+                    rigid = rigidmap(get_verts(tiblock(n1, n2, nmerges)), get_verts(poly))
+                    for component in sol
+                        set_verts!(component, rigid.(get_verts(component)))
+                    end
+
+                    return sol
+                end
+            end
+        end
+    end
+
 
     sol = Polyhedron[]
 
