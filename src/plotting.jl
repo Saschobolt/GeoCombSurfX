@@ -59,24 +59,70 @@ function trace_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels:
 end
 
 
-function plot(assembly::Vector{Polyhedron}; colors::Vector{<:Color} = [RGB(0,0.9,1)], labels::Bool = false, opacity::Real = 0.6, width::Int = 600, height::Int = 600)
+function plot(assembly::Vector{Polyhedron}; 
+              colors::Vector{<:Color} = [RGB(0,0.9,1)], labels::Bool = false, opacity::Real = 1, 
+              showbackground::Bool = true, width::Int = 600, height::Int = 600)
     if length(colors) == 1
         colorvec = distinguishable_colors(length(assembly), colors[1])
     end
 
     @assert length(colorvec) == length(assembly) "Only $(length(colors)) colors supplied for $(length(assembly)) blocks."
 
-    plot(reverse(union([trace_polyhedron(poly; color = colorvec[i], labels = labels, opacity = opacity) for (i, poly) in enumerate(assembly)]...)), 
-         Layout(showlegend = false, 
-                autosize = false, 
-                width = width, 
-                height = height,
-                scene_aspectmode = "data"
-         ))
+    traces = reverse(union([trace_polyhedron(poly; color = colorvec[i], labels = labels, opacity = opacity) for (i, poly) in enumerate(assembly)]...))
+
+    scene(eyex = 1.25, eyey = 1.25, eyez = 1.25) = attr(
+        xaxis_title = (showbackground ? "x" : ""),
+        yaxis_title = (showbackground ? "y" : ""),
+        zaxis_title = (showbackground ? "z" : ""),
+        autosize = true, 
+        aspectmode = "data",
+        camera = attr(
+            eye = attr(x = eyex, y = eyey, z = eyez)
+        ),
+        xaxis = attr(
+            showbackground = showbackground,
+            showaxeslabels = showbackground,
+            showticklabels = false
+        ),
+        yaxis = attr(
+            showbackground = showbackground,
+            showaxeslabels = showbackground,
+            showticklabels = false
+        ),
+        zaxis = attr(
+            showbackground = showbackground,
+            showaxeslabels = showbackground,
+            showticklabels = false
+        )
+    )
+
+    fig = make_subplots(rows=2, cols=2, specs=fill(Spec(kind="scene"), 2, 2), vertical_spacing = 0.05, horizontal_spacing = 0.05)
+
+    relayout!(
+        fig, 
+        scene = scene(),
+        scene2 = scene(2.25,0,0),
+        scene3 = scene(0,2.25,0),
+        scene4 = scene(0,0,2.25),
+        width = width,
+        height = height,
+        showlegend = false
+    )
+
+    for i in 1:2, j in 1:2
+        for trace in traces
+            add_trace!(
+                fig,
+                trace,
+                row = i, col = j
+            )
+        end
+    end
+
+    fig
 end
 
 
-function plot(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels::Bool = false, opacity::Real = 0.6, width::Int = 600, height::Int = 600)
-    plot(trace_polyhedron(poly; color = color, labels = labels, opacity = opacity), 
-         Layout(showlegend = false, autosize = false, width=width, height = height, scene_aspectmode = "data"))
+function plot(poly::Polyhedron; kwargs...)
+    plot([poly]; kwargs...)
 end
