@@ -1,4 +1,4 @@
-include("Polyhedron.jl")
+#include("Polyhedron.jl")
 
 #########################################################################
 #  TODO: Methode, welche die Facets von Polyeder so umschreibt, dass aufeinanderfolgende Vertizes in Facet durch Kante verbunden sind (siehe bspw. Cuboctahedron, Facet [1,3,5,7])
@@ -16,51 +16,51 @@ function NumberOfEdges(poly::Polyhedron)
     return length(poly.edges)
 end
 
-function NumberOfFaces(poly::Polyhedron)
+function NumberOfFacets(poly::Polyhedron)
     return length(poly.facets)
 end
 
 function EulerCharacteristic(poly::Polyhedron)
-    return NumberOfVertices(poly)-NumberOfEdges(poly)+NumberOfFaces(poly)
+    return NumberOfVertices(poly)-NumberOfEdges(poly)+NumberOfFacets(poly)
 end
 
 
 #### EdgesOfFaces
 
-function EdgesOfFaces(poly::Polyhedron)
+function EdgesOfFacets(poly::Polyhedron)
     res=[]
-    return map(i->EdgesOfFace(poly.facets[i]),1:NumberOfFaces(poly))
+    return map(i->EdgesOfFacet(poly.facets[i]),1:NumberOfFacets(poly))
 end
 
-function EdgesOfFace(poly::Polyhedron,face::Vector{Int})
+function EdgesOfFacet(poly::Polyhedron,facet::Vector{Int})
     res=[]
-    for i in 1:length(face)-1
-	push!(res,[face[i],face[i+1]])
+    for i in 1:length(facet)-1
+	push!(res,[facet[i],facet[i+1]])
     end
-    push!(res,[face[length(face)],face[1]])
+    push!(res,[facet[length(facet)],facet[1]])
     return res
 end
 
-function EdgesOfFace(poly::Polyhedron,face::Int)
-	return EdgesOfFace(poly,poly.facets[face])
+function EdgesOfFacet(poly::Polyhedron,facet::Int)
+	return EdgesOfFacet(poly,poly.facets[facet])
 end
 
 
 ####FacesOfEdges
-function FacesOfEdges(poly::Polyhedron) 
-    return map(i->FacesOfEdge(poly,i),1:NumberOfEdges(poly))
+function FacetsOfEdges(poly::Polyhedron) 
+    return map(i->FacetsOfEdge(poly,i),1:NumberOfEdges(poly))
 end
 
-function FacesOfEdge(poly::Polyhedron,edge::Vector{<:Int})
+function FacetsOfEdge(poly::Polyhedron,edge::Vector{<:Int})
     res=[]
-    faces=poly.facets
-    for face in faces 
-        if edge[1] in face && edge[2] in face
-	    p1=help_Position(face,edge[1])
-	    p2=help_Position(face,edge[2])
+    facets=poly.facets
+    for facet in facets 
+        if edge[1] in facet && edge[2] in facet
+	    p1=help_Position(facet,edge[1])
+	    p2=help_Position(facet,edge[2])
 	    if p1!= false && p2 != false 
-	        if abs(p1-p2)==1 || abs(p1-p2)==length(face)-1
-		    push!(res,face)
+	        if abs(p1-p2)==1 || abs(p1-p2)==length(facet)-1
+		    push!(res,facet)
 	        end
 	    end
 	end
@@ -68,23 +68,23 @@ function FacesOfEdge(poly::Polyhedron,edge::Vector{<:Int})
     return res
 end
 
-function FacesOfEdge(poly::Polyhedron, edge::Int)
-	return FacesOfEdge(poly,poly.edges[edge])
+function FacetsOfEdge(poly::Polyhedron, edge::Int)
+	return FacetsOfEdge(poly,poly.edges[edge])
 end
 
 #### FacesOfVertices
-function FacesOfVertices(poly::Polyhedron )
+function FacetsOfVertices(poly::Polyhedron )
     res=[]
     for v in 1:NumberOfVertices(poly)
-	push!(res,FacesOfVertex(poly,v))
+	push!(res,FacetsOfVertex(poly,v))
     end
     return res
 end
 
-function FacesOfVertex(poly::Polyhedron,v::Int)
+function FacetsOfVertex(poly::Polyhedron,v::Int)
     res=[]
-    faces=poly.facets
-    for f in faces 
+    facets=poly.facets
+    for f in facets 
         if v in f 
             push!(res,f)
         end
@@ -108,24 +108,24 @@ function EdgesOfVertices(poly::Polyhedron)
 end
 
 
-####FaceDegreesOfVertices
-function FaceDegreesOfVertices(poly::Polyhedron)
-    fov=FacesOfVertices(poly)
+####FacetDegreesOfVertices
+function FacetDegreesOfVertices(poly::Polyhedron)
+    fov=FacetsOfVertices(poly)
     return map(i->length(i),fov)
 end 
 
-function FaceDegreeOfVertex(poly::Polyhedron,v::Int)
-    return length(FacesOfVertex(poly,v))
+function FacetDegreeOfVertex(poly::Polyhedron,v::Int)
+    return length(FacetsOfVertex(poly,v))
 end
 
 ##### Boundaery Edges
 function  IsBoundaryEdge(poly::Polyhedron,edge::Vector{<:Int})
-    foe=FacesOfEdge(poly,edge)
+    foe=FacetsOfEdge(poly,edge)
     return length(foe)==1 
 end
 
 function  IsBoundaryEdge(poly::Polyhedron,edge::Int)
-    foe=FacesOfEdge(poly,edge)
+    foe=FacetsOfEdge(poly,edge)
     return length(foe)==1 
 end
 function BoundaryEdges(poly::Polyhedron)
@@ -142,12 +142,12 @@ end
 ####InnerEdges
 
 function  IsInnerEdge(poly::Polyhedron,edge::Int)
-    foe=FacesOfEdge(poly,edge)
+    foe=FacetsOfEdge(poly,edge)
     return length(foe)==2 
 end
 
 function  IsInnerEdge(poly::Polyhedron,edge::Vector{<:Int})
-    foe=FacesOfEdge(poly,edge)
+    foe=FacetsOfEdge(poly,edge)
     return length(foe)==2 
 end
 
@@ -165,11 +165,11 @@ end
 
 #### RamifiedEdges
 function IsRamifiedEdge(poly::Polyhedron,edge::Vector{<:Int})
-    foe=FacesOfEdge(poly,edge)
+    foe=FacetsOfEdge(poly,edge)
     return length(foe)>=3 
 end
 function IsRamifiedEdge(poly::Polyhedron,edge::Int)
-    foe=FacesOfEdge(poly,edge)
+    foe=FacetsOfEdge(poly,edge)
     return length(foe)>=3 
 end
 function RamifiedEdges(poly::Polyhedron)
@@ -189,37 +189,71 @@ function IsClosedSurface(poly::Polyhedron)
 end
 
 
+
 #### IsCOnnected 
-function IsConnected(poly::Polyhedron)
-    faces=poly.facets
-    visitedFaces=[faces[1]]
-    visitedEdges=EdgesOfFace(poly,faces[1])
-    faces=filter(f->f!=faces[1],faces)
-    tempFaces=0
-    while tempFaces != visitedFaces 
-	tempF=visitedFaces
-	tempE=visitedEdges
-	for edge in tempE
-	    foe=FacesOfEdge(poly,edge)
-	    for f in foe 
-		if !(f in visitedFaces)
-		    push!(tempF,f)
-		    for edge2 in EdgesOfFace(poly,f) 
-			if !(edge2 in visitedEdges) && !([edge2[2],edge2[1]] in visitedEdges) 
-			    push!(tempE,edge2)
-			end
-		    end
-		end
-	    end
-	end
-	tempFaces=visitedFaces
-	visitedFaces=tempF
-	visitedEdges=tempE
+function helpunion(l::Vector)
+  res=[]
+  for g in l 
+   union!(res,g)
+  end
+  return res
+end
+
+function isconnected(poly::Polyhedron)
+  facets=get_facets(poly)
+  vertices=helpunion(facets)
+  visitedV=[vertices[1]]
+  tempV=0
+  while tempV != visitedV
+    tempV=deepcopy(visitedV)
+    temp=Set(deepcopy(visitedV))
+    visitedV=filter(f->intersect!(Set(deepcopy(f)),temp) != Set([]) ,facets)
+    visitedV=helpunion(visitedV) 
+    println("visited ",visitedV)  
+  end
+  return length(vertices)==length(visitedV)
+end
+
+function connectedComponents(poly::Polyhedron)
+  resV=[]
+  resCoor=[]
+  resF=[]
+  tres=[]
+  verts=get_verts(poly)
+  facets=get_facets(poly)
+  vertices=helpunion(facets)
+  remVertices=deepcopy(vertices)
+  while length(remVertices) != 0
+    visitedV=[remVertices[1]]
+    vF=0
+    tempV=0
+    while tempV != visitedV
+      tempV=deepcopy(visitedV)
+      temp=Set(deepcopy(visitedV))
+      vF=filter(f->intersect!(Set(deepcopy(f)),temp) != Set([]) ,facets)
+      visitedV=helpunion(vF)
     end
-    return NumberOfFaces(poly)==length(visitedFaces)
+    vV=map(i->verts[i],visitedV)
+    push!(resV,visitedV)
+    push!(tres,Vector{Vector{Float64}}(undef,maximum(visitedV)))
+    push!(resCoor,vV)
+    push!(resF,vF)
+    filter!(v->!(v in visitedV), remVertices)
+  end
+#  println(map(g->maximum(g),resV))
+#  temp=map(g->Vector{Vector{Float64}}(undef,maximum(g)),resV)
+  println("bbbbbb")
+  for i in 1:length(resV)
+    for j in resV[i] 
+      tres[i][j]=verts[j]
+    end
+  end
+  println("sfdgdfsd")
+  return map(i->PolyhedronByVerticesInFacets(tres[i],resF[i]),1:length(resV))
 end
 
 
+#### IsCOnnected 
 
 
 
@@ -258,49 +292,54 @@ end
 
 ## Orientation
 function OrientatePolyhedron(poly::Polyhedron)
-    faces=poly.facets
-    visitedFaces=[faces[1]]
-    res=[faces[1]]
-    visitedEdges=EdgesOfFace(poly,faces[1])
-    faces=filter(f->f!=faces[1],faces)
-    tempFaces=0
-    while NumberOfFaces(poly) != length(visitedFaces) 
-	tempF=visitedFaces
-	tempE=visitedEdges
-	for edge in tempE
-	    foe=FacesOfEdge(poly,edge)
-	    for f in foe 
-		if !(f in visitedFaces)
-		    push!(tempF, f)
-		    if edge in EdgesOfFace(poly,f)
-			ff=help_OrientateFace(poly,f,edge)
-		    else
-			ff=f
-		    end
-		    push!(res,ff)
-		    for edge2 in EdgesOfFace(poly,ff) 			
-			if !(edge2 in visitedEdges) && !([edge2[2],edge2[1]] in visitedEdges) 
-			    push!(tempE,edge2)
-			end
-		    end
-		end
+  facets=get_facets(poly)
+  visitedFacets=[facets[1]]
+  range=collect(1:length(facets))
+  res=map(i->[1,1,1],range)
+  res[1]=facets[1]
+  println(res)
+  visitedEdges=EdgesOfFacet(poly,facets[1])
+  tempFacets=0
+  while NumberOfFacets(poly) != length(visitedFacets) 
+    tempF=visitedFacets
+    tempE=visitedEdges
+    for edge in tempE
+      foe=FacetsOfEdge(poly,edge)
+      for f in foe 
+        if !(f in visitedFacets)
+          push!(tempF, f)
+          if edge in EdgesOfFacet(poly,f)
+	    ff=help_OrientateFacet(poly,f,edge)
+          else
+            ff=f
+          end
+          #push!(res,ff)##Error
+          println(facets)
+          temp=filter(i->Set(facets[i])==Set(ff),range)
+          res[temp[1]]=ff
+          for edge2 in EdgesOfFacet(poly,ff) 			
+	    if !(edge2 in visitedEdges) && !([edge2[2],edge2[1]] in visitedEdges) 
+	      push!(tempE,edge2)
 	    end
-	end
-	visitedFaces=tempF
-	visitedEdges=tempE
+          end
+        end
+      end
     end
-    return Polyhedron(poly.verts,poly.edges,res)
+    visitedFacets=tempF
+    visitedEdges=tempE
+  end
+  return Polyhedron(poly.verts,poly.edges,res)
 end
 
 ####NeighbourFaceByEdge
 
-function NeighbourFaceByEdge(poly::Polyhedron,face::Vector{<:Int},edge::Vector{<:Int})
+function NeighbourFacetByEdge(poly::Polyhedron,facet::Vector{<:Int},edge::Vector{<:Int})
    res=[]
    for f in poly.facets
         if edge[1] in f && edge[2] in f 
-	    p1=help_Position(face,edge[1])
-	    p2=help_Position(face,edge[2])
-	    if (abs(p1-p2)==1 || abs(p1-p2)==length(face)-1) && f !=face
+	    p1=help_Position(facet,edge[1])
+	    p2=help_Position(facet,edge[2])
+	    if (abs(p1-p2)==1 || abs(p1-p2)==length(facet)-1) && f !=facet
 		push!(res,f)
 	    end
 	end 
@@ -308,8 +347,8 @@ function NeighbourFaceByEdge(poly::Polyhedron,face::Vector{<:Int},edge::Vector{<
    return res
 end
 
-function NeighbourFaceByEdge(poly::Polyhedron,face::Int,edge::Int)
-	return NeighbourFaceByEdge(poly,poly.facets[face],poly.edges[edge])
+function NeighbourFacetByEdge(poly::Polyhedron,facet::Int,edge::Int)
+	return NeighbourFacetByEdge(poly,poly.facets[facet],poly.edges[edge])
 end
 
 ####Disjoint Union
@@ -323,26 +362,26 @@ function DisjointUnion(poly::Polyhedron,poly2::Polyhedron)
     for edge in poly2.edges
 	push!(p.edges,[num+edge[1],num+edge[2]])
     end
-    for face in poly2.facets
-	push!(p.facets,[num+face[1],num+face[2],num+face[3]])
+    for facet in poly2.facets
+	push!(p.facets,[num+facet[1],num+facet[2],num+facet[3]])
     end
     return p
 end
 
 ## face defining vertex cycles
-function FaceDefiningVertexCycles(poly::Polyhedron)
+function FacetDefiningVertexCycles(poly::Polyhedron)
   res=[]
   for facet in poly.facets 
-    faceCycle=[facet[1]]
+    facetCycle=[facet[1]]
     len=1
     while len != length(facet)
-      v=faceCycle[len]
+      v=facetCycle[len]
       eov=EdgesOfVertex(poly,v)
       temp=filter(v2->[v,v2] in eov || [v2,v] in eov, setdiff(facet,faceCycle))
-      push!(faceCycle,temp[1])
+      push!(facetCycle,temp[1])
       len=len+1
     end    
-    push!(res,faceCycle)
+    push!(res,facetCycle)
   end
   return res
 end
@@ -380,26 +419,26 @@ function help_Position(l::Vector{<:Int},x::Int)
     return false
 end
 
-function help_OrientateFace(poly::Polyhedron,face::Vector{<:Int},edge::Vector{<:Int})
-    orientFace=[]
-    p1=help_Position(face,edge[1])
-    p2=help_Position(face,edge[2])
-    if p1-p2==-1 || p1-p2==length(face)-1
-        for i in 1:length(face)
-	    push!(orientFace,face[length(face)-i+1])
+function help_OrientateFacet(poly::Polyhedron,facet::Vector{<:Int},edge::Vector{<:Int})
+    orientFacet=[]
+    p1=help_Position(facet,edge[1])
+    p2=help_Position(facet,edge[2])
+    if p1-p2==-1 || p1-p2==length(facet)-1
+        for i in 1:length(facet)
+	    push!(orientFacet,facet[length(facet)-i+1])
 	end 
     else
-        orientFace=face
+        orientFacet=facet
     end
 
-    return Vector{Int}(orientFace)
+    return Vector{Int}(orientFacet)
 
 end
 
 function CopyPolyhedron(poly::Polyhedron)
     vertices=map(i->copy(poly.verts[i]),1:NumberOfVertices(poly))
     edges=map(i->copy(poly.edges[i]),1:NumberOfEdges(poly))
-    facets=map(i->copy(poly.facets[i]),1:NumberOfFaces(poly))
+    facets=map(i->copy(poly.facets[i]),1:NumberOfFacets(poly))
     return Polyhedron(vertices,edges,facets)
 
 end
