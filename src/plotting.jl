@@ -8,7 +8,8 @@ include("decomposition.jl")
 """
 Aux function to plot a polyhedron. Returns array of traces that can be handled by PlotlyJS.
 """
-function trace_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels::Bool = false, opacity::Real = 0.6)
+function trace_polyhedron(poly::Polyhedron; 
+            color::Color = RGB(0,0.9,1), labels::Bool = false, opacity::Real = 0.6, drawverts::Bool = true)
     polyTriang = triangulate(poly)
 
     facecolor = repeat([color], length(polyTriang.facets))
@@ -42,17 +43,18 @@ function trace_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels:
     end
 
     # plot vertices
-    mode = labels ? "markers+text" : "markers"
-    trace = scatter3d(
-    	x = [v[1] for v in poly.verts],
-        y = [v[2] for v in poly.verts],
-        z = [v[3] for v in poly.verts],
-        mode = mode,
-        text = [string(v) for v in 1:length(poly.verts)],
-        textposition = "bottom center",
-        marker = attr(color = color, size = 4)
-    )
-
+    if drawverts
+        mode = labels ? "markers+text" : "markers"
+        trace = scatter3d(
+            x = [v[1] for v in poly.verts],
+            y = [v[2] for v in poly.verts],
+            z = [v[3] for v in poly.verts],
+            mode = mode,
+            text = [string(v) for v in 1:length(poly.verts)],
+            textposition = "bottom center",
+            marker = attr(color = color, size = 4)
+        )
+    end
     push!(traces, trace)
 
     return traces
@@ -61,14 +63,15 @@ end
 
 function plot(assembly::Vector{Polyhedron}; 
               colors::Vector{<:Color} = [RGB(0,0.9,1)], labels::Bool = false, opacity::Real = 1, 
-              showbackground::Bool = true, width::Int = 600, height::Int = 600)
+              showbackground::Bool = true, drawverts::Bool = true, width::Int = 600, height::Int = 600)
     if length(colors) == 1
         colorvec = distinguishable_colors(length(assembly), colors[1])
+    else colorvec = colors
     end
 
     @assert length(colorvec) == length(assembly) "Only $(length(colors)) colors supplied for $(length(assembly)) blocks."
 
-    traces = reverse(union([trace_polyhedron(poly; color = colorvec[i], labels = labels, opacity = opacity) for (i, poly) in enumerate(assembly)]...))
+    traces = reverse(union([trace_polyhedron(poly; color = colorvec[i], labels = labels, opacity = opacity, drawverts = drawverts) for (i, poly) in enumerate(assembly)]...))
 
     scene(eyex = 1.25, eyey = 1.25, eyez = 1.25) = attr(
         xaxis_title = (showbackground ? "x" : ""),
@@ -100,10 +103,10 @@ function plot(assembly::Vector{Polyhedron};
 
     relayout!(
         fig, 
-        scene = scene(),
-        scene2 = scene(2.25,0,0),
-        scene3 = scene(0,2.25,0),
-        scene4 = scene(0,0,2.25),
+        scene = scene((2.5 * normalize([1,1,1]))...),
+        scene2 = scene((2.5 * normalize([0,1,0.5]))...),
+        scene3 = scene((2.5 * normalize([1,1,-1]))...),
+        scene4 = scene((2.5 * normalize([0,0,1]))...),
         width = width,
         height = height,
         showlegend = false
