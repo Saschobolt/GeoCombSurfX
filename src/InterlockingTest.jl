@@ -2,6 +2,9 @@
 #include("combinatorics.jl")
 #include("contactfacets.jl")
 
+using JuMP
+using HiGHS
+
 function orientatedNormals(poly::Polyhedron)
   p=OrientatePolyhedron(poly)
   facets=get_facets(p)
@@ -42,9 +45,9 @@ function orientatedNormals(poly::Polyhedron)
 end
 
 
-function InterlockingTestByWang2(poly::Polyhedron,frame::Vector{Int})
+function InterlockingTestByWang2(assembly::Vector{<:Polyhedron}, frame::Vector{<:Int})
   # construct lp and add the variables
-  assembly=connectedComponents(poly)
+  # assembly=connectedComponents(poly)
   indices=filter(i->!(i in frame),1:length(assembly))
   model=Model(HiGHS.Optimizer)
   @objective(model,Max,0)
