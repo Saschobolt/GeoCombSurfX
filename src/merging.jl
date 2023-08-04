@@ -63,7 +63,13 @@ function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<
     # edges of resulting polyhedron
     sol_edges1 = get_edges(poly1)
     sol_edges2 = map(e -> index_map2.(e), get_edges(poly2))
-    sol_edges = collect.(unique(Set.(vcat(sol_edges1, sol_edges2))))
+
+    sol_edges=deepcopy(sol_edges1)
+    for e in sol_edges2
+      if filter(ee->Set(ee)==Set(e) ,sol_edges)==[]
+        push!(sol_edges,e)
+      end
+    end
 
     # facets of resulting polyhedron
     sol_facets1 = get_facets(poly1)[map(f -> !(Set(f) in Set.(facets1)), get_facets(poly1))]
