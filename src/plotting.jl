@@ -59,10 +59,10 @@ function trace_polyhedron(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels:
 end
 
 
-function plot(assembly::Vector{Polyhedron}; labels::Bool = false, width::Int = 600, height::Int = 600)
+function plot(assembly::Vector{Polyhedron}; labels::Bool = false, opacity::Real = 0.6, width::Int = 600, height::Int = 600)
     colors = distinguishable_colors(length(assembly), RGB(0,0,0))
 
-    plot(reverse(union([trace_polyhedron(poly; color = colors[i], labels = labels) for (i, poly) in enumerate(assembly)]...)), 
+    plot(reverse(union([trace_polyhedron(poly; color = colors[i], labels = labels, opacity = opacity) for (i, poly) in enumerate(assembly)]...)), 
          Layout(showlegend = false, 
                 autosize = false, 
                 width = width, 
@@ -72,7 +72,7 @@ function plot(assembly::Vector{Polyhedron}; labels::Bool = false, width::Int = 6
 end
 
 
-function plot(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels::Bool = false, width::Int = 600, height::Int = 600)
-    plot(trace_polyhedron(poly; color = color, labels = labels), 
+function plot(poly::Polyhedron; color::Color = RGB(0,0.9,1), labels::Bool = false, opacity::Real = 0.6, width::Int = 600, height::Int = 600)
+    plot(trace_polyhedron(poly; color = color, labels = labels, opacity = opacity), 
          Layout(showlegend = false, autosize = false, width=width, height = height, scene_aspectmode = "data"))
 end

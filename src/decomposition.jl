@@ -1,66 +1,170 @@
 include("Polyhedron.jl")
 include("combinatorics.jl")
+include("affine_geometry")
+include("polygonal_geometry.jl")
 
 
 # triangulate surface of Polyhedron
 """
 returns a polyhedron containing the vertices and edges of poly such that every facet is triangular.
 """
-function triangulate(poly::Polyhedron)::Polyhedron
-    newVerts = deepcopy(poly.verts)
-    newEdges = deepcopy(poly.edges)
-    newFacets = Vector{Int}[]
+function triangulate!(poly::Polyhedron; atol = 1e-8)
+    coords = get_verts(poly)
+    newedges = Vector{Int}[]
+    newfacets = Vector{Int}[]
 
-
-    for facet in poly.facets
-        subfacet = deepcopy(facet)
-        polygon = push!(map(i -> poly.verts[i], subfacet), poly.verts[subfacet[1]])
-
-        while length(subfacet) > 3
-            if inpolygon3d((poly.verts[subfacet[end]] + poly.verts[subfacet[2]]) / 2, polygon) == 1
-                push!(newEdges, [subfacet[end], subfacet[2]])
-                push!(newFacets, [subfacet[end], subfacet[1], subfacet[2]])
-                subfacet = subfacet[2:end]
-                continue
-            elseif inpolygon3d((poly.verts[subfacet[end - 1]] + poly.verts[subfacet[1]]) / 2, polygon) == 1
-                push!(newEdges, [subfacet[end - 1], subfacet[1]])
-                push!(newFacets, [subfacet[end - 1], subfacet[length(subfacet)], subfacet[1]])
-                subfacet = subfacet[1:end - 1]
-                continue
-            else
-                for ind in 2:length(subfacet) - 1
-                    if inpolygon3d((poly.verts[subfacet[ind - 1]] + poly.verts[subfacet[ind + 1]]) / 2, polygon) == 1
-                        push!(newEdges, [subfacet[ind - 1], subfacet[ind + 1]])
-                        push!(newFacets, [subfacet[ind - 1], subfacet[ind], subfacet[ind + 1]])
-                        subfacet = subfacet[1:end .!= ind]
-                        break
-                    end
-                end
-            end
-        end
-
-        push!(newFacets, subfacet)
+    # triangulate every facet of poly by the earcut algorithm
+    for facet in get_facets(poly)
+        triangulation = earcut3d(coords[facet])
+        append!(newfacets, [facet[triang] for triang in triangulation])
+        triangulationedges = vcat([ [facet[triang[[1,2]]], facet[triang[[1,3]]], facet[triang[[2,3]]]] for triang in triangulation ]...)
+        append!(newedges, triangulationedges)
+        newedges = collect.(unique(Set.(newedges)))
     end
 
-    return Polyhedron(newVerts, newEdges, newFacets)
+    set_edges!(poly, newedges)
+    set_facets!(poly, newfacets)
+end
+
+
+function triangulate(poly::Polyhedron; atol = 1e-5)::Polyhedron
+    polycopy = deepcopy(poly)
+    triangulate!(polycopy, atol = atol)
+
+    return polycopy
+end
+
+
+"""
+    isflat(poly::Polyhedron, edge::Vector{<:Int})
+
+Determine whether the edge edge of the Polyhedron poly is flat, i.e. the adjacent facets span an affine space of at most dimension d-1 if d is the underlying dimension.
+"""
+function isflatedge(poly::Polyhedron, edge::Vector{<:Int}; tol::Real = 1e-8)
+    @assert edge in get_edges(poly) "edge has to be an edge of poly."
+    
+    facets = adjfacets(poly, edge)
+    d = affinedim(get_verts(poly)[union(facets...)], atol = tol)
+    return d < dimension(poly)
+end
+
+
+"""
+    flattenfacets!(poly::Polyhedron; atol = 1e-5)::Polyhedron
+
+Remove flat edges of the Polyhedron poly.
+"""
+function flattenfacets!(poly::Polyhedron; atol = 1e-8)
+    edgeschecked = []
+    
+    # @info "edgestocheck: $(edgestocheck)"
+    # determine flat edges by calculating the affine dimension of the union of two facets.
+    for e in get_edges(poly)
+        # @info "e: $(e)"
+        if e in edgeschecked
+            continue
+        end
+
+        @assert length(adjfacets(poly, e)) <= 2 "Edge $(e) is degenerate as it is edge of the facets $(adjfacets(poly, e))"
+
+        if length(adjfacets(poly, e)) < 2
+            push!(edgeschecked, e)
+            continue
+        end
+
+        facet1 = adjfacets(poly, e)[1]
+        edges1 = filter(edge -> issubset(edge, facet1), get_edges(poly))
+        facet2 = adjfacets(poly, e)[2]
+        edges2 = filter(edge -> issubset(edge, facet2), get_edges(poly))
+        # @info "facet1: $(facet1)"
+        # @info "facet2: $(facet2)"
+        # @info "edges1: $(edges1)"
+        # @info "edges2: $(edges2)"
+        # possible edges in the intersection of the facets. All of those are checked at once since the affine dimension of a facet is 2. 
+        # So one of them is flat <=> all of them are flat
+        intersect_verts = Base.intersect(facet1, facet2)
+        intersect_edges = Base.intersect(edges1, edges2)
+        
+        append!(edgeschecked, intersect_edges)
+        unique!(edgeschecked)
+
+        # if facets span a space of dimension 2 the edges in the intersection can be removed
+        # the facets need to be merged
+        if isflatedge(poly, e)
+            # mark edges in the intersection as checked
+            append!(edgeschecked, intersect_edges)
+
+
+            # remove flat edges from poly
+            oldedges = get_edges(poly)
+            newedges = setdiff(oldedges, intersect_edges)
+            set_edges!(poly, newedges)
+
+            # merge facets
+            # verts in the intersection ordered along a path defined by the intersect_edges
+            intersect_path = formpath(intersect_verts, intersect_edges)
+            # relevant vertices of facet1 and facet2 that are part of the merged facet: the inner vertices of the intersection path are removed
+            newfacet1 = setdiff(facet1, intersect_path[2:end-1])
+            newfacet2 = setdiff(facet2, intersect_path[2:end-1])
+            # edges of facet1 and facet2 that remain after removing flat edges
+            relevantedges = symdiff(edges1, edges2)
+            mergedfacet = formpath(union(newfacet1, newfacet2), relevantedges)
+
+            oldfacets = get_facets(poly)
+            newfacets = setdiff(oldfacets, [facet1, facet2])
+            push!(newfacets, mergedfacet)
+            set_facets!(poly, newfacets)
+        end
+
+        append!(edgeschecked, intersect_edges)
+    end
+
+    # if a vertex lies inside a polygon forming a facet, it can be ignored. 
+    # Thus the entries of sol_edges have to be transformed in order to be labeled 1,...,n
+    function indexmap(i::Integer)
+        return indexin(i, sort(union(get_edges(poly)...)))[1]
+    end
+
+    # if a vertex lies inside a polygon forming a facet, it can be ignored
+    set_verts!(poly, get_verts(poly)[sort(union(get_edges(poly)...))])    
+
+    set_edges!(poly, [indexmap.(e) for e in get_edges(poly)])
+    set_facets!(poly, [indexmap.(f) for f in get_facets(poly)])
+end
+
+
+function flattenfacets(poly::Polyhedron, atol = 1e-5)
+    polycopy = deepcopy(poly)
+    flattenfacets!(polycopy)
+    return polycopy
 end
 
 """
-e::Vector{Int}
-poly::Polyhedron
-tol::Float64
+    isturnable(e::Vector{<:Int}, polyhedron::Polyhedron; tol::Real=1e-5)::Bool
+
 Checks whether the edge e is turnable edge of poly. I.e. poly is 
     - a spherical simplicial surface and 
     - the line connecting the wingtips of the butterfly with inner edge e is contained in poly.
 Floats with abs value <tol are considered zeros
 """
-function isturnable(e::Vector{<:Int}, polyhedron::Polyhedron, tol::Real=1e-5)::Bool
-    @assert all(length.(polyhedron.facets).==3) "poly may only have triangle facets"
-    @assert in(e, polyhedron.edges) || in(reverse(e), poly.edges) "e has to be an edge of poly"
+function isturnable(e::Vector{<:Int}, polyhedron::Polyhedron; tol::Real=1e-5)::Bool
+    @assert all(length.(get_facets(polyhedron)).==3) "poly may only have triangle facets"
+    @assert in(e, get_edges(polyhedron)) || in(reverse(e), get_edges(poly)) "e has to be an edge of poly"
     
-    butterfly = polyhedron.facets[map(f -> length(Base.intersect(f, e)) == 2, polyhedron.facets)]
-    butterflyTips = setdiff(union(butterfly...), e)
-    if inpolyhedron((polyhedron.verts[butterflyTips[1]] + polyhedron.verts[butterflyTips[2]]) / 2, polyhedron, tol) == 0
+    # adjacent facets to e
+    butterfly = filter(f -> length(Base.intersect(f,e)) == 2, get_facets(polyhedron))
+    # turned edge
+    butterflytips = setdiff(union(butterfly...), e)
+
+    # if there is already an edge connecting the butterflytips, e can't be turned.
+    if butterflytips in get_edges(polyhedron) || reverse(butterflytips) in get_edges(polyhedron)
+        return 0
+    end
+
+    mid = (get_verts(polyhedron)[butterflytips[1]] + get_verts(polyhedron)[butterflytips[2]]) / 2
+
+    # if midpoint of turned edge is inside the polyhedron the edge is turnable
+    if inpolyhedron(mid, flattenfacets(polyhedron), tol = tol) != 1
         return 0
     end
 
@@ -69,19 +173,26 @@ end
 
 
 """
-poly::Polyhedron
-tol::Float64
-returns whether poly is convex
-Floats with abs value <tol are considered zeros
+    isconvex(poly::Polyhedron; tol::Real=1e-5)::Bool
+
+
+determine whether the polyhedron poly is convex. Floats with abs value <tol are considered zeros
 """
-function isconvex(poly::Polyhedron, tol::Real=1e-5)::Bool
+function isconvex(poly::Polyhedron; tol::Real=1e-5)::Bool
     polyhedron = deepcopy(poly)
-    if any(length.(polyhedron.facets).!=3)
+
+    # if poly is a non degenerate tetrahedron, it is convex
+    if length(get_verts(polyhedron)) == 4 && length(get_edges(polyhedron)) == 6 && length(unique(get_verts(polyhedron))) == length(get_verts(polyhedron))
+        return 1
+    end
+
+    # otherwise triangulate the surface and check if every edge is turnable
+    if any(length.(get_facets(polyhedron)).!=3)
         polyhedron = triangulate(polyhedron)
     end
 
-    for edge in polyhedron.edges
-        if !isturnable(edge, polyhedron, tol)
+    for edge in get_edges(polyhedron)
+        if !isturnable(edge, polyhedron,tol=tol)
             return 0
         end
     end
@@ -89,24 +200,71 @@ function isconvex(poly::Polyhedron, tol::Real=1e-5)::Bool
 end
 
 
+
+#############################################
+# Workaround für tiblöcke!! TODO: debug convex decomposition!
+#############################################
+function convexdecomp(n1::Integer, n2::Integer, nmerges::Integer)
+    @assert mod(n1, nmerges) == 0 "Number of blocks on the side needs to divide n1."
+    sol = Polyhedron[]
+
+    if n2 == 3
+        sideelem = nprism(3)
+        merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]])
+        merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]])
+    elseif n2 == 4
+        sideelem = nprism(4)
+        merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]])
+        merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]])
+    else
+        sideelem = nprism(n2)   
+    end
+
+    block = nprism(n1)
+    push!(sol, block)
+    for k in 3:Int(n1 / nmerges):length(get_facets(nprism(n1)))
+        preim = get_verts(sideelem)[[n2+1,1,2]]
+        push!(preim, preim[1] + cross(preim[2] - preim[1], preim[3] - preim[1]))
+        im = get_verts(nprism(n1))[get_facets(nprism(n1))[k][1:3]]
+        push!(im, im[1] - cross(im[2] - im[1], im[3] - im[1]))
+        
+        aff = rigidmap(preim, im)
+        newsideelem = deepcopy(sideelem)
+        set_verts!(newsideelem, aff.(get_verts(newsideelem)))
+        push!(sol, newsideelem)
+    end
+
+    return sol
+end
+
 """
 poly::Polyhedron
 returns a vector of tetrahedra, which union is the Polyhedron poly.
 """
-function convexdecomp(poly::Polyhedron)::Vector{Polyhedron}
+function convexdecomp(poly::Polyhedron; tol::Real=1e-5)::Vector{Polyhedron}
+
     sol = Polyhedron[]
 
     triangPoly = triangulate(poly)
     subPoly = deepcopy(triangPoly)
 
+    display(plot(subPoly, labels = true, width = 400, height = 300))
+    if any(length.(get_facets(subPoly)) .> 3)
+        @warn "facets with too many vertices: $(get_facets(subPoly)[length.(get_facets(subPoly)) .> 3])"
+    end
     while !isconvex(subPoly)
-        vertexDegrees = map(v -> length(FacesOfVertex(subPoly, v)), 1:length(subPoly.verts))        
+        if any(length.(get_facets(subPoly)) .> 3)
+            @warn "facets with too many vertices: $(get_facets(subPoly)[length.(get_facets(subPoly)) .> 3])"
+        end
+        vertexDegrees = map(v -> length(incfacets(subPoly, v)), 1:length(subPoly.verts))        
 
         # remove a tetrahedron from subPoly if one exists
         if any(vertexDegrees.==3)
             # println("\nsubPoly:", subPoly)
             # println("vertexDegrees.==3:", [vertexDegrees.==3])
             v = indexin(3, vertexDegrees)[1]
+            @info "v: $(v)"
+            @info "faces of v: $(incfacets(subPoly, v))"
             
             tetraVerts = push!(union(map(e -> setdiff(e, [v]), EdgesOfVertex(subPoly, v))...), v) # determine vertex indices of tetrahedron
             # println("tetraverts:", tetraVerts)
@@ -121,21 +279,26 @@ function convexdecomp(poly::Polyhedron)::Vector{Polyhedron}
 
             # add bottom of tetrahedron as facet
             push!(subPoly.facets, tetraVerts[1:3])
+            @info "bottom tetrahedron: $(tetraVerts[1:3])"
 
             # shift indices of all vertices with index > v
             subPoly.edges = map(e -> map((w -> w>v ? w-1 : w), e), subPoly.edges)
             subPoly.facets = map(f -> map((w -> w>v ? w-1 : w), f), subPoly.facets)
 
             # println(sol)
+            display(plot(subPoly, labels = true, width = 400, height = 300))
             continue
         end
 
         # edge turn if no tetrahedron was removed
         for edge in subPoly.edges
             # if edge is turnable, cut the resulting tetrahedron out
-            if isturnable(edge, subPoly)
-                butterfly = subPoly.facets[map(f -> length(Base.intersect(f, edge)) == 2, subPoly.facets)]
+            if isturnable(edge, subPoly, tol = tol) && !isflatedge(subPoly, edge)
+                @info "edge: $(edge)"
+                butterfly = filter(f -> length(Base.intersect(f, edge)) == 2, get_facets(subPoly))
+                @info "butterfly: $(butterfly)"
                 butterflyTips = setdiff(union(butterfly...), edge)
+                @info "butterfly tips: $(butterflyTips)"
 
                 # println("\nsubpoly: ", subPoly)
                 # println("evaluated edge: ", edge)
@@ -149,6 +312,7 @@ function convexdecomp(poly::Polyhedron)::Vector{Polyhedron}
                 tetra = Polyhedron(subPoly.verts[[edge[1], edge[2], butterflyTips[1], butterflyTips[2]]], [[1,2], [1,3], [1,4], [2,3], [2,4], [3,4]], [[1,2,3], [1,2,4], [1,3,4], [2,3,4]])
                 push!(sol, tetra)
                 # println("length(sol) = ", length(sol))
+                display(plot(subPoly, labels = true, width = 400, height = 300))
                 break
             end
         end
