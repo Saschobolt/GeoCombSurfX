@@ -25,12 +25,12 @@ function tiblock(n1::Integer, n2::Integer, nmerges::Integer; atol::Real = 1e-8)
     sideelem = nprism(3)
     merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]])
     merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]])
-    flattenfacets!(sideelem, atol = atol)
+   # flattenfacets!(sideelem, atol = atol)
   elseif n2 == 4
     sideelem = nprism(4)
     merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]])
     merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]])
-    flattenfacets!(sideelem, atol = atol)
+   # flattenfacets!(sideelem, atol = atol)
   else
     sideelem = nprism(n2)
   end
@@ -210,12 +210,13 @@ function Prisma(n::Int)
   #vertices 
   t=1/sqrt((cos(3.14159*2*1/n)-cos(3.14159*2*2/n))^2+
            (sin(3.14159*2*1/n)-sin(3.14159*2*2/n))^2);
+  vertices=Vector{Vector{Float64}}(undef,0)
   vertices=map(i->[t*cos(3.14159*2*i/n),t*sin(3.14159*2*i/n),0.0],1:n)
   for i in 1:n 
     push!(vertices,[t*cos(3.14159*2*i/n),t*sin(3.14159*2*i/n),1.0])
   end
   #facets
-  facets=[]
+  facets=Vector{Vector{Int}}(undef,0)
   for i in 1:n-1
     push!(facets,[i,i+1,n+i+1,n+i])
   end 
@@ -223,7 +224,7 @@ function Prisma(n::Int)
   push!(facets,Vector((1:n)))
   push!(facets,Vector((n+1:2*n)))
   #edges
-  edges=[]
+  edges=Vector{Vector{Int}}(undef,0)
   for i in 1:n-1
     push!(edges,[i,i+1])
     push!(edges,[n+i,n+i+1])
