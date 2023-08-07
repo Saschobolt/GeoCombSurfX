@@ -31,8 +31,9 @@ function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<
         end
     end
     # affine preimage basis and image basis of rigid mapping merging the polyhedra 
-    preim = verts_to_align2[affinebasis_indices(verts_to_align2, atol = atol)]
-    im = verts_to_align1[affinebasis_indices(verts_to_align2, atol = atol)]
+    affbasis_indices = affinebasis_indices(verts_to_align2, atol = atol)
+    preim = verts_to_align2[affbasis_indices]
+    im = verts_to_align1[affbasis_indices]
     @assert length(preim) >= 3 "Polyhedra cannot be merged along degenerate faces."
 
     # if facets span a space of dimension 2 add the normal vector of the planes to obtain a basis
@@ -62,6 +63,7 @@ function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<
     # edges of resulting polyhedron
     sol_edges1 = get_edges(poly1)
     sol_edges2 = map(e -> index_map2.(e), get_edges(poly2))
+
     sol_edges=deepcopy(sol_edges1)
     for e in sol_edges2
       if filter(ee->Set(ee)==Set(e) ,sol_edges)==[]

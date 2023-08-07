@@ -1,7 +1,10 @@
 using GenericLinearAlgebra
 using PolygonOps
+import Base.Multimedia.display
+import Base.==
 
 include("affine_geometry")
+include("polygonal_geometry.jl")
 
 abstract type AbstractPolyhedron end
 mutable struct Polyhedron <:AbstractPolyhedron
@@ -42,7 +45,44 @@ end
 function set_facets!(poly::Polyhedron, facets::Vector{<:Vector{<:Int}})
     # @assert sort(union(facets...)) == [1:max(union(facets...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
     @assert all([affinedim(get_verts(poly)[f]) == 2 for f in facets]) "Facets have to span affine spaces of dimension 2."
+    for j = 1:length(facets)
+        facet1 = facets[j]
+        edges1 = Set.(union([[facet1[i], facet1[i+1]] for i in 1:length(facet1)-1], [[facet1[end], facet1[1]]]))
+        for k = j+1:length(facets)
+            facet2 = facets[k]
+            edges2 = Set.(union([[facet2[i], facet2[i+1]] for i in 1:length(facet2)-1], [[facet2[end], facet2[1]]]))
+            @assert setdiff(edges1, edges2) != [] && setdiff(edges2, edges1) != [] "One of facets $(facet1) and $(facet2) is contained in the other."
+        end
+    end
     poly.facets = facets
+end
+
+function ==(poly1::Polyhedron, poly2::Polyhedron; atol = 1e-12)
+    verts1 = get_verts(poly1)
+    verts2 = get_verts(poly2)
+    if length(verts1) != length(verts2)
+        return false
+    end
+
+    edges1 = get_edges(poly1)
+    edges2 = get_edges(poly2)
+    if length(edges1) != length(edges2)
+        return false
+    end
+    if length(Base.intersect(Set.(edges1), Set.(edges2))) < length(edges1)
+        return false
+    end
+
+    facets1 = get_facets(poly1)
+    facets2 = get_facets(poly2)
+    if length(facets1) != length(facets2)
+        return false
+    end
+    if length(Base.intersect(Set.(facets1), Set.(facets2))) < length(facets1)
+        return false
+    end
+    
+    return true
 end
 
 """
@@ -52,6 +92,13 @@ Get the dimension of the unerlying space the polyhedron is embedded into.
 """
 function dimension(poly::Polyhedron)
     return length(get_verts(poly)[1])
+end
+
+
+function display(poly::Polyhedron)
+    print("""Polyhedron embedded into $(dimension(poly))-space with $(length(get_verts(poly))) vertices, $(length(get_edges(poly))) edges and $(length(get_facets(poly))) facets.\n 
+    Edges:  $(get_edges(poly))
+    Facets: $(get_facets(poly)) \n""")
 end
 
 
@@ -74,10 +121,94 @@ end
 """
     adjfacets(poly::Polyhedron, facetoredge::Vector{<:Int})
 
-Calculate the adjacent facets of the facet or edge facet in the Polyhedron poly, i.e. the facets sharing at least one edge with facet.
+Calculate the adjacent facets of the facet or edge facetoredge in the Polyhedron poly, i.e. the facets sharing at least one edge with facet.
 """
 function adjfacets(poly::Polyhedron, facetoredge::Vector{<:Int})
-    return setdiff(get_facets(poly)[map(facet2 -> isadjacent(poly, facetoredge, facet2), get_facets(poly))], [facetoredge])
+    sol = filter(facet2 -> isadjacent(poly, facetoredge, facet2), get_facets(poly))
+    setdiff!(sol, [facetoredge])
+    return sol
+end
+
+
+"""
+    isincident(v::Int, facetoredge::Vector{<:Int})
+
+Return true if the vertex with index v is incident to the facet or edge facetoredge, i.e. it is contained in facetoredge.
+"""
+function isincident(v::Int, facetoredge::Vector{<:Int})
+    return v in facetoredge
+end
+
+
+"""
+    incfacets(poly::Polyhedron, vertexarray::Vector{<:Int})
+
+Return the facets of the polyhedron poly, that are incident to all vertices in vertexarray, i.e. that contain all vertices in vertexarray.
+"""
+function incfacets(poly::Polyhedron, vertexarray::Vector{<:Int})
+    return filter(f -> all([isincident(v, f) for v in vertexarray]), get_facets(poly))
+end
+
+
+"""
+    incfacets(poly::Polyhedron, v::Int)
+
+Return the facets of the polyhedron poly, that are incident to the vertex v, i.e. that contain v.
+"""
+function incfacets(poly::Polyhedron, v::Int)
+    return filter(f -> isincident(v, f), get_facets(poly))
+end
+
+
+"""
+    formpath!(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+
+Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
+"""
+function formpath!(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+    endpoints = filter(v -> length(filter(e -> v in e, edges)) == 1, vertexarray)
+    if length(endpoints) > 2
+        @info "vertexarray: $(vertexarray)"
+        @info "relevant edges: $(edges[[length(Base.intersect(e, vertexarray)) == 2 for e in edges]])"
+        @info "endpoints: $(endpoints)"
+    end
+    @assert length(endpoints) <= 2 "Vertices don't lie on a common path"
+    intersectionverts = filter(v -> length(filter(e -> v in e, edges)) > 2, vertexarray)
+    if length(intersectionverts) > 0
+        @info "vertexarray: $(vertexarray)"
+        @info "relevant edges: $(edges[[length(Base.intersect(e, vertexarray)) == 2 for e in edges]])"
+        @info "intersectionverts: $(intersectionverts)"
+    end
+    
+    @assert length(intersectionverts) == 0 "No intersections allowed."
+
+    tosort = deepcopy(vertexarray)
+    if length(endpoints) == 0
+        start = vertexarray[1]
+    else
+        start = endpoints[1]
+    end
+    path = [start]
+    setdiff!(tosort, [start])
+    vertexarray[1] = start
+
+    for i = 2:length(vertexarray)
+        next = tosort[map( j -> (Set([vertexarray[i-1], j]) in Set.(edges)), tosort )][1]
+        vertexarray[i] = next
+        setdiff!(tosort, [next])
+    end
+end
+
+
+"""
+    formpath(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+
+Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
+"""
+function formpath(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+    vertexarraycopy = deepcopy(vertexarray)
+    formpath!(vertexarraycopy, edges)
+    return vertexarraycopy
 end
 
 """
@@ -86,28 +217,15 @@ end
 Sort the vector vertexindices such that the corresponding vertices of the Polyhedron poly form a vertex edges path.
 """
 function formpath!(vertexindices::Vector{<:Int}, poly::Polyhedron)
-    endpoints = vertexindices[map( i -> length( Base.intersect([Set([i,j]) for j in vertexindices], Set.(get_edges(poly))) ) == 1, vertexindices )]
-    @assert length(endpoints) <= 2 "Vertices don't lie on a common path"
-    intersectionverts = vertexindices[map( i -> length( Base.intersect([Set([i,j]) for j in vertexindices], Set.(get_edges(poly))) ) > 2, vertexindices )]
-    @assert length(intersectionverts) == 0 "No intersections allowed."
-
-    tosort = deepcopy(vertexindices)
-    if length(endpoints) == 0
-        start = vertexindices[1]
-    else
-        start = endpoints[1]
-    end
-    path = [start]
-    setdiff!(tosort, [start])
-    vertexindices[1] = start
-
-    for i =2:length(vertexindices)
-        next = tosort[map( j -> (Set([vertexindices[i-1], j]) in Set.(get_edges(poly))), tosort )][1]
-        vertexindices[i] = next
-        setdiff!(tosort, [next])
-    end
+    edges = get_edges(poly)
+    formpath!(vertexindices, edges)
 end
 
+"""
+    formpath(vertexindices::Vector{<:Int}, poly::Polyhedron)
+
+Sort the vector vertexindices such that the corresponding vertices of the Polyhedron poly form a vertex edges path.
+"""
 function formpath(vertexindices::Vector{<:Int}, poly::Polyhedron)
     vertexindicescopy = deepcopy(vertexindices)
     formpath!(vertexindicescopy, poly)
@@ -147,16 +265,34 @@ function nullspace(A::Matrix{<:Real}, tol::Real = 1e-5)
 end
 
 """
-returns the plane, in which polygon lies.
-"""
-function plane(polygon::Vector{<:Vector{<:Real}}; tol::Real=1e-8)::Plane 
-    @assert polygon[1] == polygon[end] "First and last vertex of polygon have to equal."
+    Plane(points::Vector{<:Vector{<:Real}}; tol::Real=1e-8)
 
-    basis = affinebasis(polygon, atol = tol)
+Calculate the affine plane in which points lie.
+"""
+function Plane(points::Vector{<:Vector{<:Real}}; tol::Real=1e-8)
+    basis = affinebasis(points, atol = tol)
     @assert length(basis) == 3 "polygon doesn't span a plane."
     v = basis[1]
     A = map(b -> b-v, basis[2:end])
     return Plane(v, A)
+end
+
+"""
+    normalvec(plane::Plane)
+
+Calculate the normalized normal vector of a plane.
+"""
+function normalvec(plane::Plane)
+    return normalize(cross(plane.vectors[1], plane.vectors[2]))
+end
+
+"""
+    normalvec(polygon::Vector{<:Vector{<:Real}})
+
+Calculate the normal vector of the plane that is spanned by points.
+"""
+function normalvec(points::Vector{<:Vector{<:Real}})
+    return normalvec(Plane(points))
 end
 
 """
@@ -180,39 +316,6 @@ function intersect(ray::Ray, plane::Plane; tol::Real = 1e-8)
 end
 
 
-"""
-returns 1 if the 3d point p lies in the polygon poly embedded into R^3, -1 if it lies on its boundary and 0 otherwise
-"""
-function inpolygon3d(p::AbstractVector, poly::AbstractVector; tol::Real=1e-5)
-    d = 3
-    @assert length(p) == 3 "Only 3d case."
-    @assert all([length(v) == 3 for v in poly]) "Only 3d case."
-
-    E = plane(poly, tol = tol)
-    point = deepcopy(p)
-
-    preim = [E.point, E.point + E.vectors[1], E.point + E.vectors[2], E.point + normalize(cross(E.vectors[1], E.vectors[2]))]
-    im = [[0,0,0], [1,0,0], [0,1,0], [0,0,1]]
-
-    # affine map so that the affine basis of the polygon is mapped to the xy plane
-    aff = affinemap(preim, im, atol = tol)
-
-    # transformed polygon and point
-    polytransformed = aff.(poly)
-    pointtransformed = aff(point)
-    
-
-    if abs(pointtransformed[3]) < tol
-         # inpolygon projects onto the xy plane and decides the problem.
-         # If p and poly lie in the same plane, then this is enough to decide the problem
-        return inpolygon(pointtransformed, polytransformed)
-    else
-        # p and poly don't lie in the same plane
-        return 0 
-    end
-end
-
-
 # decide whether point is inside of polyhedron
 """
     Randomized algorithm to check whether a point is contained in a polyhedron.
@@ -232,7 +335,7 @@ function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron; tol::Real=1e-5)::
 
         for facet in get_facets(poly)
             polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
-            E = plane(polygon)
+            E = Plane(polygon)
 
             try
                 intersect(r, E)
