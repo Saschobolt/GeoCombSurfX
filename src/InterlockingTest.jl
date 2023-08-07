@@ -1,7 +1,7 @@
-#include("Polyhedron.jl")
-#include("combinatorics.jl")
-#include("contactfacets.jl")
-
+using Polyhedra
+using HiGHS
+## <: subtypen
+## vertexmenge 1-n
 function orientatedNormals(poly::Polyhedron)
   p=OrientatePolyhedron(poly)
   facets=get_facets(p)
@@ -41,94 +41,55 @@ function orientatedNormals(poly::Polyhedron)
   return normals
 end
 
-
-function InterlockingTestByWang2(poly::Polyhedron,frame::Vector{Int})
+###array 
+function InterlockingTestByWang(assembly::Vector,frame::Vector{Int})
   # construct lp and add the variables
-  assembly=connectedComponents(poly)
-  indices=filter(i->!(i in frame),1:length(assembly))
+
   model=Model(HiGHS.Optimizer)
   @objective(model,Max,0)
-  @variable(model,omega[i=indices, j=1:3])
-  @variable(model,t[i=indices, j=1:3])
-  println(model)
-  ##edge-edge contact 
+  @variable(model,omega[i=1:length(assembly), j=1:3])
+  @variable(model,t[i=1:length(assembly), j=1:3])
+  res=[]
+  ##edge-edge contact
   edge_normals=[]
-  for ii in 1:length(indices)-1
-    for jj in ii+1:length(indices)
-      i=indices[ii]
-      j=indices[jj]
-      p1=assembly[i]
-      p2=assembly[j]
-      facets1=get_facets(p1)
-      facets2=get_facets(p2)
-      verts1=get_verts(p1)
-      verts2=get_verts(p2)
-      vertices1=map(l->p1.verts[l],helpunion(facets1))
-      vertices2=map(l->p2.verts[l],helpunion(facets2))
-      edges1=get_edges(p1)
-      edges2=get_edges(p2)
-      center1=1/length(vertices)*sum(vertices1)
-      center2=1/length(vertices2)*sum(vertices2)
-      for e1 in p1.edges
-        for e2 in p2.edges
-          v=verts1[e1[1]]
-          vec=verts1[e1[2]]-v
-          w=verts2[e2[1]]
-          vec2=verts2[e2[2]]-w
-          n=crossProduct(vec,vec2)
-          if norm(n)>=1e-8
-            mat=transpose(Matrix([vec vec2 (-1)*n]))
-            if det(mat)^2>=1e-8
-              mat=inv(mat)
-              sol=mat*(w-v)
-              if sol[1]>=-1e-8 && sol[1]<=1.0+ 1e-8 && 
-                 sol[2]>=-1e-8 && sol[2]<=1.0+ 1e-8 && 
-                 sol[3]<=1e-8 && sol[3]>=-1e-8 
-                c=v+sol[1]*vec   ## notation from paper 
-                rc_1=c-center1
-                rc_2=c-center2
-                vc_1=[t[i,1]+omega[i,2]*rc_1[3]-omega[i,3]*rc_1[2],
-                      t[i,2]+omega[i,3]*rc_1[1]-omega[i,1]*rc_1[3],
-                      t[i,3]+omega[i,1]*rc_1[2]-omega[i,2]*rc_1[1]]
-                vc_2=[t[j,1]+omega[j,2]*rc_2[3]-omega[j,3]*rc_2[2],
-                      t[j,2]+omega[j,3]*rc_2[1]-omega[j,1]*rc_2[3],
-                      t[j,3]+omega[j,1]*rc_2[2]-omega[j,2]*rc_2[1]]
-                if transpose(((c-center1)-(c-center2)))*n>0.
-                 #add equation to the lp
-                  @constraint(model,(vc_1[1]-vc_2[1])*n[1]+
-                                   (vc_1[2]-vc_2[2])*n[2]+
-                                   (vc_1[3]-vc_2[3])*n[3]>=0)
-                else
-                  # add equation to the lp
-                  @constraint(model,(vc_1[1]-vc_2[1])*n[1]+
-                                   (vc_1[2]-vc_2[2])*n[2]+
-                                   (vc_1[3]-vc_2[3])*n[3]<=0)
-                end
-              end
-            end
-          end
-        end
-      end
-    end
-  end
-  ##face-face contact 
   for i in 1:length(assembly)-1
     for j in i+1:length(assembly)
-      contactfacets=contactFacets2(assembly[i],assembly[j])
-      if contactfacets != []
-        p1=OrientatePolyhedron(assembly[i])
-        p2=OrientatePolyhedron(assembly[j])
-        verts1=get_verts(p1)
-        verts2=get_verts(p2)
-        vertices1=map(l->p1.verts[l],helpunion(facets1))
-        vertices2=map(l->p2.verts[l],helpunion(facets2))
+## face-face contact
+      block1 = assembly[i]
+      block2 = assembly[j]
+      verts1=get_verts(block1)
+      verts2=get_verts(block2)
+      vertices1=verts1[filter(i->isassigned(verts1,i),1:length(verts1))]
+      vertices2=verts2[filter(i->isassigned(verts2,i),1:length(verts2))]
+      coords_facesblock1 = [verts1[facet] for facet in get_facets(block1)]
+      coords_facesblock2 = [verts2[facet] for facet in get_facets(block2)]
+      poly_facesblock1 = [polyhedron(vrep(transpose(hcat(coords...)))) 
+                          for coords in coords_facesblock1]
+      poly_facesblock2 = [polyhedron(vrep(transpose(hcat(coords...)))) 
+                          for coords in coords_facesblock2]
+      intersections = vrep.([Polyhedra.intersect(face1, face2) 
+                             for face1 in poly_facesblock1, face2 in poly_facesblock2])
+      intersections = [intersections[:,i] for i in 1:size(intersections, 2)]
+      intersections = vcat(intersections...)
+      intersections = [polygon.V for polygon in intersections]
+      filter!(polygon -> size(polygon, 1) >= 3, intersections)
+      intersections = map(polygon -> [polygon[i,:]
+                          for i in 1:size(polygon, 1)], intersections)
+      append!(res,intersections)
+
+      if intersections != []
         center1=1/length(vertices1)*sum(vertices1)
         center2=1/length(vertices2)*sum(vertices2)
-        temp=map(f->[vertices[f[2]]-vertices[f[1]],
-                     vertices[f[3]]-vertices[f[1]]],block1.facets)
-        normals1=map(t->crossProduct(t[1],t[2]),temp)
-        for f in contactfacets 
-          for c in f  
+        for polygon in deepcopy(intersections)
+          n=[0.,0.,0.] 
+          vec=polygon[2]-polygon[1]
+          while norm(n)<=1e-8
+            ind=3
+            vec2=polygon[ind]-polygon[1]
+            n=crossProduct(vec,vec2)
+            ind=ind+1
+          end
+          for c in polygon 
             rc_1=c-center1
             rc_2=c-center2
             vc_1=[t[i,1]+omega[i,2]*rc_1[3]-omega[i,3]*rc_1[2],
@@ -137,24 +98,33 @@ function InterlockingTestByWang2(poly::Polyhedron,frame::Vector{Int})
             vc_2=[t[j,1]+omega[j,2]*rc_2[3]-omega[j,3]*rc_2[2],
                   t[j,2]+omega[j,3]*rc_2[1]-omega[j,1]*rc_2[3],
                   t[j,3]+omega[j,1]*rc_2[2]-omega[j,2]*rc_2[1]]
-            if transpose(((point-center1)-(point-center2)))*n>0.
-             #add equation to the lp
+            temp=(c-center1)-(c-center2)
+            println(temp,n,"test=",temp[1]*n[1]+temp[2]*n[2]+temp[3]*n[3])
+            if temp[1]*n[1]+temp[2]*n[2]+temp[3]*n[3]>0.
+              #add equation to the lp
               @constraint(model,(vc_1[1]-vc_2[1])*n[1]+
-                               (vc_1[2]-vc_2[2])*n[2]+
-                               (vc_1[3]-vc_2[3])*n[3]>=0)
+                                (vc_1[2]-vc_2[2])*n[2]+
+                                (vc_1[3]-vc_2[3])*n[3]>=0)
             else
               # add equation to the lp
               @constraint(model,(vc_1[1]-vc_2[1])*n[1]+
-                               (vc_1[2]-vc_2[2])*n[2]+
-                               (vc_1[3]-vc_2[3])*n[3]<=0)
+                                (vc_1[2]-vc_2[2])*n[2]+
+                                (vc_1[3]-vc_2[3])*n[3]<=0)
             end
           end
         end
       end
     end
   end
-
+  print(model)
   optimize!(model)
+  for i in 1:length(assembly)
+    println(value(t[i,1]),",",value(t[i,1]),",",value(t[i,1]))
+  end
+
+  for i in 1:length(assembly)
+    println(value(omega[i,1]),",",value(omega[i,1]),",",value(omega[i,1]))
+  end
 end
 
 
@@ -266,7 +236,6 @@ function cubeAssembly(n::Integer)
   vertices=Vector{Vector{Float64}}(undef,0)
   fac=get_facets(Cube)
   facets=Vector{Vector{Int}}(undef,0)
-  println("fac",fac)
   for i in 1:n
     for j in 1:n
       append!(vertices,map(g->[i-1,j-1,0]+g,verts))
@@ -370,5 +339,6 @@ function testComputeIntersection2(num::Int)
   end
   return contactFacets2(surf1,surf2)
 end
+
 
 
