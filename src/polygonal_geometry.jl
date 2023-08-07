@@ -1,4 +1,4 @@
-include("affine_geometry")
+include("affine_geometry.jl")
 
 function intriang3d(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real})
     # https://gdbooks.gitbooks.io/3dcollisions/content/Chapter4/point_in_triangle.html

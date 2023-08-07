@@ -3,7 +3,7 @@ using PolygonOps
 import Base.Multimedia.display
 import Base.==
 
-include("affine_geometry")
+include("affine_geometry.jl")
 include("polygonal_geometry.jl")
 
 abstract type AbstractPolyhedron end

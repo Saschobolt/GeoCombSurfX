@@ -1,6 +1,6 @@
 include("Polyhedron.jl")
 include("combinatorics.jl")
-include("affine_geometry")
+include("affine_geometry.jl")
 include("polygonal_geometry.jl")
 
 
