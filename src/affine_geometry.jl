@@ -1,3 +1,50 @@
+"""
+A::Matrix
+cond::Float64
+Returns an orthonormal basis for the columnspace of the matrix A using QR decomposition. Singular values with abs < cond are treated as 0.
+"""
+function colspace(A::Matrix{<:Real}; tol::Real = 1e-8)
+    Q, R = qr(A)
+    basis = Q[:, findall(x -> abs(x) > tol, diag(R))]
+    basis = [basis[:, i] for i in 1:size(basis)[2]]
+    return basis
+end
+
+
+"""
+A::Matrix
+cond::Float64
+Returns an orthonormal basis for the nullspace of the matrix A using QR decomposition. Singular values with abs < cond are treated as 0.
+"""
+function nullspace(A::Matrix{<:Real}, tol::Real = 1e-8)
+    Q, R = qr(A)
+    basis = Q[:, findall(x -> abs(x) < tol, diag(R))]
+    basis = [basis[:, i] for i in 1:size(basis)[2]]
+    return basis
+end
+
+"""
+    indcols_indices(A::Matrix{<:Real}; tol::Real = 1e-8)
+
+calculate the indices of the columns of A forming a maximal linear independent subset.
+"""
+function indcols_indices(A::Matrix{<:Real}; tol::Real = 1e-8)
+    Q, R = qr(A)
+    indices = findall(x -> abs(x) > tol, diag(R))
+    return indices
+end
+
+
+"""
+    indcols(A::Matrix; tol::Real = 1e-8)
+
+calculate maximal linear independent subset of the columns of A.
+"""
+function indcols(A::Matrix{<:Real}; tol::Real = 1e-8)
+    indices = indcols_indices(A, tol)
+    return [A[:,i] for i in indices]
+end
+
 function dist(v::Vector{<:Real}, w::Vector{<:Real})
     return norm(v-w)
 end
@@ -20,6 +67,16 @@ function signedangle3d(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; 
     return atan(dot(cross(v,w), n), dot(v,w))
 end
 
+"""
+    affinebasis_indices(A::Matrix{<:Real}; atol::Real = 1e-8)
+
+Find the column indices of the Matrix A that form an affine basis of the affine space spanned by the columns of A.
+Real values < atol are considered 0.
+"""
+function affinebasis_indices(A::Matrix{<:Real}; atol::Real = 1e-8)
+    M = vcat(A, transpose(repeat([1], size(A)[2])))
+    return indcols_indices(M, tol = atol)
+end
 
 """
     affinebasis_indices(s::Vector{<:Vector{<:Real}})
@@ -28,21 +85,18 @@ Find the indices of the entries in s that form an affine basis of the affine spa
 Real values < atol are considered 0.
 """
 function affinebasis_indices(s::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
-    d = length(s[1])
-    @assert all([length(v) == d for v in s]) "Dimension mismatch in the set of affine points."
-    sol = []
-    for (i,v) in enumerate(s)
-        A = hcat(s[sol]..., v)
-        A = vcat(A, reshape(repeat([1], length(sol) + 1), (1, length(sol) + 1)))
-        if length(colspace(A, tol = atol)) == length(sol) + 1
-            append!(sol, i)
-        end
-        if length(sol) == d+1
-            return sol
-        end
-    end
+    return affinebasis_indices(hcat(s...), atol = atol)
+end
 
-    return sol
+"""
+    affinebasis(A::Matrix{<:Real}; atol::Real = 1e-8)
+
+Find an affine basis of the affine space spanned by the points columns of s.
+Real values < atol are considered zero.
+"""
+function affinebasis(A::Matrix{<:Real}; atol::Real = 1e-8)
+    indices = affinebasis_indices(A, atol = atol)
+    return [A[:,i] for i in indices]
 end
 
 """
@@ -52,7 +106,17 @@ Find an affine basis of the affine space spanned by the points in s.
 Real values < atol are considered zero.
 """
 function affinebasis(s::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
-    return s[affinebasis_indices(s, atol = atol)]
+    return affinebasis(hcat(s...), atol = atol)
+end
+
+"""
+    affinedim(A::Matrix{<:Real}; atol::Real = 1e-8)
+
+Affine dimension of the affine space spanned by the columns of A.
+Real values < atol are considered zero.
+"""
+function affinedim(A::Matrix{<:Real}; atol::Real = 1e-8)
+    return rank(vcat(A, transpose(repeat([1], size(A)[2]))), atol = atol) - 1
 end
 
 """
@@ -62,35 +126,27 @@ Affine dimension of the affine space spanned by the entries of s.
 Real values < atol are considered zero.
 """
 function affinedim(s::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
-    return length(affinebasis(s, atol = atol)) - 1
+    return affinedim(hcat(s...), atol = atol)
 end
-
 
 """
     affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}})
 
 TBW
 """
-function affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}; atol = 1e-8)
-    @assert length(preim) == length(im) "Preimage ind image have to have the same length"
+function affinemap(preim::Matrix{<:Real}, im::Matrix{<:Real}; atol = 1e-8)
+    @assert size(preim)[2] == size(im)[2] "Number of preim elements ($(size(preim)[2]) and image elements ($(size(im)[2])) need to match.)"
 
-    d_pre = length(preim[1]) # dimension of underlying space of preimage
+    d_pre = size(preim)[1] # dimension of underlying space of preimage
     @assert affinedim(preim) == d_pre "preim needs to contain an affine basis, but span of points has affine dimension $(affinedim(preim)) < $(d_pre)"
-    d_im = length(im[1]) # dimension of underlying space of image
-    @assert all([length(v) == d_pre for v in preim]) "Dimension of preimage vectors inconsistent."
-    @assert all([length(v) == d_im for v in im]) "Dimension of image vectors inconsistent."
+    d_im = size(im)[1] # dimension of underlying space of image
 
-    basisind = affinebasis_indices(preim)
-    preimbasis = preim[basisind]
-    imbasis = im[basisind]
-
+    basisind = affinebasis_indices(preim, atol = atol)
     
-    A = hcat(preimbasis...)
-    A = vcat(A, reshape(repeat([1], d_pre + 1), (1, d_pre + 1))) # embed preimage into higher dimensional space
-    b = hcat(imbasis...)
-    b = vcat(b, reshape(repeat([1], d_pre + 1), (1, d_pre + 1))) # embed image into higher dimensional space
-
-    @assert length(colspace(A, tol = atol)) == d_pre + 1 "The preimage needs to consist of an affine basis."
+    A = preim[:, basisind]
+    A = vcat(A, transpose(repeat([1], d_pre + 1))) # embed preimage into higher dimensional space
+    b = im[:, basisind]
+    b = vcat(b, transpose(repeat([1], d_pre + 1))) # embed image into higher dimensional space
 
     function aff(x::Vector{<:Real})
         M = b * inv(A)
@@ -100,20 +156,43 @@ function affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}
     return aff
 end
 
+
+"""
+    affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}})
+
+TBW
+"""
+function affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}; atol = 1e-8)
+    return affinemap(hcat(preim...), hcat(im...), atol = atol)
+end
+
+"""
+    rigidmap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}})
+
+TBW
+"""
+function rigidmap(preim::Matrix{<:Real}, im::Matrix{<:Real}; atol::Real = 1e-8)
+    @assert size(preim)[2] == size(im)[2] "Number of preim elements ($(size(preim)[2]) and image elements ($(size(im)[2])) need to match.)"
+
+    basisind = affinebasis_indices(preim)
+    preimbasis = preim[:, basisind]
+    imbasis = im[:, basisind]
+
+    for i in 1:size(preimbasis)[2]
+        for j in (i+1):size(preimbasis)[2]
+            @assert abs(dist(preimbasis[:,i], preimbasis[:,j]) - dist(imbasis[:,i], imbasis[:,j])) < atol "Distance between preimage and image points need needs to be identical, but the distance between the points $(i) and $(j) is $(dist(preim[i], preim[j])) in the perimage and $(dist(im[i], im[j])) in the image."
+        end
+    end
+
+    return affinemap(preim, im, atol=atol)
+end
+
 """
     rigidmap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}})
 
 TBW
 """
 function rigidmap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
-    @assert length(preim) == length(im) "Preimage ind image have to have the same length"
-
-    for i in 1:length(preim)
-        for j in (i+1):length(preim)
-            @assert abs(dist(preim[i], preim[j]) - dist(im[i], im[j])) < atol "Distance between preimage and image points need needs to be identical, but the distance between the points $(i) and $(j) is $(dist(preim[i], preim[j])) in the perimage and $(dist(im[i], im[j])) in the image."
-        end
-    end
-
-    return affinemap(preim, im, atol=atol)
+    return rigidmap(hcat(preim...), hcat(im...), atol = atol)
 end
 
