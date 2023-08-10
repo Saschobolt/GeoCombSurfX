@@ -116,6 +116,12 @@ function create_plots(width = 600, height = 600, color_frame = RGB(1,0,0), color
     p = plot(flattenfacets(tiblock(8,4,4)), showbackground = showbackground, width = width, height = height, drawverts = false, opacity = opacity)
     PlotlyJS.savefig(p, "block844.png", width = width, height = height)
 
+    p = plot(flattenfacets(tiblock(9,4,3)), showbackground = showbackground, width = width, height = height, drawverts = false, opacity = opacity)
+    PlotlyJS.savefig(p, "block943.png", width = width, height = height)
+
+    p = plot(flattenfacets(tiblock(12,4,4)), showbackground = showbackground, width = width, height = height, drawverts = false, opacity = opacity)
+    PlotlyJS.savefig(p, "block1244.png", width = width, height = height)
+
     # assemblies with blocks above
     ass, frame = assembly2(6,4,2,7)
     ass = flattenfacets.(ass)
@@ -131,17 +137,31 @@ function create_plots(width = 600, height = 600, color_frame = RGB(1,0,0), color
     p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
     PlotlyJS.savefig(p, "assembly2_8427.png", width = width, height = height)
 
-    ass, frame = assembly1(6,4,3,7)
+    ass, frame = assembly2(6,4,3,7)
     ass = flattenfacets.(ass)
     colors = [color_blocks for block in ass]
     colors[frame] .= color_frame
     p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    PlotlyJS.savefig(p, "assembly1_6437.png", width = width, height = height)
+    PlotlyJS.savefig(p, "assembly2_6437.png", width = width, height = height)
 
-    ass, frame = assembly1(8,4,4,7)
+    ass, frame = assembly2(8,4,4,7)
     ass = flattenfacets.(ass)
     colors = [color_blocks for block in ass]
     colors[frame] .= color_frame
     p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    PlotlyJS.savefig(p, "assembly1_8447.png", width = width, height = height)
+    PlotlyJS.savefig(p, "assembly2_8447.png", width = width, height = height)
+
+    ass, frame = assembly4(9,4,3,7)
+    ass = flattenfacets.(ass)
+    colors = [color_blocks for block in ass]
+    colors[frame] .= color_frame
+    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    PlotlyJS.savefig(p, "assembly4_9437.png", width = width, height = height) 
+
+    ass, frame = assembly4(12,4,4,7)
+    ass = flattenfacets.(ass)
+    colors = [color_blocks for block in ass]
+    colors[frame] .= color_frame
+    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    PlotlyJS.savefig(p, "assembly4_12447.png", width = width, height = height) 
 end

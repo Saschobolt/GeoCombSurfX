@@ -167,6 +167,35 @@ function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::
   return assembly, frame, link
 end
 
+function assembly4(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
+  @assert n1 > 3 "not possible for triangle prisma"
+  assembly = Polyhedron[]
+
+  block = flattenfacets(tiblock(n1, n2, nmerges))
+  theta = -pi / n1
+  rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
+  set_verts!(block, [rotmat * coords for coords in get_verts(block)])
+  push!(assembly, block)
+  
+  for i in 2:nblocks
+    lastblock = assembly[end]
+    newblock = deepcopy(lastblock)
+    lastcoords = get_verts(lastblock)
+    newcoords = get_verts(newblock)
+
+    preim = [newcoords[1], newcoords[2], newcoords[3], newcoords[1] + cross(newcoords[2] - newcoords[1], newcoords[3] - newcoords[1])]
+    im = [lastcoords[n1 + 2], lastcoords[n1 + 3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
+    aff = rigidmap(preim, im)
+    set_verts!(newblock, aff.(newcoords))
+
+    push!(assembly, newblock)
+  end
+
+  frame = Int[1,nblocks]
+
+  return assembly, frame
+end
+
 
 ##################################################################################
 ################# platonic solids
