@@ -217,26 +217,26 @@ end
 # """
 # returns 1 if the 3d point p lies in the polygon poly embedded into R^3, -1 if it lies on its boundary and 0 otherwise
 # """
-# function inpolygon3d(p::AbstractVector, poly::AbstractVector; tol::Real=1e-5)
+# function inpolygon3d(p::AbstractVector, poly::AbstractVector; atol::Real=1e-5)
 #     d = 3
 #     @assert length(p) == 3 "Only 3d case."
 #     @assert all([length(v) == 3 for v in poly]) "Only 3d case."
 
-#     E = Plane(poly, tol = tol)
+#     E = Plane(poly, atol = atol)
 #     point = deepcopy(p)
 
 #     preim = [E.point, E.point + E.vectors[1], E.point + E.vectors[2], E.point + normalize(cross(E.vectors[1], E.vectors[2]))]
 #     im = [[0,0,0], [1,0,0], [0,1,0], [0,0,1]]
 
 #     # affine map so that the affine basis of the polygon is mapped to the xy plane
-#     aff = affinemap(preim, im, atol = tol)
+#     aff = affinemap(preim, im, atol = atol)
 
 #     # transformed polygon and point
 #     polytransformed = aff.(poly)
 #     pointtransformed = aff(point)
     
 
-#     if abs(pointtransformed[3]) < tol
+#     if abs(pointtransformed[3]) < atol
 #          # inpolygon projects onto the xy plane and decides the problem.
 #          # If p and poly lie in the same plane, then this is enough to decide the problem
 #         return inpolygon(pointtransformed, polytransformed)

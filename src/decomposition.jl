@@ -40,11 +40,11 @@ end
 
 Determine whether the edge edge of the Polyhedron poly is flat, i.e. the adjacent facets span an affine space of at most dimension d-1 if d is the underlying dimension.
 """
-function isflatedge(poly::Polyhedron, edge::Vector{<:Int}; tol::Real = 1e-8)
+function isflatedge(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-8)
     @assert edge in get_edges(poly) "edge has to be an edge of poly."
     
     facets = adjfacets(poly, edge)
-    d = affinedim(get_verts(poly)[union(facets...)], atol = tol)
+    d = affinedim(get_verts(poly)[union(facets...)], atol = atol)
     return d < dimension(poly)
 end
 
@@ -140,14 +140,14 @@ function flattenfacets(poly::Polyhedron, atol = 1e-5)
 end
 
 """
-    isturnable(e::Vector{<:Int}, polyhedron::Polyhedron; tol::Real=1e-5)::Bool
+    isturnable(e::Vector{<:Int}, polyhedron::Polyhedron; atol::Real=1e-5)::Bool
 
 Checks whether the edge e is turnable edge of poly. I.e. poly is 
     - a spherical simplicial surface and 
     - the line connecting the wingtips of the butterfly with inner edge e is contained in poly.
-Floats with abs value <tol are considered zeros
+Floats with abs value <atol are considered zeros
 """
-function isturnable(e::Vector{<:Int}, polyhedron::Polyhedron; tol::Real=1e-5)::Bool
+function isturnable(e::Vector{<:Int}, polyhedron::Polyhedron; atol::Real=1e-5)::Bool
     @assert all(length.(get_facets(polyhedron)).==3) "poly may only have triangle facets"
     @assert in(e, get_edges(polyhedron)) || in(reverse(e), get_edges(poly)) "e has to be an edge of poly"
     
@@ -164,7 +164,7 @@ function isturnable(e::Vector{<:Int}, polyhedron::Polyhedron; tol::Real=1e-5)::B
     mid = (get_verts(polyhedron)[butterflytips[1]] + get_verts(polyhedron)[butterflytips[2]]) / 2
 
     # if midpoint of turned edge is inside the polyhedron the edge is turnable
-    if inpolyhedron(mid, flattenfacets(polyhedron), tol = tol) != 1
+    if inpolyhedron(mid, flattenfacets(polyhedron), atol = atol) != 1
         return 0
     end
 
@@ -173,12 +173,12 @@ end
 
 
 """
-    isconvex(poly::Polyhedron; tol::Real=1e-5)::Bool
+    isconvex(poly::Polyhedron; atol::Real=1e-5)::Bool
 
 
-determine whether the polyhedron poly is convex. Floats with abs value <tol are considered zeros
+determine whether the polyhedron poly is convex. Floats with abs value <atol are considered zeros
 """
-function isconvex(poly::Polyhedron; tol::Real=1e-5)::Bool
+function isconvex(poly::Polyhedron; atol::Real=1e-5)::Bool
     polyhedron = deepcopy(poly)
 
     # if poly is a non degenerate tetrahedron, it is convex
@@ -192,7 +192,7 @@ function isconvex(poly::Polyhedron; tol::Real=1e-5)::Bool
     end
 
     for edge in get_edges(polyhedron)
-        if !isturnable(edge, polyhedron,tol=tol)
+        if !isturnable(edge, polyhedron,atol=atol)
             return 0
         end
     end
@@ -241,7 +241,7 @@ end
 poly::Polyhedron
 returns a vector of tetrahedra, which union is the Polyhedron poly.
 """
-function convexdecomp(poly::Polyhedron; tol::Real=1e-5)::Vector{Polyhedron}
+function convexdecomp(poly::Polyhedron; atol::Real=1e-5)::Vector{Polyhedron}
     #############################################
     # Workaround für tiblöcke!! TODO: debug convex decomposition!
     #############################################
@@ -339,7 +339,7 @@ function convexdecomp(poly::Polyhedron; tol::Real=1e-5)::Vector{Polyhedron}
         # edge turn if no tetrahedron was removed
         for edge in subPoly.edges
             # if edge is turnable, cut the resulting tetrahedron out
-            if isturnable(edge, subPoly, tol = tol) && !isflatedge(subPoly, edge)
+            if isturnable(edge, subPoly, atol = atol) && !isflatedge(subPoly, edge)
                 @info "edge: $(edge)"
                 butterfly = filter(f -> length(Base.intersect(f, edge)) == 2, get_facets(subPoly))
                 @info "butterfly: $(butterfly)"
