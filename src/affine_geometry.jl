@@ -227,7 +227,7 @@ function intersect(ray::Ray, plane::Plane; atol::Real = 1e-8)
     vp = plane.point
 
     A = hcat(union(plane.vectors, [-ray.vector])...)
-    if length(colspace(A, atol=tol)) < 3
+    if length(colspace(A, atol=atol)) < 3
         throw(ErrorException("ray and plane are parallel."))
     end
     
@@ -261,3 +261,11 @@ function signedangle3d(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; 
     return atan(dot(cross(v,w), n), dot(v,w))
 end
 
+"""
+    center_of_mass(points::Vector{<:Vector{<:Real}})
+
+Calculate the center of a set of points.
+"""
+function center_of_mass(points::Vector{<:Vector{<:Real}})
+    return sum(points) / length(points)
+end
