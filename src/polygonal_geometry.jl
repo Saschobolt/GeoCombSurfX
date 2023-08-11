@@ -40,7 +40,7 @@ function intriang3d(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real})
 end
 
 
-function earcut3d(polygon::Vector{<:Vector{<:Real}}, atol = 1e-8)
+function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
     # earcut algorithm: https://www.geometrictools.com/Documentation/TriangulationByEarClipping.pdf
     # https://www.mathematik.uni-marburg.de/~thormae/lectures/graphics1/code/JsCoarseImg/EarCutting.html
     @assert all(length.(polygon) .== 3) "polygon needs to be 3d Polygon."
@@ -52,7 +52,10 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}, atol = 1e-8)
         coords = polygon
     end
 
-    remaining_verts = collect(1:length(polygon))
+    remaining_verts = collect(1:length(coords))
+    if length(remaining_verts) == 3
+        return [remaining_verts]
+    end
     sol = []
 
     # @info "remaining_verts: $(remaining_verts)"
@@ -199,10 +202,7 @@ Determine whether the point p lies inside the polygon poly.
 -1: p lies on the boundary of polygon
 """
 function inpolygon3d(poly::Vector{<:Vector{<:Real}}, p::Vector{<:Real}; atol = 1e-8)
-    @assert all(length.(poly) .== 3) "triang has to consist of 3-vectors."
-    @assert length(poly) == 3 "triang needs to be a list of 3 points."
-    @assert length(p) == 3 "p has to be a point in 3-space."
-    @assert affinedim(poly) == 2 "triang is degenerate."
+    @assert all(length.(poly) .== 3) "poly has to consist of 3-vectors."
 
     poly_triang = [poly[triangle] for triangle in earcut3d(poly, atol = atol)]
     if any([intriang3d(triang, p) == 1 for triang in poly_triang])
