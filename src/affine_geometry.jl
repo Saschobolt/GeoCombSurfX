@@ -13,11 +13,12 @@ using LinearAlgebra
 # end
 
 """
-    indcols_indices(A::Matrix{<:Real}; atol::Real = 1e-8)
+    indcols_indices(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
+
 
 calculate the indices of the columns of A forming a maximal linear independent subset.
 """
-function indcols_indices(A::Matrix{<:Real}; atol::Real = 1e-8)
+function indcols_indices(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
     Q, R, perm = qr(A, ColumnNorm())
     indices = perm[findall(val -> abs(val) > atol, diag(R))]
     return indices
@@ -25,33 +26,33 @@ end
 
 
 """
-    indcols(A::Matrix; atol::Real = 1e-8)
+    indcols(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
 
 calculate maximal linear independent subset of the columns of A.
 """
-function indcols(A::Matrix{<:Real}; atol::Real = 1e-8)
+function indcols(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
     indices = indcols_indices(A, atol = atol)
     return [A[:,i] for i in indices]
 end
 
 """
-    colspace(A::Matrix{<:Real}; atol::Real = 1e-8)
+    colspace(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
 
 
 Returns an orthonormal basis for the columnspace of the matrix A using QR decomposition. Singular values with abs < atol are treated as 0.
 """
-function colspace(A::Matrix{<:Real}; atol::Real = 1e-8)
+function colspace(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
     Q, R = qr(A)
     return indcols(Matrix(Q), atol = atol)
 end
 
 """
-    affinebasis_indices(A::Matrix{<:Real}; atol::Real = 1e-8)
+    affinebasis_indices(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
 
 Find the column indices of the Matrix A that form an affine basis of the affine space spanned by the columns of A.
 Real values < atol are considered 0.
 """
-function affinebasis_indices(A::Matrix{<:Real}; atol::Real = 1e-8)
+function affinebasis_indices(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
     M = vcat(A, transpose(repeat([1], size(A)[2])))
     return indcols_indices(M, atol = atol)
 end
@@ -67,12 +68,12 @@ function affinebasis_indices(s::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
 end
 
 """
-    affinebasis(A::Matrix{<:Real}; atol::Real = 1e-8)
+    affinebasis(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
 
 Find an affine basis of the affine space spanned by the points columns of s.
 Real values < atol are considered zero.
 """
-function affinebasis(A::Matrix{<:Real}; atol::Real = 1e-8)
+function affinebasis(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
     indices = affinebasis_indices(A, atol = atol)
     return [A[:,i] for i in indices]
 end
@@ -88,12 +89,12 @@ function affinebasis(s::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
 end
 
 """
-    affinedim(A::Matrix{<:Real}; atol::Real = 1e-8)
+    affinedim(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
 
 Affine dimension of the affine space spanned by the columns of A.
 Real values < atol are considered zero.
 """
-function affinedim(A::Matrix{<:Real}; atol::Real = 1e-8)
+function affinedim(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
     return rank(vcat(A, transpose(repeat([1], size(A)[2]))), atol = atol) - 1
 end
 
@@ -108,11 +109,11 @@ function affinedim(s::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
 end
 
 """
-    affinemap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}})
+    affinemap(preim::AbstractMatrix{<:Real}, im::AbstractMatrix{<:Real}; atol = 1e-8)
 
 TBW
 """
-function affinemap(preim::Matrix{<:Real}, im::Matrix{<:Real}; atol = 1e-8)
+function affinemap(preim::AbstractMatrix{<:Real}, im::AbstractMatrix{<:Real}; atol = 1e-8)
     @assert size(preim)[2] == size(im)[2] "Number of preim elements ($(size(preim)[2]) and image elements ($(size(im)[2])) need to match.)"
 
     d_pre = size(preim)[1] # dimension of underlying space of preimage
