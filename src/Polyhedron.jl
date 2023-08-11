@@ -185,6 +185,25 @@ end
 
 
 """
+    incedges(poly::Polyhedron, v::Int)
+
+Return the edges of the polyhedron poly, that are incident to the vertex v, i.e. that contain v.
+"""
+function incedges(poly::Polyhedron, v::Int)
+    return filter(e -> isincident(v, e), get_edges(poly))
+end
+
+"""
+    incedges(poly::Polyhedron, f::Vertex{<:Int})
+
+Return the edges of the polyhedron poly, that are incident to the facet f, i.e. that are a subset of f.
+"""
+function incedges(poly::Polyhedron, f::Vector{<:Int})
+    return filter(e -> issubset(e, f), get_edges(poly))
+end
+
+
+"""
     formpath!(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
 
 Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
@@ -261,11 +280,11 @@ end
 """
     Randomized algorithm to check whether a point is contained in a polyhedron.
 """
-function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron;  atol::Real=1e-5)::Int 
+function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron; atol::Real=1e-5)::Int 
     # check whether point lies on the boundary of poly
     for facet in get_facets(poly)
         polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
-        if  inpolygon3d(point, polygon,  atol= atol) != 0
+        if  inpolygon3d(polygon, point, atol= atol) != 0
             return -1
         end
     end
@@ -286,9 +305,9 @@ function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron;  atol::Real=1e-5)
 
             p = intersect(r, E)
 
-            if inpolygon3d(p, polygon,  atol =  atol) == -1
+            if inpolygon3d(polygon, p, atol = atol) == -1
                 break
-            elseif inpolygon3d(p, polygon,  atol =  atol) == 1
+            elseif inpolygon3d(polygon, p, atol = atol) == 1
                 numIntersections = numIntersections + 1
             end
         end
