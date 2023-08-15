@@ -1,6 +1,32 @@
 include("Polyhedron.jl")
 include("merging.jl")
 
+function cube_assembly()
+  cube = Cube
+
+  shift_x = rigidmap([0 1 0 0; 0 0 1 0; 0 0 0 1], [1 2 1 1; 0 0 1 0; 0 0 0 1])
+  shift_y = rigidmap([0 1 0 0; 0 0 1 0; 0 0 0 1], [0 1 0 0; 1 1 2 1; 0 0 0 1])
+
+  cube2 = deepcopy(cube)
+  set_verts!(cube2, shift_x.(get_verts(cube2)))
+  cube3 = deepcopy(cube2)
+  set_verts!(cube3, shift_x.(get_verts(cube3)))
+  cube4 = deepcopy(cube)
+  set_verts!(cube4, shift_y.(get_verts(cube4)))
+  cube5 = deepcopy(cube2)
+  set_verts!(cube5, shift_y.(get_verts(cube5)))
+  cube6 = deepcopy(cube3)
+  set_verts!(cube6, shift_y.(get_verts(cube6)))
+  cube7 = deepcopy(cube4)
+  set_verts!(cube7, shift_y.(get_verts(cube7)))
+  cube8 = deepcopy(cube5)
+  set_verts!(cube8, shift_y.(get_verts(cube8)))
+  cube9 = deepcopy(cube6)
+  set_verts!(cube9, shift_y.(get_verts(cube9)))
+
+  return [cube1, cube2, cube3, cube4, cube5, cube6, cube7, cube8, cube9]
+end
+
 ##################################################################################
 ################# n-prisms
 ##################################################################################
