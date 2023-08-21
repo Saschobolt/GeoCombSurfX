@@ -40,6 +40,36 @@ function intriang3d(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real})
 end
 
 
+"""
+    is_clockwise(polygon::Vector{<:Vector{<:Real}}; atol = 1e-12)
+
+Determine whether the polygon is orientated clockwise.
+"""
+# TODO: So funktioniert das nicht. Der signed angle hängt vom Normalenvektor ab -> ist der Normalenvektor negativ, so is tauch der Winkel negativ -> Vielleicht lieber mit Cross Product arbeiten, weil der Normalenvektor immer ein Rechtssystem mit den Vektoren bildet.
+function is_clockwise(polygon::Vector{<:Vector{<:Real}}; atol = 1e-12)
+    if polygon[1] == polygon[end]
+        coords = polygon[1:end-1]
+    else
+        coords = polygon
+    end
+
+    m = length(coords)
+
+    n = normalvec(coords)
+    println(n)
+
+    angles = [signedangle3d_right(coords[mod1(i+1, m)] - coords[mod1(i, m)], coords[mod1(i-1,m)] - coords[mod1(i,m)], n; atol = atol) for i in 1:m]
+    println(angles)
+    println(sum(angles))
+
+    if sum(angles) < 0
+        return false
+    else 
+        return true 
+    end
+end
+
+
 function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
     # earcut algorithm: https://www.geometrictools.com/Documentation/TriangulationByEarClipping.pdf
     # https://www.mathematik.uni-marburg.de/~thormae/lectures/graphics1/code/JsCoarseImg/EarCutting.html
@@ -72,7 +102,7 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
     n = normalvec(coords[remaining_verts])
 
     # signed angles at vertices
-    angles  = [signedangle3d(coords[neighbors(v)[1]] - coords[v], coords[v] - coords[neighbors(v)[2]], n, atol = 1e-12) for v in remaining_verts]
+    angles  = [signedangle3d_right(coords[neighbors(v)[1]] - coords[v], coords[v] - coords[neighbors(v)[2]], n, atol = 1e-12) for v in remaining_verts]
     angles[abs.(angles) .< 1e-12] .= 0
 
     # sign of angles at convex vertices is the same as the sum of angle array (2pi or -2pi)
@@ -82,7 +112,7 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
     function isconvex(v::Int)
         neighbor1 = neighbors(v)[1]
         neighbor2 = neighbors(v)[2]
-        angle = signedangle3d(coords[neighbor1] - coords[v], coords[v] - coords[neighbor2], n, atol = 1e-12)
+        angle = signedangle3d_right(coords[neighbor1] - coords[v], coords[v] - coords[neighbor2], n, atol = 1e-12)
         # @info "check, if $(v) is convex; neighbor1: $(neighbor1), neighbor2: $(neighbor2), angle: $(angle)"
         if abs(angle) < 1e-12
             return false
