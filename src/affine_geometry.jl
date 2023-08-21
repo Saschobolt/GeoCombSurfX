@@ -248,17 +248,27 @@ function sqdist(v::Vector{<:Real}, w::Vector{<:Real})
 end
 
 """
-    signedangle3d(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; atol = 1e-12)
+    signedangle3d_right(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; atol = 1e-12)
 
 Calculate the signed angle of the right handed rotation from the vector v to w with regard to the plane normal vector n. Real values < atol are considered 0. 
 """
-function signedangle3d(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; atol = 1e-12)
+function signedangle3d_right(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; atol = 1e-12)
     # https://stackoverflow.com/questions/5188561/signed-angle-between-two-3d-vectors-with-same-origin-within-the-same-plane
     @assert length(v) == 3 "Inputs need to be real vectors of length 3."
     @assert length(w) == 3 "Inputs need to be real vectors of length 3."
     @assert abs(dot(v,n)) < atol "v and n are not perpendicular. abs(dot(v,n)) = $(abs(dot(v,n)))"
     @assert abs(dot(w,n)) < atol "w and n are not perpendicular. abs(dot(w,n)) = $(abs(dot(w,n)))"
     return atan(dot(cross(v,w), n), dot(v,w))
+end
+
+"""
+    signedangle3d_left(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; atol = 1e-12)
+
+Calculate the signed angle of the left handed rotation from the vector v to w with regard to the plane normal vector n. Real values < atol are considered 0. 
+"""
+function signedangle3d_left(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; atol = 1e-12)
+    # https://stackoverflow.com/questions/5188561/signed-angle-between-two-3d-vectors-with-same-origin-within-the-same-plane
+    return -signedangle3d_right(v,w,n)
 end
 
 """
