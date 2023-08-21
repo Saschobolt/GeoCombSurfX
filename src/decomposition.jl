@@ -377,7 +377,7 @@ end
 Compute the outward facing normal vector of the facet facet of the Polyhedron poly.
 """
 # TODO: Es gibt noch einen Fehler. Siehe bspw outward_normal(tiblock(6,6,2), [11,21,25,10])
-function outward_normal(poly::Polyhedron, facet::Vector{<:Int})
+function outward_normal(poly::Polyhedron, facet::Vector{<:Int}; atol::Real = 1e-8)
     @assert Set(facet) in Set.(get_facets(poly)) "facet has to be a facet of poly."
 
     facetverts = get_verts(poly)[facet]
@@ -400,16 +400,24 @@ function outward_normal(poly::Polyhedron, facet::Vector{<:Int})
         f = Base.intersect(relevantfacets, tetrafacets)[1]
 
         sign = 1
-    elseif any([isturnable(edge, poly_triang) || isturnable(reverse(edge), poly_triang) for edge in incedges(poly, facet)])
+    elseif any([isturnable(edge, poly_triang, atol = atol) || isturnable(reverse(edge), poly_triang, atol = atol) for edge in incedges(poly, facet)])
         # otherwise look for turnable edges and obtain the vertices of a tetrahedron contained in poly that way.
-        e = incedges(poly, facet)[findfirst([isturnable(edge, poly_triang) || isturnable(reverse(edge), poly_triang) for edge in incedges(poly, facet)])][1]
+        try
+            e = incedges(poly, facet)[findfirst([isturnable(edge, poly_triang, atol = atol) || isturnable(reverse(edge), poly_triang, atol = atol) for edge in incedges(poly, facet)])][1]
+        catch error
+            @info "facet: $(facet)"
+            display([isturnable(edge, poly_triang, atol = atol) || isturnable(reverse(edge), poly_triang, atol = atol) for edge in incedges(poly, facet)])
+            display(findfirst([isturnable(edge, poly_triang, atol = atol) || isturnable(reverse(edge), poly_triang, atol = atol) for edge in incedges(poly, facet)]))
+            error(string(error))
+        end
+
         tetrafacets = incfacets(poly_triang, e)
         f = Base.intersect(relevantfacets, tetrafacets)[1]
 
         sign = 1
     else
         # if there are no turnable edges we can construct a tetrahedron outside the polyhedron; the outward facing normal faces in the other direction than the vector connecting the coms of the tetrahedron and the facet.
-        e = incedges(poly, facet)[findfirst([affinedim(get_verts(poly)[union(adjfacets(poly, edge)...)]) > 2 for edge in incedges(poly, facet)])][1]
+        e = incedges(poly, facet)[findfirst([affinedim(get_verts(poly)[union(adjfacets(poly, edge)...)], atol = atol) > 2 for edge in incedges(poly, facet)])][1]
         tetrafacets = incfacets(poly_triang, e)
         f = Base.intersect(relevantfacets, tetrafacets)[1]
 
