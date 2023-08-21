@@ -1,7 +1,7 @@
 using JuMP
-using HiGHS
-using Ipopt
+import Ipopt
 using Polyhedra
+import MultiObjectiveAlgorithms as MOA
 
 include("../Polyhedron.jl")
 include("../affine_geometry.jl")
@@ -46,10 +46,22 @@ end
 
 Topological interlocking test by Wang. Only face face contacts are modeled.
 """
-function titest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)  
+function titest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
+    # if any block in the assembly contains flat edges, flatten the block
+    for (i,block) in enumerate(assembly)
+        if any([isflatedge(block, edge, atol = atol) for edge in get_edges(block)])
+            assembly[i] = flattenfacets(assembly[i])
+        end
+    end
+
     contacts = contactfacets(assembly, atol = atol)
 
     model = Model(Ipopt.Optimizer)
+    # model = Model(() -> MOA.Optimizer(Ipopt.Optimizer))
+    # set_silent(model)
+    # set_optimizer_attribute(model, MOA.Algorithm(), MOA.EpsilonConstraint())
+    # set_optimizer_attribute(model, MOA.SolutionLimit(), 50)
+
     @variable(model, t[1:dimension(assembly[1]), 1:length(assembly)])
     @variable(model, omega[1:dimension(assembly[1]), 1:length(assembly)])
 
@@ -61,25 +73,29 @@ function titest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; ato
         i = key[1]
         j = key[2]
 
+        if i in frameindices && j in frameindices continue end
+
         for k in 1:size(contacts[key])[1]
             for l in 1:size(contacts[key])[2]
-                test = (contacts[key][k,l])
-
                 if length(contacts[key][k,l]) == 0 continue end
-                if affinedim(contacts[key][k,l]) < 2 continue end
-                @info "key: $(key)"
-                @info "facet: $(get_facets(assembly[i])[k])"
+                
+                if affinedim(contacts[key][k,l]) == 2
+                    n = normals[i][k]
 
-                n = normals[i][k]
+                    for c in contacts[key][k,l]
+                        ri = c - coms[i]
+                        vi = t[:,i] + cross(omega[:,i], ri)
 
-                for c in contacts[key][k,l]
-                    ri = c - coms[i]
-                    vi = t[:,i] + cross(omega[:,i], ri)
+                        rj = c - coms[j]
+                        vj = t[:,j] + cross(omega[:,j], rj)
 
-                    rj = c - coms[j]
-                    vj = t[:,j] + cross(omega[:,j], rj)
+                        @constraint(model, dot(vj-vi, n) >= 0)
+                    end
 
-                    @constraint(model, dot(vj-vi, n) >= 0)
+                elseif affinedim(contacts[key][k,l]) == 1
+
+
+                else continue
                 end
             end
         end
@@ -91,9 +107,19 @@ function titest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; ato
         @constraint(model, omega[:,i] == 0)
     end
 
-    @objective(model, Max, sum(t.^2) + sum(omega.^2))
+    @objective(model, Max, sum(t) + sum(omega))
 
     optimize!(model)
+
+    # @info "t: $(display(value.(t)))"
+    # @info "omega: $(display(value.(omega)))"
+
+    if all([norm(vcat(value.(t[:,i]), value.(omega[:,i]))) < atol for i in 1:length(assembly)])
+        @info "The assembly is topologically interlocking as there are no infinitesimal motions of blocks with norm < $(atol). (Maximum norm of infinitesimal motion: $(max([norm(vcat(value.(t[:,i]), value.(omega[:,i]))) for i in 1:length(assembly)]...)))"
+    else
+        i = findfirst([norm(vcat(value.(t[:,i]), value.(omega[:,i]))) >= atol for i in 1:length(assembly)])
+        @warn "The test is inconclusive. The block $(i) has an infinitesimal motion with norm $(norm(vcat(value.(t[:,i]), value.(omega[:,i]))))"
+    end
 
     return model
 end
