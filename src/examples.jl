@@ -2,16 +2,16 @@ include("Polyhedron.jl")
 include("merging.jl")
 
 function cube_assembly()
-  cube = Cube
+  cube1 = Cube
 
   shift_x = rigidmap([0 1 0 0; 0 0 1 0; 0 0 0 1], [1 2 1 1; 0 0 1 0; 0 0 0 1])
   shift_y = rigidmap([0 1 0 0; 0 0 1 0; 0 0 0 1], [0 1 0 0; 1 1 2 1; 0 0 0 1])
 
-  cube2 = deepcopy(cube)
+  cube2 = deepcopy(cube1)
   set_verts!(cube2, shift_x.(get_verts(cube2)))
   cube3 = deepcopy(cube2)
   set_verts!(cube3, shift_x.(get_verts(cube3)))
-  cube4 = deepcopy(cube)
+  cube4 = deepcopy(cube1)
   set_verts!(cube4, shift_y.(get_verts(cube4)))
   cube5 = deepcopy(cube2)
   set_verts!(cube5, shift_y.(get_verts(cube5)))
