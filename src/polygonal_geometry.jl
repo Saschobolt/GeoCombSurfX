@@ -41,12 +41,12 @@ end
 
 
 """
-    is_clockwise(polygon::Vector{<:Vector{<:Real}}; atol = 1e-12)
+    is_ccw(polygon::Vector{<:Vector{<:Real}}, n::Vector{<:Real}; atol = 1e-12)
 
-Determine whether the polygon is orientated clockwise.
+Determine whether the orientation of the polygon is counterclockwise. Clockwise means, that the vertices follow a negative rotation around the normal vector n.
 """
-# TODO: So funktioniert das nicht. Der signed angle hängt vom Normalenvektor ab -> ist der Normalenvektor negativ, so is tauch der Winkel negativ -> Vielleicht lieber mit Cross Product arbeiten, weil der Normalenvektor immer ein Rechtssystem mit den Vektoren bildet.
-function is_clockwise(polygon::Vector{<:Vector{<:Real}}; atol = 1e-12)
+function is_ccw(polygon::Vector{<:Vector{<:Real}}, n::Vector{<:Real}; atol = 1e-12)
+    # https://math.stackexchange.com/questions/2152623/determine-the-order-of-a-3d-polygon
     if polygon[1] == polygon[end]
         coords = polygon[1:end-1]
     else
@@ -55,17 +55,14 @@ function is_clockwise(polygon::Vector{<:Vector{<:Real}}; atol = 1e-12)
 
     m = length(coords)
 
-    n = normalvec(coords)
-    println(n)
+    @assert all([dot(n, coords[mod1(i+1, m)] - coords[mod1(i, m)]) == 0 for i in 1:m]) "n is not normal to the polygon."
 
-    angles = [signedangle3d_right(coords[mod1(i+1, m)] - coords[mod1(i, m)], coords[mod1(i-1,m)] - coords[mod1(i,m)], n; atol = atol) for i in 1:m]
-    println(angles)
-    println(sum(angles))
+    s = sum([cross(coords[mod1(i,m)], coords[mod1(i+1, m)]) for i in 1:m])
 
-    if sum(angles) < 0
+    if dot(s,n) < 0
+        return true
+    else
         return false
-    else 
-        return true 
     end
 end
 
