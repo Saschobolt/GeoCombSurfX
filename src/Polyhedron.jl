@@ -7,10 +7,10 @@ include("affine_geometry.jl")
 include("polygonal_geometry.jl")
 
 abstract type AbstractPolyhedron end
-mutable struct Polyhedron <:AbstractPolyhedron
-    verts::Vector{<:Vector{<:Real}} # vertex array. Every vertex is an array of 3 spatial coordinates
-    edges::Vector{<:Vector{<:Integer}} # edge array. Every edge is an array of the indices of the adjacent vertices
-    facets::Vector{<:Vector{<:Integer}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
+mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron
+    verts::Vector{Vector{S}} # vertex array. Every vertex is an array of 3 spatial coordinates
+    edges::Vector{Vector{T}} # edge array. Every edge is an array of the indices of the adjacent vertices
+    facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
     # TODO: Neuen constructor mit optionalen Argumenten (wenn nur coordinates gegeben werden, ist Ergebnis die konvexe Hülle der Punkte + check der Dimension
     # wenn nur Facets gegeben sind, werden Edges automatisch gesetzt und es wird gecheckt, dass Vertizes auf einer Facet koplanar aber nicht kollinear sind)
 end
@@ -134,7 +134,7 @@ Calculate whether the facet or edge facetoredge and the facet facet of the polyh
 """
 function isadjacent(poly::Polyhedron, facetoredge::Vector{<:Int}, facet::Vector{<:Int})
     @assert Set(facetoredge) in Set.(get_facets(poly)) || Set(facetoredge) in Set.(get_edges(poly)) "facetoredge has to be a facet or an edge of poly."
-    @assert Set(facet) in Set.(get_facets(poly)) "facet2 has to be a facet of poly."
+    @assert Set(facet) in Set.(get_facets(poly)) "facet has to be a facet of poly."
 
     intersection = Base.intersect(facetoredge, facet)
 
@@ -148,7 +148,7 @@ end
 Calculate the adjacent facets of the facet or edge facetoredge in the Polyhedron poly, i.e. the facets sharing at least one edge with facet.
 """
 function adjfacets(poly::Polyhedron, facetoredge::Vector{<:Int})
-    sol = filter(facet2 -> isadjacent(poly, facetoredge, facet2), get_facets(poly))
+    sol = filter(facet2 -> isadjacent(poly, facetoredge, facet2) && Set(facet2) != Set(facetoredge), get_facets(poly))
     setdiff!(sol, [facetoredge])
     return sol
 end
@@ -321,4 +321,105 @@ function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron; atol::Real=1e-5):
 end
 
 
+"""
+    orient_facets!(poly::Polyhedron)
 
+Orient the facets of the polyhedron poly.
+"""
+function orient_facets!(poly::Polyhedron{S, T}) where {S<:Real, T<:Integer}
+    # https://stackoverflow.com/questions/48093451/calculating-outward-normal-of-a-non-convex-polyhedral#comment83177517_48093451
+    newfacets = Vector{T}[]
+
+    f = get_facets(poly)[1]
+    adj = adjfacets(poly, f)
+    push!(newfacets, f)
+
+    # exterior facets that have been oriented
+    extfacets = Vector{Int}[]
+
+    function direction(facet, edge)
+        # function that determines if edge is oriented forwards (1) or backwards (-1) in facet. 
+        inds = indexin(edge, facet)
+        if mod1(inds[2] - inds[1], length(facet)) == 1 return 1 end
+        return -1
+    end
+
+    while length(newfacets) < length(get_facets(poly))
+        setdiff!(extfacets, [f])
+
+        for g in adj
+            if g in newfacets || reverse(g) in newfacets 
+                continue
+            end
+
+            inter = Base.intersect(f,g)
+            e = [inter[1], inter[2]]
+
+            if direction(f, [inter[1], inter[2]]) == direction(g, [inter[1], inter[2]])
+                reverse!(g)
+            end
+
+            # g is now oriented and a newfacet and an exteriorfacet in this step
+            push!(newfacets, g)
+            push!(extfacets, g)
+        end
+
+        for g in extfacets
+            adj_new = adjfacets(poly, g)
+            if length(setdiff(Set.(adj_new), Set.(newfacets))) > 0
+                f = g
+                adj = adj_new
+                break
+            end
+            # there are no adjacent facets of g that are not oriented already -> g is not exterior.
+            setdiff!(extfacets, [g])
+        end
+    end
+
+    # now all facets are oriented either clockwise or counterclockwise wrt the outward facing normals
+    # determine their orientation by calculating the signed volume of poly
+    vol = 0
+    for f in newfacets
+        for k in 2:length(f)-1
+            # signed volume of the tetrahedron spanned by [0,0,0], f[1], f[k], f[k+1]. The sum of all those for every facet is the signed vol of poly.
+            vol += 1/2 * det(hcat(get_verts(poly)[f[1]], get_verts(poly)[f[k]], get_verts(poly)[f[k+1]]))
+        end
+    end
+
+    # if sign is negative, the facets are ordered clockwise wrt the outward normal
+    if vol >= 0
+        set_facets!(poly, newfacets)
+    else
+        set_facets!(poly, reverse.(newfacets))
+    end
+end
+
+"""
+    orient_facets(poly::Polyhedron)
+
+Orient the facets of the polyhedron poly.
+"""
+function orient_facets(poly::Polyhedron)
+    polycopy = deepcopy(poly)
+    orient_facets!(polycopy)
+    return polycopy
+end
+
+"""
+    vol(poly::Polyhedron)
+
+Calculate the volume of the polyhedron poly.
+"""
+function vol(poly::Polyhedron)
+    poly_orient = orient_facets(poly)
+
+    vol = 0
+    for f in get_facets(poly_orient)
+        for k in 2:length(f)-1
+            # signed volume of the tetrahedron spanned by [0,0,0], f[1], f[k], f[k+1]. The sum of all those for every facet is the signed vol of poly.
+            vol += 1/2 * det(hcat(get_verts(poly)[f[1]], get_verts(poly)[f[k]], get_verts(poly)[f[k+1]]))
+        end
+    end
+
+    return abs(vol)
+end
