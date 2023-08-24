@@ -209,7 +209,6 @@ function isconnected(poly::Polyhedron)
     temp=Set(deepcopy(visitedV))
     visitedV=filter(f->intersect!(Set(deepcopy(f)),temp) != Set([]) ,facets)
     visitedV=helpunion(visitedV) 
-    println("visited ",visitedV)  
   end
   return length(vertices)==length(visitedV)
 end
@@ -240,15 +239,11 @@ function connectedComponents(poly::Polyhedron)
     push!(resF,vF)
     filter!(v->!(v in visitedV), remVertices)
   end
-#  println(map(g->maximum(g),resV))
-#  temp=map(g->Vector{Vector{Float64}}(undef,maximum(g)),resV)
-  println("bbbbbb")
   for i in 1:length(resV)
     for j in resV[i] 
       tres[i][j]=verts[j]
     end
   end
-  println("sfdgdfsd")
   return map(i->PolyhedronByVerticesInFacets(tres[i],resF[i]),1:length(resV))
 end
 
@@ -297,7 +292,6 @@ function OrientatePolyhedron(poly::Polyhedron)
   range=collect(1:length(facets))
   res=map(i->[1,1,1],range)
   res[1]=facets[1]
-  println(res)
   visitedEdges=EdgesOfFacet(poly,facets[1])
   tempFacets=0
   while NumberOfFacets(poly) != length(visitedFacets) 
@@ -313,8 +307,6 @@ function OrientatePolyhedron(poly::Polyhedron)
           else
             ff=f
           end
-          #push!(res,ff)##Error
-          println(facets)
           temp=filter(i->Set(facets[i])==Set(ff),range)
           res[temp[1]]=ff
           for edge2 in EdgesOfFacet(poly,ff) 			

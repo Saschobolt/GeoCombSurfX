@@ -2,13 +2,13 @@
 function help_norm(vec::Vector)
     return sqrt(sum(map(i->i^2,vec))) 
 end
-function help_crossProduct(A::Vector,B::Vector)
+function crossProduct(A::Vector,B::Vector)
     CP=[A[2]*B[3]-A[3]*B[2],
 	A[3]*B[1]-A[1]*B[3],
 	A[1]*B[2]-A[2]*B[1]];
 	return CP;
 end
-function ComputeIntersections(poly1::Polyhedron,poly2::Polyhedron)
+function computeContactFacets(poly1::Polyhedron,poly2::Polyhedron)
     res=[]
     coordinates1=poly1.verts
     coordinates2=poly2.verts
@@ -19,7 +19,7 @@ function ComputeIntersections(poly1::Polyhedron,poly2::Polyhedron)
 	    v=coordinates1[facet1[1]]
 	    v1=coordinates1[facet1[2]]-coordinates1[facet1[1]]
 	    v2=coordinates1[facet1[3]]-coordinates1[facet1[1]]
-	    v3=help_crossProduct(v1,v2)
+	    v3=crossProduct(v1,v2)
 	    w=coordinates2[facet2[1]]
 	    w1=coordinates2[facet2[2]]-coordinates2[facet2[1]]
 	    w2=coordinates2[facet2[3]]-coordinates2[facet2[1]]
@@ -57,7 +57,7 @@ function ComputeIntersections(poly1::Polyhedron,poly2::Polyhedron)
 			    print("e2=",e2,"\n")
 			    w=coordinates2[e2[1]]
 			    w1=coordinates2[e2[2]]-coordinates2[e2[1]]
-			    n=help_crossProduct(v1,w1)
+			    n=crossProduct(v1,w1)
 			    print("n=",n," ",help_norm(n) ,"\n")
 			    if help_norm(n)>=1e-8
 				mat=(Matrix([[v1[1] ,v1[2], v1[3]] [-w1[1] ,-w1[2], -w1[3]] [n[1] ,n[2], n[3]] ]))^(-1) 
@@ -109,7 +109,7 @@ function testComputeIntersection(num::Int)
 	surf1=Polyhedron([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]], [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]], [[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]])
 	surf2=Polyhedron([[1, 1, 1], [1, 0, 0], [0, 1, 0], [0, 0, 1]], [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]], [[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]])
     end
-return ComputeIntersections(surf1,surf2)
+return computeContactFacets(surf1,surf2)
 
 end
 
