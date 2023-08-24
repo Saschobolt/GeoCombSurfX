@@ -35,17 +35,76 @@ function triangulate(poly::Polyhedron; atol = 1e-5)::Polyhedron
 end
 
 
+function outward_normal(poly::Polyhedron{S, T}, facet::Vector{T}) where {S<:Real, T<:Integer}
+    @assert facet in get_facets(poly) || reverse(facet) in get_facets(poly) "facet needs to be a facet of poly."
+    poly_orient = orient_facets(poly)
+
+    if facet in get_facets(poly_orient)
+        f = facet
+    else
+        f = reverse(facet)
+    end
+
+    basis_inds = sort(affinebasis_indices(hcat(get_verts(poly)[f]...)))
+    @assert length(basis_inds) == 3
+
+    return cross(get_verts(poly)[f[basis_inds[2]]] - get_verts(poly)[f[basis_inds[1]]], get_verts(poly)[f[basis_inds[3]]] - get_verts(poly)[f[basis_inds[1]]])
+end
+
+
+"""
+    edgetype(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-8)
+
+Determine the type of the edge of poly as either "flat", "concave" or "convex".
+"""
+function edgetype(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
+    @assert edge in get_edges(poly)|| reverse(edge) in get_edges(poly) "edge has to be an edge of poly."
+    verts = get_verts(poly)
+
+    poly_orient = orient_facets(poly)
+    
+    facets = adjfacets(poly_orient, edge)
+
+    function direction(facet, edge)
+        # function that determines if edge is oriented forwards (1) or backwards (-1) in facet. 
+        inds = indexin(edge, facet)
+        if mod1(inds[2] - inds[1], length(facet)) == 1 return 1 end
+        return -1
+    end
+
+    # edge is forward in one of the facets and backwards in the other as poly_orient is oriented
+    inds = indexin(edge, facets[1])
+    if direction(facets[1], edge) == 1
+        forw = facets[1]
+        backw = facets[2]
+    else
+        forw = facets[2]
+        backw = facets[1]
+    end
+
+    i = indexin(edge[1], forw)[1]
+    j = indexin(edge[1], backw)[1]
+
+    # use determinant to determine if edge forms a right or left system with neighboring edges.
+    d = det(hcat(verts[forw[mod1(i-1, length(forw))]] - verts[edge[1]], verts[edge[2]] - verts[edge[1]], verts[backw[mod1(j+1, length(backw))]] - verts[edge[1]]))
+
+    if abs(d) < atol
+        return "flat"
+    elseif d > 0
+        return "convex"
+    elseif d < 0
+        return "concave"
+    end
+end
+
+
 """
     isflat(poly::Polyhedron, edge::Vector{<:Int})
 
-Determine whether the edge edge of the Polyhedron poly is flat, i.e. the adjacent facets span an affine space of at most dimension d-1 if d is the underlying dimension.
+Determine whether the edge edge of the Polyhedron poly is flat.
 """
-function isflatedge(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-8)
-    @assert edge in get_edges(poly) "edge has to be an edge of poly."
-    
-    facets = adjfacets(poly, edge)
-    d = affinedim(get_verts(poly)[union(facets...)], atol = atol)
-    return d < dimension(poly)
+function isflatedge(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
+    return edgetype(poly, edge, atol = atol) == "flat"
 end
 
 
@@ -371,68 +430,3 @@ function convexdecomp(poly::Polyhedron; atol::Real=1e-5)::Vector{Polyhedron}
 end
 
 
-"""
-    outward_normal(poly::Polyhedron, facet::Vector{<:Int})
-
-Compute the outward facing normal vector of the facet facet of the Polyhedron poly.
-"""
-# TODO: Es gibt noch einen Fehler. Siehe bspw outward_normal(tiblock(6,6,2), [11,21,25,10])
-function outward_normal(poly::Polyhedron, facet::Vector{<:Int}; atol::Real = 1e-8)
-    @assert Set(facet) in Set.(get_facets(poly)) "facet has to be a facet of poly."
-
-    facetverts = get_verts(poly)[facet]
-
-    if any(length.(get_facets(poly)) .> 3)
-        poly_triang = triangulate(poly)
-    else poly_triang = deepcopy(poly)
-    end
-
-    # facets of the triangulated poly that are contained in facet -> they have the same outward facing normal
-    relevantfacets = filter(f -> issubset(f, facet), get_facets(poly_triang))
-
-    # vertex degrees of facet vertices in poly_triang
-    degrees = length.([incfacets(poly_triang, v) for v in facet])
-
-    if any(degrees .== 3)
-        # check if any vertex is contained in a tetrahedron
-        v = facet[findfirst(degrees .== 3)]
-        tetrafacets = incfacets(poly_triang, v)
-        f = Base.intersect(relevantfacets, tetrafacets)[1]
-
-        sign = 1
-    elseif any([isturnable(edge, poly_triang, atol = atol) || isturnable(reverse(edge), poly_triang, atol = atol) for edge in incedges(poly, facet)])
-        # otherwise look for turnable edges and obtain the vertices of a tetrahedron contained in poly that way.
-        try
-            e = incedges(poly, facet)[findfirst([isturnable(edge, poly_triang, atol = atol) || isturnable(reverse(edge), poly_triang, atol = atol) for edge in incedges(poly, facet)])][1]
-        catch error
-            @info "facet: $(facet)"
-            display([isturnable(edge, poly_triang, atol = atol) || isturnable(reverse(edge), poly_triang, atol = atol) for edge in incedges(poly, facet)])
-            display(findfirst([isturnable(edge, poly_triang, atol = atol) || isturnable(reverse(edge), poly_triang, atol = atol) for edge in incedges(poly, facet)]))
-            error(string(error))
-        end
-
-        tetrafacets = incfacets(poly_triang, e)
-        f = Base.intersect(relevantfacets, tetrafacets)[1]
-
-        sign = 1
-    else
-        # if there are no turnable edges we can construct a tetrahedron outside the polyhedron; the outward facing normal faces in the other direction than the vector connecting the coms of the tetrahedron and the facet.
-        e = incedges(poly, facet)[findfirst([affinedim(get_verts(poly)[union(adjfacets(poly, edge)...)], atol = atol) > 2 for edge in incedges(poly, facet)])][1]
-        tetrafacets = incfacets(poly_triang, e)
-        f = Base.intersect(relevantfacets, tetrafacets)[1]
-
-        sign = -1
-    end
-
-    tetraverts = get_verts(poly)[union(tetrafacets...)]
-    f_verts = get_verts(poly)[f]
-    com_tetra = center_of_mass(tetraverts)
-    com_f = center_of_mass(f_verts)
-
-    n = normalvec(f_verts)
-
-    if sign * dot(com_f - com_tetra, n) >= 0
-        return n
-    else return -n
-    end
-end
