@@ -174,14 +174,14 @@ TBW
 function rigidmap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
     return rigidmap(hcat(preim...), hcat(im...), atol = atol)
 end
-struct Ray
-    point::Vector{<:Real}
-    vector::Vector{<:Real} 
+struct Ray{T<:Real}
+    point::Vector{T}
+    vector::Vector{T} 
 end
 
-struct Plane
-    point::Vector{<:Real} 
-    vectors::Vector{<:Vector{<:Real}} 
+struct Plane{T<:Real}
+    point::Vector{T} 
+    vectors::Vector{Vector{T}} 
 end
 
 """
@@ -195,7 +195,7 @@ function Plane(points::Vector{<:Vector{<:Real}}; atol::Real=1e-8)
         @info "points: $(points)"
         @info "basis: $(basis)"
     end
-    @assert length(basis) == 3 "polygon doesn't span a plane."
+    @assert length(basis) == 3 "points doesn't span a plane."
     v = basis[1]
     A = map(b -> b-v, basis[2:end])
     return Plane(v, A)
