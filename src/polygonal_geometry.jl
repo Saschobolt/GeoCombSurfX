@@ -1,4 +1,4 @@
-include("affine_geometry")
+include("affine_geometry.jl")
 
 function intriang3d(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real})
     # https://gdbooks.gitbooks.io/3dcollisions/content/Chapter4/point_in_triangle.html
@@ -40,7 +40,37 @@ function intriang3d(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real})
 end
 
 
-function earcut3d(polygon::Vector{<:Vector{<:Real}}, atol = 1e-8)
+"""
+    is_clockwise(polygon::Vector{<:Vector{<:Real}}; atol = 1e-12)
+
+Determine whether the polygon is orientated clockwise.
+"""
+# TODO: So funktioniert das nicht. Der signed angle hängt vom Normalenvektor ab -> ist der Normalenvektor negativ, so is tauch der Winkel negativ -> Vielleicht lieber mit Cross Product arbeiten, weil der Normalenvektor immer ein Rechtssystem mit den Vektoren bildet.
+function is_clockwise(polygon::Vector{<:Vector{<:Real}}; atol = 1e-12)
+    if polygon[1] == polygon[end]
+        coords = polygon[1:end-1]
+    else
+        coords = polygon
+    end
+
+    m = length(coords)
+
+    n = normalvec(coords)
+    println(n)
+
+    angles = [signedangle3d_right(coords[mod1(i+1, m)] - coords[mod1(i, m)], coords[mod1(i-1,m)] - coords[mod1(i,m)], n; atol = atol) for i in 1:m]
+    println(angles)
+    println(sum(angles))
+
+    if sum(angles) < 0
+        return false
+    else 
+        return true 
+    end
+end
+
+
+function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
     # earcut algorithm: https://www.geometrictools.com/Documentation/TriangulationByEarClipping.pdf
     # https://www.mathematik.uni-marburg.de/~thormae/lectures/graphics1/code/JsCoarseImg/EarCutting.html
     @assert all(length.(polygon) .== 3) "polygon needs to be 3d Polygon."
@@ -52,7 +82,10 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}, atol = 1e-8)
         coords = polygon
     end
 
-    remaining_verts = collect(1:length(polygon))
+    remaining_verts = collect(1:length(coords))
+    if length(remaining_verts) == 3
+        return [remaining_verts]
+    end
     sol = []
 
     # @info "remaining_verts: $(remaining_verts)"
@@ -69,7 +102,7 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}, atol = 1e-8)
     n = normalvec(coords[remaining_verts])
 
     # signed angles at vertices
-    angles  = [signedangle3d(coords[neighbors(v)[1]] - coords[v], coords[v] - coords[neighbors(v)[2]], n, atol = 1e-12) for v in remaining_verts]
+    angles  = [signedangle3d_right(coords[neighbors(v)[1]] - coords[v], coords[v] - coords[neighbors(v)[2]], n, atol = 1e-12) for v in remaining_verts]
     angles[abs.(angles) .< 1e-12] .= 0
 
     # sign of angles at convex vertices is the same as the sum of angle array (2pi or -2pi)
@@ -79,7 +112,7 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}, atol = 1e-8)
     function isconvex(v::Int)
         neighbor1 = neighbors(v)[1]
         neighbor2 = neighbors(v)[2]
-        angle = signedangle3d(coords[neighbor1] - coords[v], coords[v] - coords[neighbor2], n, atol = 1e-12)
+        angle = signedangle3d_right(coords[neighbor1] - coords[v], coords[v] - coords[neighbor2], n, atol = 1e-12)
         # @info "check, if $(v) is convex; neighbor1: $(neighbor1), neighbor2: $(neighbor2), angle: $(angle)"
         if abs(angle) < 1e-12
             return false
@@ -199,10 +232,7 @@ Determine whether the point p lies inside the polygon poly.
 -1: p lies on the boundary of polygon
 """
 function inpolygon3d(poly::Vector{<:Vector{<:Real}}, p::Vector{<:Real}; atol = 1e-8)
-    @assert all(length.(poly) .== 3) "triang has to consist of 3-vectors."
-    @assert length(poly) == 3 "triang needs to be a list of 3 points."
-    @assert length(p) == 3 "p has to be a point in 3-space."
-    @assert affinedim(poly) == 2 "triang is degenerate."
+    @assert all(length.(poly) .== 3) "poly has to consist of 3-vectors."
 
     poly_triang = [poly[triangle] for triangle in earcut3d(poly, atol = atol)]
     if any([intriang3d(triang, p) == 1 for triang in poly_triang])
@@ -217,26 +247,26 @@ end
 # """
 # returns 1 if the 3d point p lies in the polygon poly embedded into R^3, -1 if it lies on its boundary and 0 otherwise
 # """
-# function inpolygon3d(p::AbstractVector, poly::AbstractVector; tol::Real=1e-5)
+# function inpolygon3d(p::AbstractVector, poly::AbstractVector; atol::Real=1e-5)
 #     d = 3
 #     @assert length(p) == 3 "Only 3d case."
 #     @assert all([length(v) == 3 for v in poly]) "Only 3d case."
 
-#     E = Plane(poly, tol = tol)
+#     E = Plane(poly, atol = atol)
 #     point = deepcopy(p)
 
 #     preim = [E.point, E.point + E.vectors[1], E.point + E.vectors[2], E.point + normalize(cross(E.vectors[1], E.vectors[2]))]
 #     im = [[0,0,0], [1,0,0], [0,1,0], [0,0,1]]
 
 #     # affine map so that the affine basis of the polygon is mapped to the xy plane
-#     aff = affinemap(preim, im, atol = tol)
+#     aff = affinemap(preim, im, atol = atol)
 
 #     # transformed polygon and point
 #     polytransformed = aff.(poly)
 #     pointtransformed = aff(point)
     
 
-#     if abs(pointtransformed[3]) < tol
+#     if abs(pointtransformed[3]) < atol
 #          # inpolygon projects onto the xy plane and decides the problem.
 #          # If p and poly lie in the same plane, then this is enough to decide the problem
 #         return inpolygon(pointtransformed, polytransformed)

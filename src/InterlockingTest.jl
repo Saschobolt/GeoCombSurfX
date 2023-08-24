@@ -3,6 +3,7 @@ using HiGHS
 ## <: subtypen
 ## vertexmenge 1-n
 
+<<<<<<< HEAD
 function help_norm(vec::Vector)
     return sqrt(sum(map(i->i^2,vec))) 
 end
@@ -12,6 +13,11 @@ function crossProduct(A::Vector,B::Vector)
 	A[1]*B[2]-A[2]*B[1]];
 	return CP;
 end
+=======
+using JuMP
+using HiGHS
+
+>>>>>>> 6ea8a9e528a4165b43865ba7c5846a8b6463f3d0
 function orientatedNormals(poly::Polyhedron)
   p=OrientatePolyhedron(poly)
   facets=get_facets(p)
@@ -51,9 +57,17 @@ function orientatedNormals(poly::Polyhedron)
   return normals
 end
 
+<<<<<<< HEAD
 ###array 
 function InterlockingTestByWang(assembly::Vector,frame::Vector{Int})
   # construct lp and add the variables
+=======
+
+function InterlockingTestByWang2(assembly::Vector{<:Polyhedron}, frame::Vector{<:Int})
+  # construct lp and add the variables
+  # assembly=connectedComponents(poly)
+  indices=filter(i->!(i in frame),1:length(assembly))
+>>>>>>> 6ea8a9e528a4165b43865ba7c5846a8b6463f3d0
   model=Model(HiGHS.Optimizer)
   @objective(model,Max,0)
   @variable(model,omega[i=1:length(assembly), j=1:3])

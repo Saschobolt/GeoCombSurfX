@@ -3,7 +3,7 @@ using PolygonOps
 import Base.Multimedia.display
 import Base.==
 
-include("affine_geometry")
+include("affine_geometry.jl")
 include("polygonal_geometry.jl")
 
 abstract type AbstractPolyhedron end
@@ -86,6 +86,30 @@ function ==(poly1::Polyhedron, poly2::Polyhedron; atol = 1e-12)
 end
 
 """
+    iscongruent(poly1::Polyhedron, poly2::Polyhedron)
+
+Determine whether two polyhedra are congruent, 
+i.e. they have the same combinatorics and there exists a rigid map mapping the verts of poly1 to the verts of poly2.
+"""
+function iscongruent(poly1::Polyhedron, poly2::Polyhedron)
+    if Set.(get_edges(poly1)) != Set.(get_edges(poly2))
+        return false
+    end
+
+    if !all([facet in get_facets(poly2) || reverse(facet) in get_facets(poly2) for facet in get_facets(poly1)])
+        return false
+    end
+
+    try
+        aff = rigidmap(get_verts(poly1), get_verts(poly2))
+    catch AssertionError
+        return false
+    end
+
+    return true
+end
+
+"""
     dimension(poly::Polyhedron)
 
 Get the dimension of the unerlying space the polyhedron is embedded into.
@@ -161,6 +185,25 @@ end
 
 
 """
+    incedges(poly::Polyhedron, v::Int)
+
+Return the edges of the polyhedron poly, that are incident to the vertex v, i.e. that contain v.
+"""
+function incedges(poly::Polyhedron, v::Int)
+    return filter(e -> isincident(v, e), get_edges(poly))
+end
+
+"""
+    incedges(poly::Polyhedron, f::Vertex{<:Int})
+
+Return the edges of the polyhedron poly, that are incident to the facet f, i.e. that are a subset of f.
+"""
+function incedges(poly::Polyhedron, f::Vector{<:Int})
+    return filter(e -> issubset(e, f), get_edges(poly))
+end
+
+
+"""
     formpath!(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
 
 Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
@@ -232,99 +275,16 @@ function formpath(vertexindices::Vector{<:Int}, poly::Polyhedron)
     return vertexindicescopy
 end
 
-struct Ray
-    point::Vector{<:Real}
-    vector::Vector{<:Real} 
-end
-
-struct Plane
-    point::Vector{<:Real} 
-    vectors::Vector{<:Vector{<:Real}} 
-end
-
-
-"""
-A::Matrix
-cond::Float64
-Returns an orthonormal basis for the columnspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
-"""
-function colspace(A::Matrix{<:Real}; tol::Real = 1e-5)
-    F = svd(A)
-    return [c[:] for c in eachcol(F.U[:, findall(>(tol), abs.(F.S))])]
-end
-
-
-"""
-A::Matrix
-cond::Float64
-Returns an orthonormal basis for the nullspace of the matrix A using svd. Singular values with abs < cond are treated as 0.
-"""
-function nullspace(A::Matrix{<:Real}, tol::Real = 1e-5)
-    F = svd(A)
-    return [c[:] for c in eachcol(F.V[:, findall(<(tol), abs.(F.S))])]
-end
-
-"""
-    Plane(points::Vector{<:Vector{<:Real}}; tol::Real=1e-8)
-
-Calculate the affine plane in which points lie.
-"""
-function Plane(points::Vector{<:Vector{<:Real}}; tol::Real=1e-8)
-    basis = affinebasis(points, atol = tol)
-    @assert length(basis) == 3 "polygon doesn't span a plane."
-    v = basis[1]
-    A = map(b -> b-v, basis[2:end])
-    return Plane(v, A)
-end
-
-"""
-    normalvec(plane::Plane)
-
-Calculate the normalized normal vector of a plane.
-"""
-function normalvec(plane::Plane)
-    return normalize(cross(plane.vectors[1], plane.vectors[2]))
-end
-
-"""
-    normalvec(polygon::Vector{<:Vector{<:Real}})
-
-Calculate the normal vector of the plane that is spanned by points.
-"""
-function normalvec(points::Vector{<:Vector{<:Real}})
-    return normalvec(Plane(points))
-end
-
-"""
-returns the intersection between a ray and a plane if it exists.
-"""
-function intersect(ray::Ray, plane::Plane; tol::Real = 1e-8)
-    vr = ray.point
-    vp = plane.point
-
-    A = hcat(union(plane.vectors, [-ray.vector])...)
-    if length(colspace(A, tol=tol)) < 3
-        throw(ErrorException("ray and plane are parallel."))
-    end
-    
-    coeffs = A\(vr - vp)
-    if coeffs[3] < 0
-        throw(ErrorException("ray and plane don't intersect"))
-    end
-
-    return vr + coeffs[3] * ray.vector
-end
-
 
 # decide whether point is inside of polyhedron
 """
     Randomized algorithm to check whether a point is contained in a polyhedron.
 """
-function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron; tol::Real=1e-5)::Int 
+function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron; atol::Real=1e-5)::Int 
     # check whether point lies on the boundary of poly
     for facet in get_facets(poly)
         polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
-        if  inpolygon3d(point, polygon, tol=tol) != 0
+        if  inpolygon3d(polygon, point, atol= atol) != 0
             return -1
         end
     end
@@ -345,9 +305,9 @@ function inpolyhedron(point::Vector{<:Real}, poly::Polyhedron; tol::Real=1e-5)::
 
             p = intersect(r, E)
 
-            if inpolygon3d(p, polygon, tol = tol) == -1
+            if inpolygon3d(polygon, p, atol = atol) == -1
                 break
-            elseif inpolygon3d(p, polygon, tol = tol) == 1
+            elseif inpolygon3d(polygon, p, atol = atol) == 1
                 numIntersections = numIntersections + 1
             end
         end

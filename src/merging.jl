@@ -1,6 +1,6 @@
 using LinearAlgebra
 include("Polyhedron.jl")
-include("affine_geometry")
+include("affine_geometry.jl")
 
 """
     merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}})

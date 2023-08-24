@@ -1,6 +1,32 @@
 include("Polyhedron.jl")
 include("merging.jl")
 
+function cube_assembly()
+  cube1 = Cube
+
+  shift_x = rigidmap([0 1 0 0; 0 0 1 0; 0 0 0 1], [1 2 1 1; 0 0 1 0; 0 0 0 1])
+  shift_y = rigidmap([0 1 0 0; 0 0 1 0; 0 0 0 1], [0 1 0 0; 1 1 2 1; 0 0 0 1])
+
+  cube2 = deepcopy(cube1)
+  set_verts!(cube2, shift_x.(get_verts(cube2)))
+  cube3 = deepcopy(cube2)
+  set_verts!(cube3, shift_x.(get_verts(cube3)))
+  cube4 = deepcopy(cube1)
+  set_verts!(cube4, shift_y.(get_verts(cube4)))
+  cube5 = deepcopy(cube2)
+  set_verts!(cube5, shift_y.(get_verts(cube5)))
+  cube6 = deepcopy(cube3)
+  set_verts!(cube6, shift_y.(get_verts(cube6)))
+  cube7 = deepcopy(cube4)
+  set_verts!(cube7, shift_y.(get_verts(cube7)))
+  cube8 = deepcopy(cube5)
+  set_verts!(cube8, shift_y.(get_verts(cube8)))
+  cube9 = deepcopy(cube6)
+  set_verts!(cube9, shift_y.(get_verts(cube9)))
+
+  return [cube1, cube2, cube3, cube4, cube5, cube6, cube7, cube8, cube9]
+end
+
 ##################################################################################
 ################# n-prisms
 ##################################################################################
@@ -11,7 +37,7 @@ TBW
 """
 function nprism(n::Integer)
   alpha = 1/dist([1,0], [cos(2*pi/n), sin(2*pi/n)])
-  verts = vcat([[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 0] for k in 1:n], [[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 1] for k in 1:n])
+  verts = vcat([[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 0] for k in 0:n-1], [[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 1] for k in 0:n-1])
   facets = vcat([[1:n...]], [[(n+1):(2*n)...]], [[k, k+1, k+n+1, k+n] for k in 1:(n-1)], [[n,1,n+1,2*n]])
   edges = vcat([[k, k+1] for k in 1:(n-1)], [[n,1]], [[n+k, n+k+1] for k in 1:(n-1)], [[2*n, n+1]], [[k, k+n] for k in 1:n])
   return Polyhedron(verts, edges, facets)
@@ -22,24 +48,178 @@ function tiblock(n1::Integer, n2::Integer, nmerges::Integer; atol::Real = 1e-8)
 
   if n2 == 3
     sideelem = nprism(3)
-    merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]])
-    merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]])
-
+    merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]], atol = atol)
+    merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]], atol = atol)
   elseif n2 == 4
     sideelem = nprism(4)
-    merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]])
-    merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]])
-
+    merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]], atol = atol)
+    merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]], atol = atol)
   else
     sideelem = nprism(n2)
   end
 
   block = nprism(n1)
   for k in 3:Int(n1 / nmerges):length(get_facets(nprism(n1)))
-    merge!(block, sideelem, [get_facets(nprism(n1))[k]], [[n2+1,1,2, n2+2]])
+    merge!(block, sideelem, [get_facets(nprism(n1))[k]], [[n2+1,1,2, n2+2]], atol = atol)
   end
 
   return block
+end
+
+
+##################################################################################
+################# paper assemblies
+##################################################################################
+function assembly1(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
+  @assert n1 > 3 "not possible for triangle prisma"
+  assembly = Polyhedron[]
+
+  block = flattenfacets(tiblock(n1, n2, nmerges))
+  theta = -pi / n1
+  rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
+  set_verts!(block, [rotmat * coords for coords in get_verts(block)])
+  push!(assembly, block)
+  
+  for i in 2:nblocks
+    lastblock = assembly[end]
+    newblock = deepcopy(lastblock)
+    lastcoords = get_verts(lastblock)
+    newcoords = get_verts(newblock)
+
+    preim = [newcoords[1], newcoords[2], newcoords[3], newcoords[1] + cross(newcoords[2] - newcoords[1], newcoords[3] - newcoords[1])]
+    if mod(i, 2) == 0
+      im = [lastcoords[n1 + 2], lastcoords[n1 + 3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
+    else
+      im = [lastcoords[2 * n1], lastcoords[n1+1], lastcoords[n1+2], lastcoords[2*n1] + cross(lastcoords[n1+1] - lastcoords[2*n1], lastcoords[n1+2] - lastcoords[2*n1])]
+    end
+    aff = rigidmap(preim, im)
+    set_verts!(newblock, aff.(newcoords))
+
+    push!(assembly, newblock)
+  end
+
+  frame = [1, nblocks]
+
+  return assembly, frame
+end
+
+function assembly2(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
+  @assert n1 > 3 "not possible for triangle prisma"
+  assembly = Polyhedron[]
+
+  block = flattenfacets(tiblock(n1, n2, nmerges))
+  theta = -pi / n1
+  rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
+  set_verts!(block, [rotmat * coords for coords in get_verts(block)])
+  push!(assembly, block)
+  
+  for i in 2:nblocks
+    lastblock = assembly[end]
+    newblock = deepcopy(lastblock)
+    lastcoords = get_verts(lastblock)
+    newcoords = get_verts(newblock)
+
+    preim = [newcoords[1], newcoords[2], newcoords[3], newcoords[1] + cross(newcoords[2] - newcoords[1], newcoords[3] - newcoords[1])]
+    if mod(i, 3) != 0
+      im = [lastcoords[n1 + 2], lastcoords[n1 + 3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
+    else
+      im = [lastcoords[2*n1 - 1], lastcoords[2*n1], lastcoords[n1+1], lastcoords[2*n1 - 1] + cross(lastcoords[2*n1] - lastcoords[2*n1 - 1], lastcoords[n1+1] - lastcoords[2*n1 - 1])]
+    end
+    aff = rigidmap(preim, im)
+    set_verts!(newblock, aff.(newcoords))
+
+    push!(assembly, newblock)
+  end
+
+  frame = Int[1,nblocks]
+
+  return assembly, frame
+end
+
+function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::Int = 2)
+  assembly, frame = assembly2(n1, 3, 2, towerheight)
+  link = Int[]
+
+  # offset between blocks of a tower to attach a link between towers
+  offset = max(towerheight ÷ 3 ÷ nlinks, 1) * 3
+  # corrected number of links that are possible for the towers
+  correct_nlinks = length(filter(i -> 4 + (i-1) * offset <= towerheight, collect(1:nlinks)))
+  # base building block
+  linkblock = flattenfacets(tiblock(n1,3,2))
+
+  function attachlinks(tower)
+    for i in 1:correct_nlinks
+      newblock = deepcopy(linkblock)
+      newcoords = get_verts(newblock)
+      towerblocks = tower[[j + (i-1) * offset for j in collect(1:4)]]
+      towerblockcoords = get_verts.(towerblocks)
+
+      preim = newcoords[[n1÷2+1, n1÷2+2, n1÷2+1+n1, n1÷2+2+n1, collect((2*n1+7):(2*n1+12))...]]
+      im = [towerblockcoords[1][[2*n1+5, 2*n1+6]]..., towerblockcoords[4][[2*n1+3, 2*n1+4]]..., towerblockcoords[2][[2*n1, n1+1, n1, 1]]..., towerblockcoords[3][[n1+2,n1+3]]...]
+      aff = rigidmap(preim, im)
+      set_verts!(newblock, aff.(newcoords))
+
+      push!(assembly, newblock)
+      push!(link, length(assembly))
+    end
+  end
+
+  attachlinks(assembly)
+  
+  
+  for i in 2:ntowers
+    newassembly, newframe = assembly2(n1, 3, 2, towerheight)
+    newframe = newframe .+ length(assembly)
+
+    append!(frame, newframe)
+
+    # reflink has to attach at the first 4 blocks of the tower
+    reflink = assembly[link[end-correct_nlinks+1]]
+    refcoords = get_verts(reflink)
+    towercoords = get_verts.(newassembly)
+
+    preim = [towercoords[1][[2*n1+11, 2*n1+12]]..., towercoords[4][[2*n1+9, 2*n1+10]]..., towercoords[2][[n1÷2+n1, n1÷2+n1+1, n1÷2, n1÷2+1]]..., towercoords[3][[n1÷2+n1+2, n1÷2+n1+3]]...]
+    im = refcoords[[1, 2, n1+1, n1+2, collect((2*n1+1):2*n1+6)...]]
+    aff = rigidmap(preim, im)
+
+    for block in newassembly
+      set_verts!(block, aff.(get_verts(block)))
+    end
+    append!(assembly, newassembly)
+
+    attachlinks(newassembly)
+  end
+
+  return assembly, frame, link
+end
+
+function assembly4(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
+  @assert n1 > 3 "not possible for triangle prisma"
+  assembly = Polyhedron[]
+
+  block = flattenfacets(tiblock(n1, n2, nmerges))
+  theta = -pi / n1
+  rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
+  set_verts!(block, [rotmat * coords for coords in get_verts(block)])
+  push!(assembly, block)
+  
+  for i in 2:nblocks
+    lastblock = assembly[end]
+    newblock = deepcopy(lastblock)
+    lastcoords = get_verts(lastblock)
+    newcoords = get_verts(newblock)
+
+    preim = [newcoords[1], newcoords[2], newcoords[3], newcoords[1] + cross(newcoords[2] - newcoords[1], newcoords[3] - newcoords[1])]
+    im = [lastcoords[n1 + 2], lastcoords[n1 + 3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
+    aff = rigidmap(preim, im)
+    set_verts!(newblock, aff.(newcoords))
+
+    push!(assembly, newblock)
+  end
+
+  frame = Int[1,nblocks]
+
+  return assembly, frame
 end
 
 
