@@ -48,7 +48,7 @@ function outward_normal(poly::Polyhedron{S, T}, facet::Vector{T}) where {S<:Real
     basis_inds = sort(affinebasis_indices(hcat(get_verts(poly)[f]...)))
     @assert length(basis_inds) == 3
 
-    return cross(get_verts(poly)[f[basis_inds[2]]] - get_verts(poly)[f[basis_inds[1]]], get_verts(poly)[f[basis_inds[3]]] - get_verts(poly)[f[basis_inds[1]]])
+    return normalize(cross(get_verts(poly)[f[basis_inds[2]]] - get_verts(poly)[f[basis_inds[1]]], get_verts(poly)[f[basis_inds[3]]] - get_verts(poly)[f[basis_inds[1]]]))
 end
 
 
