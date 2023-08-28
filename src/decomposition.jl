@@ -35,9 +35,18 @@ function triangulate(poly::Polyhedron; atol = 1e-5)::Polyhedron
 end
 
 
-function outward_normal(poly::Polyhedron{S, T}, facet::Vector{T}) where {S<:Real, T<:Integer}
+"""
+    outward_normal(poly::Polyhedron{S, T}, facet::Vector{T}; is_oriented::Bool = false) where {S<:Real, T<:Integer}
+
+Calculate the outward facing normal of the facet facet of poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
+"""
+function outward_normal(poly::Polyhedron{S, T}, facet::Vector{T}; is_oriented::Bool = false) where {S<:Real, T<:Integer}
     @assert facet in get_facets(poly) || reverse(facet) in get_facets(poly) "facet needs to be a facet of poly."
-    poly_orient = orient_facets(poly)
+    if is_oriented
+        poly_orient = deepcopy(poly)
+    else
+        poly_orient = orient_facets(poly)
+    end
 
     if facet in get_facets(poly_orient)
         f = facet
@@ -53,18 +62,38 @@ end
 
 
 """
-    edgetype(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-8)
+    isflatedge(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
 
-Determine the type of the edge of poly as either "flat", "concave" or "convex".
+Determine whether the edge edge of the Polyhedron poly is flat. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
 """
-function edgetype(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
+function isflatedge(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
+    facets = adjfacets(poly, edge)
+
+    return affinedim(get_verts(poly)[union(facets...)], atol = atol) == 2
+end
+
+
+"""
+    edgetype(poly::Polyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
+
+Determine the type of the edge of poly as either "flat", "concave" or "convex". If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
+"""
+function edgetype(poly::Polyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
     @assert edge in get_edges(poly)|| reverse(edge) in get_edges(poly) "edge has to be an edge of poly."
     verts = get_verts(poly)
-
-    poly_orient = orient_facets(poly)
     
-    facets = adjfacets(poly_orient, edge)
+    if isflatedge(poly, edge, atol = atol)
+        return "flat"
+    end
 
+    if is_oriented
+        poly_orient = deepcopy(poly)
+    else
+        poly_orient = orient_facets(poly)
+    end
+
+    facets = adjfacets(poly_orient, edge)
+    
     function direction(facet, edge)
         # function that determines if edge is oriented forwards (1) or backwards (-1) in facet. 
         inds = indexin(edge, facet)
@@ -82,101 +111,68 @@ function edgetype(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
         backw = facets[1]
     end
 
-    i = indexin(edge[1], forw)[1]
-    j = indexin(edge[1], backw)[1]
+    for i in setdiff(forw, edge)
+        for j in setdiff(backw, edge)
+            # use determinant to determine if edge forms a right or left system with neighboring edges.
+            d = det(hcat(verts[i] - verts[edge[1]], verts[edge[2]] - verts[edge[1]], verts[j] - verts[edge[1]]))
 
-    # use determinant to determine if edge forms a right or left system with neighboring edges.
-    d = det(hcat(verts[forw[mod1(i-1, length(forw))]] - verts[edge[1]], verts[edge[2]] - verts[edge[1]], verts[backw[mod1(j+1, length(backw))]] - verts[edge[1]]))
-
-    if abs(d) < atol
-        return "flat"
-    elseif d > 0
-        return "convex"
-    elseif d < 0
-        return "concave"
+            if d > 0
+                return "convex"
+            elseif d < 0
+                return "concave"
+            end
+        end
     end
+    error("Could't determine edge type.")
 end
 
 
 """
-    isflat(poly::Polyhedron, edge::Vector{<:Int})
+    flattenfacets!(poly::Polyhedron; is_oriented::Bool = false, atol = 1e-8)
 
-Determine whether the edge edge of the Polyhedron poly is flat.
+Remove flat edges of the Polyhedron poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
 """
-function isflatedge(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
-    return edgetype(poly, edge, atol = atol) == "flat"
-end
+function flattenfacets!(poly::Polyhedron; is_oriented::Bool = false, atol = 1e-8)
+    flat_edges = filter(e -> isflatedge(poly, e), get_edges(poly))
+    set_edges!(poly, setdiff(get_edges(poly), flat_edges))
 
+    # facets of poly that have a flat edge
+    flat_facets = filter(f -> any(map(e -> issubset(e, f), flat_edges)), get_facets(poly))
 
-"""
-    flattenfacets!(poly::Polyhedron; atol = 1e-5)::Polyhedron
+    # vertices of poly that lie in the inside of a flat facet
+    flat_verts = filter(v -> !any([v in e for e in get_edges(poly)]), union(get_facets(poly)...))
 
-Remove flat edges of the Polyhedron poly.
-"""
-function flattenfacets!(poly::Polyhedron; atol = 1e-8)
-    edgeschecked = []
-    
-    # @info "edgestocheck: $(edgestocheck)"
-    # determine flat edges by calculating the affine dimension of the union of two facets.
-    for e in get_edges(poly)
-        # @info "e: $(e)"
-        if e in edgeschecked
-            continue
+    # boolean matrix: (i,j) = true if flat_facet[i] and flat_facet[j] share a flat edge.
+    shareflatedge = [any(map(e -> issubset(e, Base.intersect(flat_facets[i], flat_facets[j])), flat_edges)) for i in eachindex(flat_facets), j in eachindex(flat_facets)]
+
+    # array that keeps track of which flat facets to merge
+    merges = Vector{Int}[]
+
+    # recursive function to find all indices of flat facets (with greater index than i) that are subsets of the new facet that the flat facet i is a subset of
+    function findmergesrec(i) # Performance verbesserung durch dynamic programming?
+        if filter(j -> j > i, findall(shareflatedge[i,:])) == [] 
+            return [i]
         end
 
-        @assert length(adjfacets(poly, e)) <= 2 "Edge $(e) is degenerate as it is edge of the facets $(adjfacets(poly, e))"
-
-        if length(adjfacets(poly, e)) < 2
-            push!(edgeschecked, e)
-            continue
-        end
-
-        facet1 = adjfacets(poly, e)[1]
-        edges1 = filter(edge -> issubset(edge, facet1), get_edges(poly))
-        facet2 = adjfacets(poly, e)[2]
-        edges2 = filter(edge -> issubset(edge, facet2), get_edges(poly))
-        # @info "facet1: $(facet1)"
-        # @info "facet2: $(facet2)"
-        # @info "edges1: $(edges1)"
-        # @info "edges2: $(edges2)"
-        # possible edges in the intersection of the facets. All of those are checked at once since the affine dimension of a facet is 2. 
-        # So one of them is flat <=> all of them are flat
-        intersect_verts = Base.intersect(facet1, facet2)
-        intersect_edges = Base.intersect(edges1, edges2)
-        
-        append!(edgeschecked, intersect_edges)
-        unique!(edgeschecked)
-
-        # if facets span a space of dimension 2 the edges in the intersection can be removed
-        # the facets need to be merged
-        if isflatedge(poly, e)
-            # mark edges in the intersection as checked
-            append!(edgeschecked, intersect_edges)
-
-
-            # remove flat edges from poly
-            oldedges = get_edges(poly)
-            newedges = setdiff(oldedges, intersect_edges)
-            set_edges!(poly, newedges)
-
-            # merge facets
-            # verts in the intersection ordered along a path defined by the intersect_edges
-            intersect_path = formpath(intersect_verts, intersect_edges)
-            # relevant vertices of facet1 and facet2 that are part of the merged facet: the inner vertices of the intersection path are removed
-            newfacet1 = setdiff(facet1, intersect_path[2:end-1])
-            newfacet2 = setdiff(facet2, intersect_path[2:end-1])
-            # edges of facet1 and facet2 that remain after removing flat edges
-            relevantedges = symdiff(edges1, edges2)
-            mergedfacet = formpath(union(newfacet1, newfacet2), relevantedges)
-
-            oldfacets = get_facets(poly)
-            newfacets = setdiff(oldfacets, [facet1, facet2])
-            push!(newfacets, mergedfacet)
-            set_facets!(poly, newfacets)
-        end
-
-        append!(edgeschecked, intersect_edges)
+        return union([i], [findmergesrec(j) for j in filter(j -> j > i, findall(shareflatedge[i,:]))]...)
     end
+
+    for i in 1:length(flat_facets)
+        if any([i in a for a in merges]) continue end
+
+        push!(merges, findmergesrec(i))
+    end
+
+    newfacets = [union(flat_facets[a]...) for a in merges]
+    newfacets = [filter(v -> !(v in flat_verts), f) for f in newfacets]
+    # edge facet adjacency matrix for the new facets
+    edgefacetadj = [issubset(get_edges(poly)[i], newfacets[j]) for i in eachindex(get_edges(poly)), j in eachindex(newfacets)]
+    newfacets = [formpath(newfacets[j], get_edges(poly)[findall(edgefacetadj[:,j])]) for j in eachindex(newfacets)]
+
+    facets = get_facets(poly)
+    setdiff!(facets, flat_facets)
+    append!(facets, newfacets)
+    set_facets!(poly, facets)
 
     # if a vertex lies inside a polygon forming a facet, it can be ignored. 
     # Thus the entries of sol_edges have to be transformed in order to be labeled 1,...,n
@@ -192,9 +188,9 @@ function flattenfacets!(poly::Polyhedron; atol = 1e-8)
 end
 
 
-function flattenfacets(poly::Polyhedron, atol = 1e-5)
+function flattenfacets(poly::Polyhedron; is_oriented::Bool = false, atol = 1e-5)
     polycopy = deepcopy(poly)
-    flattenfacets!(polycopy)
+    flattenfacets!(polycopy, is_oriented = is_oriented, atol = atol)
     return polycopy
 end
 
