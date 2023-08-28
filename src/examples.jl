@@ -1,5 +1,6 @@
 include("Polyhedron.jl")
 include("merging.jl")
+include("combinatorics.jl")
 
 function cube_assembly()
   cube1 = Cube
@@ -222,6 +223,64 @@ function assembly4(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
   return assembly, frame
 end
 
+function tetrahedra_interlocking(n::Int)
+  assembly=[]
+  frame=[]
+  mat=Matrix([[cos(pi/2), sin(pi/2),0.0] [-sin(pi/2),cos(pi/2),0.0] [0.0,0.0,1.0]])
+  vertices=[[0.5,0,0],[-0.5,0.,0.],[0.,0.5,sqrt(3.)/2.],[0.,-0.5,sqrt(3.)/2.]]  
+  for i in 1:n
+    for j in 1:n
+      if i%2==j%2 
+        push!(assembly,map(coor->[(i-1)/2.0,(j-1)/2.0,0.0]+coor,vertices))
+      else
+        push!(assembly,map(coor->[(i-1)/2.0,(j-1)/2.0,0.0]+mat*coor,vertices))
+      end
+      if i==1 || i==n || j==1 || j==n
+        push!(frame,length(assembly))
+      end 
+    end
+  end
+  return map(coor->
+         PolyhedronByVerticesInFacets(coor,[[1,2,3],[1,2,4],[1,3,4],[2,3,4]]),assembly),frame
+end
+
+function octahedra_interlocking(n::Int)
+  assembly=[]
+  frame=[]
+  vertices=1.0*[[1,0,1],[ 1, 1, 0 ], [ 2, 1, 1 ],[ 1, 1, 2 ], [ 0, 1, 1 ],[ 1, 2, 1 ]]  
+  vec1=vertices[2]-vertices[1]
+  vec2=vertices[3]-vertices[1]
+  for i in 1:n
+    for j in 1:n
+      push!(assembly,map(coor->(i-1)*vec1+(j-1)*vec2+coor,vertices))
+      if i==1 || i==n || j==1 || j==n
+        push!(frame,length(assembly))
+      end 
+    end
+  end
+  temp=[[1,2,3],[1,3,4],[1,4,5],[1,2,5],[6,2,3],[6,3,4],[6,4,5],[6,2,5]]
+  return map(coor->
+         PolyhedronByVerticesInFacets(coor,temp),assembly),frame
+end
+
+function cube_interlocking(n::Int)
+  assembly=[]
+  frame=[]
+  vertices=1.0*[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]]
+  temp=[[1,2,3,4],[5,6,7,8],[5,6,2,1],[6,7,3,2],[7,8,4,3],[1,4,8,5]]
+  vec1=[1.0,-0.5,0.5]
+  vec2=[-0.5,1.0,0.5]
+  for i in 1:n
+    for j in 1:n
+      push!(assembly,map(coor->(i-1)*vec1+(j-1)*vec2+coor,vertices))
+      if i==1 || i==n || j==1 || j==n
+        push!(frame,length(assembly))
+      end 
+    end
+  end
+  return map(coor->
+         PolyhedronByVerticesInFacets(coor,temp),assembly),frame
+end
 
 ##################################################################################
 ################# platonic solids
