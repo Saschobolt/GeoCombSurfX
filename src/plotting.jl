@@ -60,8 +60,7 @@ function trace_polyhedron(poly::Polyhedron;
     return traces
 end
 
-
-function plot(assembly::Vector{Polyhedron}; 
+function plot(assembly::Vector{<:Polyhedron}; 
               colors::Vector{<:Color} = [RGB(0,0.9,1)], labels::Bool = false, opacity::Real = 1, 
               showbackground::Bool = true, drawverts::Bool = true, width::Int = 600, height::Int = 600)
     if length(colors) == 1
