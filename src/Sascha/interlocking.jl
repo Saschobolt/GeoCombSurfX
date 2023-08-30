@@ -1,4 +1,6 @@
 using JuMP
+using HiGHS
+import GLPK
 import Ipopt
 using Polyhedra
 
@@ -54,9 +56,9 @@ function wangtest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; a
 
     contacts_dict = contacts(assembly, atol = 1e-12)
 
-    model = Model(Ipopt.Optimizer)
+    model = Model(HiGHS.Optimizer)
     # model = Model(() -> MOA.Optimizer(Ipopt.Optimizer))
-    set_silent(model)
+    # set_silent(model)
     # set_optimizer_attribute(model, MOA.Algorithm(), MOA.EpsilonConstraint())
     # set_optimizer_attribute(model, MOA.SolutionLimit(), 50)
 
@@ -152,9 +154,9 @@ function titest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; ato
 
     contacts_dict = contacts(assembly, atol = 1e-9)
 
-    model = Model(Ipopt.Optimizer)
+    model = Model(HiGHS.Optimizer)
     # model = Model(() -> MOA.Optimizer(Ipopt.Optimizer))
-    set_silent(model)
+    # set_silent(model)
     # set_optimizer_attribute(model, MOA.Algorithm(), MOA.EpsilonConstraint())
     # set_optimizer_attribute(model, MOA.SolutionLimit(), 50)
 
