@@ -1,5 +1,6 @@
 using Polyhedra
 using HiGHS
+using JuMP
 ## <: subtypen
 ## vertexmenge 1-n
 
@@ -460,8 +461,8 @@ function tetrahedra_interlocking(n::Int)
       end 
     end
   end
-  return [map(coor->
-         PolyhedronByVerticesInFacets(coor,[[1,2,3],[1,2,4],[1,3,4],[2,3,4]]),assembly),frame]
+  return map(coor->
+         PolyhedronByVerticesInFacets(coor,[[1,2,3],[1,2,4],[1,3,4],[2,3,4]]),assembly),frame
 end
 
 function octahedra_interlocking(n::Int)
@@ -479,8 +480,8 @@ function octahedra_interlocking(n::Int)
     end
   end
   temp=[[1,2,3],[1,3,4],[1,4,5],[1,2,5],[6,2,3],[6,3,4],[6,4,5],[6,2,5]]
-  return [map(coor->
-         PolyhedronByVerticesInFacets(coor,temp),assembly),frame]
+  return map(coor->
+         PolyhedronByVerticesInFacets(coor,temp),assembly),frame
 end
 
 function cube_interlocking(n::Int)
@@ -498,8 +499,8 @@ function cube_interlocking(n::Int)
       end 
     end
   end
-  return [map(coor->
-         PolyhedronByVerticesInFacets(coor,temp),assembly),frame]
+  return map(coor->
+         PolyhedronByVerticesInFacets(coor,temp),assembly),frame
 end
 
 function different_contactedge_types(n::Integer)
