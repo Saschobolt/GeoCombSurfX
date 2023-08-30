@@ -288,7 +288,7 @@ end
 
 ####Tetrahedron 
 
-Tetrahedron=Polyhedron([[2.,0.,0.],[2.,1.,1.],[1.,0.,1.],[1.,1.,0.]],
+Tetrahedron=Polyhedron([[0.5,0,0],[-0.5,0.,0.],[0.,0.5,sqrt(3.)/2.],[0.,-0.5,sqrt(3.)/2.]],
 [ [ 1, 2 ], [1, 3 ], [ 1, 4 ], [ 2, 3 ], [ 2, 4 ], [ 3, 4 ] ]
 ,[ [ 1, 2, 3 ], [ 1, 2, 4 ], [ 2, 3, 4 ], [ 1, 3, 4 ] ])
 
@@ -448,12 +448,13 @@ function Prisma(n::Int)
   #vertices 
   t=1/sqrt((cos(3.14159*2*1/n)-cos(3.14159*2*2/n))^2+
            (sin(3.14159*2*1/n)-sin(3.14159*2*2/n))^2);
+  vertices=Vector{Vector{Float64}}(undef,0)
   vertices=map(i->[t*cos(3.14159*2*i/n),t*sin(3.14159*2*i/n),0.0],1:n)
   for i in 1:n 
     push!(vertices,[t*cos(3.14159*2*i/n),t*sin(3.14159*2*i/n),1.0])
   end
   #facets
-  facets=[]
+  facets=Vector{Vector{Int}}(undef,0)
   for i in 1:n-1
     push!(facets,[i,i+1,n+i+1,n+i])
   end 
@@ -461,7 +462,7 @@ function Prisma(n::Int)
   push!(facets,Vector((1:n)))
   push!(facets,Vector((n+1:2*n)))
   #edges
-  edges=[]
+  edges=Vector{Vector{Int}}(undef,0)
   for i in 1:n-1
     push!(edges,[i,i+1])
     push!(edges,[n+i,n+i+1])
