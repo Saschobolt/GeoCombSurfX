@@ -3,8 +3,35 @@ using PlotlyJS
 include("../src/examples.jl")
 include("../src/plotting.jl")
 include("../src/decomposition.jl")
+include("../src/InterlockingTest.jl")
 
 function create_plots(width = 600, height = 600, color_frame = RGB(1,0,0), color_blocks = RGB(0.5,0.5,0.5), color_links = RGB(0,0.25,1), showbackground = false, opacity = 1)
+    # Cube interlocking
+    ass, frame = cube_interlocking(4)
+    
+    colors = [color_blocks for block in ass]
+    colors[frame] .= color_frame
+    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    PlotlyJS.savefig(p, "cube_interlocking.png", width = width, height = height) 
+
+    # Octahedra interlocking
+    ass, frame = octahedra_interlocking(4)
+    
+    colors = [color_blocks for block in ass]
+    colors[frame] .= color_frame
+    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    PlotlyJS.savefig(p, "octahedra_interlocking.png", width = width, height = height) 
+
+    # Cube interlocking
+    ass, frame = tetrahedra_interlocking(4)
+    
+    colors = [color_blocks for block in ass]
+    colors[frame] .= color_frame
+    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    PlotlyJS.savefig(p, "tetrahedra_interlocking.png", width = width, height = height)
+
+    @info "Convex interlockings figures saved."
+
     # 4 prism
     p = plot(nprism(4), showbackground = showbackground, width = width, height = height, drawverts = false, opacity = opacity)
     PlotlyJS.savefig(p, "4prism.png", width = width, height = height)
@@ -160,30 +187,6 @@ function create_plots(width = 600, height = 600, color_frame = RGB(1,0,0), color
     PlotlyJS.savefig(p, "assembly4_12447.png", width = width, height = height) 
 
     @info "Assemblies with 4hat figures saved."
-
-    # # Cube interlocking
-    # ass, frame = cube_interlocking(10)
-    # 
-    # colors = [color_blocks for block in ass]
-    # colors[frame] .= color_frame
-    # p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    # PlotlyJS.savefig(p, "cube_interlocking.png", width = width, height = height) 
-
-    # # Octahedra interlocking
-    # ass, frame = octahedra_interlocking(10)
-    # 
-    # colors = [color_blocks for block in ass]
-    # colors[frame] .= color_frame
-    # p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    # PlotlyJS.savefig(p, "octahedra_interlocking.png", width = width, height = height) 
-
-    # # Cube interlocking
-    # ass, frame = tetrahedra_interlocking(10)
-    # 
-    # colors = [color_blocks for block in ass]
-    # colors[frame] .= color_frame
-    # p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    # PlotlyJS.savefig(p, "tetrahedra_interlocking.png", width = width, height = height)
 
     # edge-face contact
     block1 = deepcopy(Cube)
