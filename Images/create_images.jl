@@ -4,28 +4,35 @@ include("../src/examples.jl")
 include("../src/plotting.jl")
 include("../src/decomposition.jl")
 include("../src/InterlockingTest.jl")
+include("../src/affine_geometry.jl")
 
-function create_plots(width = 600, height = 600, color_frame = RGB(1,0,0), color_blocks = RGB(0.5,0.5,0.5), color_links = RGB(0,0.25,1), showbackground = false, opacity = 1)
+function create_plots(width = 1000, height = 1000, color_frame = RGB(1,0,0), color_blocks = RGB(0.5,0.5,0.5), color_links = RGB(0,0.25,1), showbackground = false, opacity = 1)
+    color2 = RGB(237/255, 202/255, 2/255)
+
     # Cube interlocking
-    ass, frame = cube_interlocking(4)
+    ass, frame = cube_interlocking(5)
     
     colors = [color_blocks for block in ass]
+    colors[[mod(i,2) == 0 for i in 1:length(colors)]] .= color2
+
     colors[frame] .= color_frame
     p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
     PlotlyJS.savefig(p, "cube_interlocking.png", width = width, height = height) 
 
-    # Octahedra interlocking
-    ass, frame = octahedra_interlocking(4)
+    # # Octahedra interlocking
+    # ass, frame = octahedra_interlocking(5)
     
-    colors = [color_blocks for block in ass]
-    colors[frame] .= color_frame
-    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    PlotlyJS.savefig(p, "octahedra_interlocking.png", width = width, height = height) 
+    # colors = [color_blocks for block in ass]
+    # colors[[mod(i,2) == 0 for i in 1:length(colors)]] .= color2
+    # colors[frame] .= color_frame
+    # p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    # PlotlyJS.savefig(p, "octahedra_interlocking.png", width = width, height = height) 
 
     # Cube interlocking
-    ass, frame = tetrahedra_interlocking(4)
+    ass, frame = tetrahedra_interlocking(5)
     
     colors = [color_blocks for block in ass]
+    colors[[mod(i,2) == 0 for i in 1:length(colors)]] .= color2
     colors[frame] .= color_frame
     p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
     PlotlyJS.savefig(p, "tetrahedra_interlocking.png", width = width, height = height)
@@ -59,6 +66,28 @@ function create_plots(width = 600, height = 600, color_frame = RGB(1,0,0), color
     merge!(hat, nprism(3), [[2,3,5,6]], [[1,2,4,5]])
     p = plot(flattenfacets(hat), showbackground = showbackground, width = width, height = height, drawverts = false, opacity = opacity)
     PlotlyJS.savefig(p, "hat.png", width = width, height = height)
+
+    # exploded view of 3hat
+    colors = [RGB(0,0.9,1), RGB(0,0.9,1), RGB(0,0.9,1)]
+    prism1 = nprism(3)
+
+    prism2 = nprism(3)
+    preim = [get_verts(prism2)[[1,2,4,5]]..., get_verts(prism2)[2] - cross(get_verts(prism2)[1] - get_verts(prism2)[2], get_verts(prism2)[4] - get_verts(prism2)[1])]
+    image = [get_verts(prism1)[[3,1,6,4]]..., get_verts(prism1)[1] + cross(get_verts(prism1)[3] - get_verts(prism1)[1], get_verts(prism1)[6] - get_verts(prism1)[1])]
+    aff = rigidmap(preim, image)
+    set_verts!(prism2, aff.(get_verts(prism2)))
+    aff = x -> x + 0.33 * (center_of_mass(get_verts(prism2)) - center_of_mass(get_verts(prism1)))
+    set_verts!(prism2, aff.(get_verts(prism2)))
+
+    prism3 = nprism(3)
+    preim = [get_verts(prism3)[[1,2,4,5]]..., get_verts(prism3)[2] - cross(get_verts(prism3)[1] - get_verts(prism3)[2], get_verts(prism3)[4] - get_verts(prism3)[1])]
+    image = [get_verts(prism1)[[2,3,5,6]]..., get_verts(prism1)[3] + cross(get_verts(prism1)[2] - get_verts(prism1)[3], get_verts(prism1)[5] - get_verts(prism1)[3])]
+    aff = rigidmap(preim, image)
+    set_verts!(prism3, aff.(get_verts(prism3)))
+    aff = x -> x + 0.33 * (center_of_mass(get_verts(prism3)) - center_of_mass(get_verts(prism1)))
+    set_verts!(prism3, aff.(get_verts(prism3)))
+    p = plot([prism1, prism2, prism3], colors = colors, showbackground = showbackground, width = width, height = height, drawverts = false, opacity = opacity)
+    PlotlyJS.savefig(p, "3hat_exploded.png", width = width, height = height)
 
     # tiblocks with 3 hat
     p = plot(flattenfacets(tiblock(6,3,2)), showbackground = showbackground, width = width, height = height, drawverts = false, opacity = opacity)
@@ -104,7 +133,7 @@ function create_plots(width = 600, height = 600, color_frame = RGB(1,0,0), color
     colors = [color_blocks for block in ass]
     colors[frame] .= color_frame
     colors[link] .= color_links
-    p = plot(ass, colors = colors, width = width, height = height, showbackground = showbackground, drawverts = false, opacity = opacity)
+    p = plot(ass, colors = colors, width = width, height = height, showbackground = showbackground, drawverts = false, opacity = opacity, zoomfactor = 1.25)
     PlotlyJS.savefig(p, "assembly3_6431.png", width = width, height = height)
 
     ass, frame, link = assembly3(6,4,1,1)
@@ -150,29 +179,29 @@ function create_plots(width = 600, height = 600, color_frame = RGB(1,0,0), color
     @info "Blocks with 4hat figures saved."
 
     # assemblies with blocks above
-    ass, frame = assembly2(6,4,2,7)
-    colors = [color_blocks for block in ass]
-    colors[frame] .= color_frame
-    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    PlotlyJS.savefig(p, "assembly2_6427.png", width = width, height = height)
+    # ass, frame = assembly2(6,4,2,7)
+    # colors = [color_blocks for block in ass]
+    # colors[frame] .= color_frame
+    # p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    # PlotlyJS.savefig(p, "assembly2_6427.png", width = width, height = height)
 
-    ass, frame = assembly2(8,4,2,7)
-    colors = [color_blocks for block in ass]
-    colors[frame] .= color_frame
-    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    PlotlyJS.savefig(p, "assembly2_8427.png", width = width, height = height)
+    # ass, frame = assembly2(8,4,2,7)
+    # colors = [color_blocks for block in ass]
+    # colors[frame] .= color_frame
+    # p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    # PlotlyJS.savefig(p, "assembly2_8427.png", width = width, height = height)
 
-    ass, frame = assembly2(6,4,3,7)
-    colors = [color_blocks for block in ass]
-    colors[frame] .= color_frame
-    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    PlotlyJS.savefig(p, "assembly2_6437.png", width = width, height = height)
+    # ass, frame = assembly2(6,4,3,7)
+    # colors = [color_blocks for block in ass]
+    # colors[frame] .= color_frame
+    # p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    # PlotlyJS.savefig(p, "assembly2_6437.png", width = width, height = height)
 
-    ass, frame = assembly2(8,4,4,7)
-    colors = [color_blocks for block in ass]
-    colors[frame] .= color_frame
-    p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
-    PlotlyJS.savefig(p, "assembly2_8447.png", width = width, height = height)
+    # ass, frame = assembly2(8,4,4,7)
+    # colors = [color_blocks for block in ass]
+    # colors[frame] .= color_frame
+    # p = plot(ass, colors = colors, width = width, height = height, drawverts = false, showbackground = showbackground, opacity = opacity)
+    # PlotlyJS.savefig(p, "assembly2_8447.png", width = width, height = height)
 
     ass, frame = assembly4(9,4,3,7)
     colors = [color_blocks for block in ass]
