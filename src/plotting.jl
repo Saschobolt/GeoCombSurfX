@@ -62,7 +62,7 @@ end
 
 function plot(assembly::Vector{<:Polyhedron}; 
               colors::Vector{<:Color} = [RGB(0,0.9,1)], labels::Bool = false, opacity::Real = 1, 
-              showbackground::Bool = true, drawverts::Bool = true, width::Int = 600, height::Int = 600)
+              showbackground::Bool = true, drawverts::Bool = true, zoomfactor::Real = 1, width::Int = 600, height::Int = 600)
     if length(colors) == 1
         colorvec = distinguishable_colors(length(assembly), colors[1])
     else colorvec = colors
@@ -102,10 +102,10 @@ function plot(assembly::Vector{<:Polyhedron};
 
     relayout!(
         fig, 
-        scene = scene((2.5 * normalize([1,1,1]))...),
-        scene2 = scene((2.5 * normalize([0,1,0.5]))...),
-        scene3 = scene((2.5 * normalize([1,1,-1]))...),
-        scene4 = scene((2.5 * normalize([0,0,1]))...),
+        scene = scene((zoomfactor * 2.5 * normalize([1,1,1]))...),
+        scene2 = scene((zoomfactor * 2.5 * normalize([0,1,0.5]))...),
+        scene3 = scene((zoomfactor * 2.5 * normalize([1,1,-1]))...),
+        scene4 = scene((zoomfactor * 2.5 * normalize([0,0,1]))...),
         width = width,
         height = height,
         showlegend = false
