@@ -7,11 +7,11 @@ include("affine_geometry.jl")
 include("decomposition.jl")
 
 """
-    contactfacets(poly1::Polyhedron, poly2::Polyhedron; atol = 1e-8)
+    contactfacets(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol = 1e-8)
 
 TBW
 """
-function contacts(poly1::Polyhedron, poly2::Polyhedron; atol = 1e-8)
+function contacts(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol = 1e-8)
     coords_facets1 = [get_verts(poly1)[facet] for facet in get_facets(poly1)]
     coords_facets2 = [get_verts(poly2)[facet] for facet in get_facets(poly2)]
 
@@ -27,7 +27,7 @@ function contacts(poly1::Polyhedron, poly2::Polyhedron; atol = 1e-8)
 end
 
 
-function contacts(assembly::Vector{<:Polyhedron}; atol = 1e-8)
+function contacts(assembly::Vector{<:AbstractPolyhedron}; atol = 1e-8)
     contacts_dict = Dict()
 
     for i in 1:length(assembly)
@@ -42,7 +42,7 @@ function contacts(assembly::Vector{<:Polyhedron}; atol = 1e-8)
     return contacts_dict
 end
 
-function wangtest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
+function wangtest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
     # if any block in the assembly contains flat edges, flatten the block
     for (i,block) in enumerate(assembly)
         if any([isflatedge(block, edge, atol = atol) for edge in get_edges(block)])
@@ -136,11 +136,11 @@ function wangtest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; a
 end
 
 """
-    titest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
+    titest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
 
 Topological interlocking test by Wang. Only face face contacts are modeled.
 """
-function titest(assembly::Vector{<:Polyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
+function titest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
     # if any block in the assembly contains flat edges, flatten the block
     for (i,block) in enumerate(assembly)
         if any([isflatedge(block, edge, atol = atol) for edge in get_edges(block)])
