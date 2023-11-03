@@ -121,7 +121,7 @@ end
 
 
 function display(poly::AbstractPolyhedron)
-    print("""Polyhedron embedded into $(dimension(poly))-space with $(length(get_verts(poly))) vertices, $(length(get_edges(poly))) edges and $(length(get_facets(poly))) facets.\n 
+    print("""$(typeof(poly)) embedded into $(dimension(poly))-space with $(length(get_verts(poly))) vertices, $(length(get_edges(poly))) edges and $(length(get_facets(poly))) facets.\n 
     Edges:  $(get_edges(poly))
     Facets: $(get_facets(poly)) \n""")
 end
