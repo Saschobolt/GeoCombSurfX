@@ -1,6 +1,7 @@
 include("Polyhedron.jl")
 include("merging.jl")
 include("combinatorics.jl")
+include("affine_geometry.jl")
 
 function cube_assembly()
   cube1 = Cube
@@ -423,6 +424,37 @@ Snubcube=Polyhedron([ [ 0.54368901269207637, 1., 1.839286755214161 ], [ 1.839286
 
 
 ##################################################################################
+################# Bricard Octahedron 
+##################################################################################
+"""
+    bricard_octahedron(n::Integer)
+
+Return the bricard octahedron. n determines, what symmetry is used to calculate the position of the second pole. 1, 2 = plane reflection, 3 = line reflection
+"""
+function bricard_octahedron(n::Integer)
+  equator = [[-1,0,0], [0,-1,0], [1,0,0], [0,1,0]]
+  north = [-0.5,0.5,1]
+
+  if n == 1
+    aff = rigidmap(hcat(equator..., [0,0,1]), hcat([-1,0,0], [0,1,0], [1,0,0], [0,-1,0], [0,0,1]))
+  elseif n == 2
+    aff = rigidmap(hcat(equator..., [0,0,1]), hcat([1,0,0], [0,-1,0], [-1,0,0], [0,1,0], [0,0,1]))
+  elseif n == 3
+    aff = rigidmap(hcat(equator..., [0,0,1]), hcat([1,0,0], [0,1,0], [-1,0,0], [0,-1,0], [0,0,1]))
+  else
+    @error "n needs to be either 1,2 or 3, but it is $n."
+  end
+
+  south = aff(north)
+
+  verts = vcat(equator, [north, south])
+  edges = [[1,2], [2,3], [3,4], [4,1], [1,5], [2,5], [3,5], [4,5], [1,6], [2,6], [3,6], [4,6]]
+  faces = [[1,2,5], [2,3,5], [3,4,5], [1,4,5], [1,2,6], [2,3,6], [3,4,6], [1,4,6]]
+
+  return Polyhedron(verts, edges, faces)
+end
+
+##################################################################################
 ################# further example
 ##################################################################################
 
@@ -473,3 +505,5 @@ function Prisma(n::Int)
   push!(edges,[n,2*n])
   return Polyhedron(vertices,edges,facets) 
 end;
+
+
