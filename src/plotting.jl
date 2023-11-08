@@ -61,8 +61,8 @@ function trace_polyhedron(poly::AbstractPolyhedron;
 end
 
 function plot(assembly::Vector{<:AbstractPolyhedron}; 
-              colors::Vector{<:Color} = [RGB(0,0.9,1)], labels::Bool = false, opacity::Real = 1, 
-              showbackground::Bool = true, drawverts::Bool = true, zoomfactor::Real = 1, width::Int = 600, height::Int = 600)
+              subfigures::Tuple{<:Integer, <:Integer} = (2,2), colors::Vector{<:Color} = [RGB(0,0.9,1)], labels::Bool = false, opacity::Real = 1, 
+              showbackground::Bool = true, drawverts::Bool = true, zoomfactor::Real = 1, viewpoint::Vector{<:Real} = [1,1,1], width::Int = 600, height::Int = 600)
     if length(colors) == 1
         colorvec = distinguishable_colors(length(assembly), colors[1])
     else colorvec = colors
@@ -98,20 +98,29 @@ function plot(assembly::Vector{<:AbstractPolyhedron};
         )
     )
 
-    fig = make_subplots(rows=2, cols=2, specs=fill(Spec(kind="scene"), 2, 2), vertical_spacing = 0.05, horizontal_spacing = 0.05)
+    fig = make_subplots(rows=subfigures[1], cols=subfigures[2], specs=fill(Spec(kind="scene"), 2, 2), vertical_spacing = 0.05, horizontal_spacing = 0.05)
 
-    relayout!(
-        fig, 
-        scene = scene((zoomfactor * 2.5 * normalize([1,1,1]))...),
-        scene2 = scene((zoomfactor * 2.5 * normalize([0,1,0.5]))...),
-        scene3 = scene((zoomfactor * 2.5 * normalize([1,1,-1]))...),
-        scene4 = scene((zoomfactor * 2.5 * normalize([0,0,1]))...),
-        width = width,
-        height = height,
-        showlegend = false
-    )
+    if subfigures == (2,2)
+        relayout!(
+            fig, 
+            scene = scene((zoomfactor * 2.5 * normalize([1,1,1]))...),
+            scene2 = scene((zoomfactor * 2.5 * normalize([0,1,0.5]))...), # TODO: viewpoint als Argument einbauen.
+            scene3 = scene((zoomfactor * 2.5 * normalize([1,1,-1]))...),
+            scene4 = scene((zoomfactor * 2.5 * normalize([0,0,1]))...),
+            width = width,
+            height = height,
+            showlegend = false
+        )
+    elseif subfigures == (1,1)
+        relayout!(
+            fig,
+            scene = scene((zoomfactor * 2.5 * normalize(viewpoint))...),
+            showlegend = false
+        )
+    else error("Not implemented yet.") # TODO: Dynamische subfigures implementieren. Wie können scene-Attribute dynamisch gesetzt werden?
+    end
 
-    for i in 1:2, j in 1:2
+    for i in 1:subfigures[1], j in 1:subfigures[2]
         for trace in traces
             add_trace!(
                 fig,
