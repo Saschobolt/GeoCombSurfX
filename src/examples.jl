@@ -432,15 +432,15 @@ Snubcube=Polyhedron([ [ 0.54368901269207637, 1., 1.839286755214161 ], [ 1.839286
 Return the bricard octahedron. n determines, what symmetry is used to calculate the position of the second pole. 1, 2 = plane reflection, 3 = line reflection
 """
 function bricard_octahedron(n::Integer)
-  equator = [[-1,0,0], [0,-1,0], [1,0,0], [0,1,0]]
-  north = [-0.5,0.5,1]
+  equator = [[-1,0,0], [0,-1,-1], [1,0,0], [0,1,-1]]
+  north = [-0.5,0.5,2]
 
   if n == 1
-    aff = rigidmap(hcat(equator..., [0,0,1]), hcat([-1,0,0], [0,1,0], [1,0,0], [0,-1,0], [0,0,1]))
+    aff = rigidmap(hcat(equator..., [0,0,1]), hcat(equator[3], equator[4], equator[1], equator[2], [0,0,1]))
   elseif n == 2
-    aff = rigidmap(hcat(equator..., [0,0,1]), hcat([1,0,0], [0,-1,0], [-1,0,0], [0,1,0], [0,0,1]))
+    aff = rigidmap(hcat(equator..., [0,0,1]), hcat(equator[1], equator[4], equator[3], equator[2], [0,0,1]))
   elseif n == 3
-    aff = rigidmap(hcat(equator..., [0,0,1]), hcat([1,0,0], [0,1,0], [-1,0,0], [0,-1,0], [0,0,1]))
+    aff = rigidmap(hcat(equator..., [0,0,1]), hcat(equator[3], equator[2], equator[1], equator[4], [0,0,1]))
   else
     @error "n needs to be either 1,2 or 3, but it is $n."
   end
