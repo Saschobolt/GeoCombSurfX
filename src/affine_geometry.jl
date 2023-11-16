@@ -127,9 +127,15 @@ function affinemap(preim::AbstractMatrix{<:Real}, im::AbstractMatrix{<:Real}; at
     b = im[:, basisind]
     b = vcat(b, transpose(repeat([1], d_pre + 1))) # embed image into higher dimensional space
 
-    function aff(x::Vector{<:Real})
+    function aff(x::AbstractVecOrMat{<:Real})
+        if typeof(x) <: AbstractVector
+            y = vcat(x, [1])
+        elseif typeof(x) <: AbstractMatrix
+            y = vcat(x, ones(1, size(x)[2]))
+        end
+
         M = b * inv(A)
-        return (M * vcat(x, [1]))[1:(end-1)]
+        return (M * y)[1:(end-1), :]
     end
 
     return aff
@@ -174,6 +180,7 @@ TBW
 function rigidmap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
     return rigidmap(hcat(preim...), hcat(im...), atol = atol)
 end
+
 struct Ray{T<:Real}
     point::Vector{T}
     vector::Vector{T} 
