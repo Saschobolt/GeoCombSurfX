@@ -219,6 +219,10 @@ function normalvec(points::Vector{<:Vector{<:Real}})
     return normalvec(Plane(points))
 end
 
+function normalvec(points::AbstractMatrix{<:Real})
+    return normalvec([points[:,i] for i in 1:size(points)[2]])
+end
+
 """
 returns the intersection between a ray and a plane if it exists.
 """
