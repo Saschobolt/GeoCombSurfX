@@ -11,7 +11,6 @@ function intriang3d(triang::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e
     # tetrahedron = Polyhedron([0 2 0 0; 0 0 2 0; 0 0 0 2], [[1,2], [2,3], [3,1], [4,2], [4,3], [4,1]], [[1,2,3], [2,3,4], [1,2,4], [3,4,1]])
     # @test inpolyhedron(center_of_mass(get_verts(tetrahedron)), tetrahedron) == 1
     if affinedim(hcat(triang, p), atol = 1e-4) > 2
-        println("affine dim is >2.")
         return 0
     end
 
@@ -45,6 +44,10 @@ function intriang3d(triang::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e
     end
 
     return 1
+end
+
+function intriang3d(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real})
+    return intriang3d(hcat(triang...), p)
 end
 
 
