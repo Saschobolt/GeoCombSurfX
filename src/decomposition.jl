@@ -38,14 +38,14 @@ end
 """
     outward_normal(poly::Polyhedron, facet::Vector{<:Integer}; is_oriented::Bool = false, atol::Real = 1e-8)
 
-Calculate the outward facing normal of the facet facet of poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
+Calculate the outward facing normal of the facet facet of poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented ccw wrt the outward normals. Otherwise an orientation is computed.
 """
 function outward_normal(poly::Polyhedron, facet::Vector{<:Integer}; is_oriented::Bool = false, atol::Real = 1e-8)
     @assert facet in get_facets(poly) || reverse(facet) in get_facets(poly) "facet needs to be a facet of poly."
     if is_oriented
         poly_orient = deepcopy(poly)
     else
-        poly_orient = orient_facets(poly, atol = atol)
+        poly_orient = orient_facets_ccw(poly, atol = atol)
     end
 
     if facet in get_facets(poly_orient)
@@ -76,7 +76,7 @@ end
 """
     edgetype(poly::Polyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
 
-Determine the type of the edge of poly as either "flat", "concave" or "convex". If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
+Determine the type of the edge of poly as either "flat", "concave" or "convex". If the option is_oriented is set to true, the polyhedron is assumed to be oriented ccw wrt the outward normals. Otherwise an orientation is computed.
 """
 function edgetype(poly::Polyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
     @assert edge in get_edges(poly)|| reverse(edge) in get_edges(poly) "edge has to be an edge of poly."
@@ -89,7 +89,7 @@ function edgetype(poly::Polyhedron, edge::Vector{<:Int}; is_oriented::Bool = fal
     if is_oriented
         poly_orient = deepcopy(poly)
     else
-        poly_orient = orient_facets(poly, atol = atol)
+        poly_orient = orient_facets_ccw(poly, atol = atol)
     end
 
     facets = adjfacets(poly_orient, edge)
