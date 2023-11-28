@@ -91,9 +91,26 @@ function test()
         @test Set(Set.(incedges(butterfly, 1))) == Set(Set.([[1,2], [3,1]]))
         @test incedges(butterfly, [1,2,3]) == [[1,2], [2,3], [3,1]]
         @test inpolyhedron(center_of_mass(get_verts(butterfly)[:, 1:3]), butterfly) == -1
-        tetrahedron = Polyhedron([0 2 0 0; 0 0 2 0; 0 0 0 2], [[1,2], [2,3], [3,1], [4,2], [4,3], [4,1]], [[1,2,3], [2,3,4], [1,2,4], [3,4,1]])
+        
+        tetrahedron = Polyhedron([0 2 0 0; 0 0 2 0; 0 0 0 2], [[1,2], [2,3], [3,1], [4,2], [4,3], [4,1]], [[1,2,3], [4,3,2], [4,2,1], [3,4,1]])
         @test inpolyhedron(center_of_mass(get_verts(tetrahedron)), tetrahedron) == 1
         @test inpolyhedron([2,2,2], tetrahedron) == 0
+
+        @test vol_signed(tetrahedron) < 0
+        set_facets!(tetrahedron, reverse.(get_facets(tetrahedron)))
+        @test vol_signed(tetrahedron) > 0
+
+        for i in 1:10
+            coords = hcat([0 1 1 0; 0 0 1 1; 0 0 0 0], rand(Float64, 3))
+            h = coords[3, 5]
+            pyramide = Polyhedron(coords, [[1,2], [2,3], [3,4], [4,1], [1,5], [2,5], [3,5], [4,5]], [[1,2,3,4], [1,2,5], [2,3,5], [3,4,5], [1,4,5]])
+            @test vol(pyramide) ≈ 1/3 * h
+
+            d = rand(Float64)
+            coords = d * [0 1 1 0; 0 0 1 1] + rand(Float64) * ones((2,4))
+            square = Polyhedron(coords, [[1,2], [2,3], [3,4], [4,1]], [[1,2,3,4]])
+            @test vol(square) ≈ d^2
+        end
     end
 end
 

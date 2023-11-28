@@ -62,7 +62,7 @@ end
 
 function set_verts!(poly::AbstractPolyhedron, verts::Matrix{<:Real})
     d = size(verts)[1]
-    @assert d == 3 "Only 3-dimensional polyhedra supported."
+    # @assert d == 3 "Only 3-dimensional polyhedra supported."
     poly.verts = verts
 end
 
@@ -85,8 +85,8 @@ end
 
 function set_facets!(poly::AbstractPolyhedron, facets::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
     # @assert sort(union(facets...)) == [1:max(union(facets...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
-    if any([affinedim(get_verts(poly)[:, f]; atol = atol) != dimension(poly) - 1 for f in facets])
-        error("Facets have to span affine spaces of dimension $(dimension(poly) - 1).")
+    if any([affinedim(get_verts(poly)[:, f]; atol = atol) != 2 for f in facets])
+        error("Facets have to span affine spaces of dimension $(2).")
     end
     for j = 1:length(facets)
         facet1 = facets[j]
@@ -423,22 +423,7 @@ function orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
         end
     end
 
-    # now all facets are oriented either clockwise or counterclockwise wrt the outward facing normals
-    # determine their orientation by calculating the signed volume of poly
-    vol = 0
-    for f in newfacets
-        for k in 2:length(f)-1
-            # signed volume of the tetrahedron spanned by [0,0,0], f[1], f[k], f[k+1]. The sum of all those for every facet is the signed vol of poly.
-            vol += 1/2 * det(get_verts(poly)[:, [f[1], f[k], f[k+1]]])
-        end
-    end
-
-    # if sign is negative, the facets are ordered clockwise wrt the outward normal
-    if vol >= 0
-        set_facets!(poly, newfacets; atol = atol)
-    else
-        set_facets!(poly, reverse.(newfacets); atol = atol)
-    end
+    set_facets!(poly, newfacets; atol = atol)
 end
 
 """
@@ -453,20 +438,79 @@ function orient_facets(poly::AbstractPolyhedron; atol::Real = 1e-8)
 end
 
 """
-    vol(poly::AbstractPolyhedron)
+    signed_vol(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented = false)
 
-Calculate the volume of the polyhedron poly.
+Calculate the signed volume of the polyhedron according to the orientation of the facets.
+If is_oriented = false, calculate an orientation of the polyhedron first.
 """
-function vol(poly::AbstractPolyhedron; atol::Real = 1e-8)
-    poly_orient = orient_facets(poly; atol = atol)
+function vol_signed(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented = false)
+    if dimension(poly) != 2 && dimension(poly) != 3
+        error("Volume only defined in R² and R³.")
+    end
 
+    if !is_oriented
+        poly_orient = orient_facets(poly)
+    else 
+        poly_orient = deeocopy(poly)
+    end
+
+    # now all facets are oriented. Volume can be calculated from the signed volumes of parallelopiped
     vol = 0
-    for f in get_facets(poly_orient)
-        for k in 2:length(f)-1
-            # signed volume of the tetrahedron spanned by [0,0,0], f[1], f[k], f[k+1]. The sum of all those for every facet is the signed vol of poly.
-            vol += 1/2 * det(get_verts(poly)[:, [f[1], f[k], f[k+1]]])
+    if dimension(poly_orient) == 2
+        # https://en.wikipedia.org/wiki/Polygon#Simple_polygons
+        for f in get_facets(poly_orient)
+            n = length(f)
+            for k in 1:length(f)
+                # signed volume of the triangle spanned by [0,0,0], f[1], f[k], f[k+1] (=1/2*volume of parallelogram). The sum of all those for every facet is the signed vol of poly.
+                vol += 1/2 * det(get_verts(poly_orient)[:, [f[mod1(k,n)], f[mod1(k+1, n)]]])
+            end
+        end
+    elseif dimension(poly_orient) == 3
+        for f in get_facets(poly_orient)
+            for k in 2:length(f)-1
+                # signed volume of the tetrahedron spanned by [0,0,0], f[1], f[k], f[k+1] (=1/6*volume of parallelopiped). The sum of all those for every facet is the signed vol of poly.
+                vol += 1/6 * det(get_verts(poly_orient)[:, [f[1], f[k], f[k+1]]])
+            end
         end
     end
 
-    return abs(vol)
+    return vol
+end
+
+"""
+    orient_facets_outwardn!(poly::AbstractPolyhedron; atol::Real = 1e-8)
+
+Orient the facets so that the facets are oriented counterclockwise wrt the outward normals.
+If is_oriented == true, the poly is expected to be oriented.
+"""
+function orient_facets_ccw!(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented::Bool = false)
+    if !is_oriented
+        poly_orient = orient_facets(poly)
+    else 
+        poly_orient = poly
+    end
+
+    vol = vol_signed(poly_orient)
+    # if sign is negative, the facets are ordered clockwise wrt the outward normal
+    if vol >= 0
+        set_facets!(poly, get_facets(poly_orient); atol = atol)
+    else
+        set_facets!(poly, reverse.(get_facets(poly_orient)); atol = atol)
+    end
+end
+
+function orient_facets_ccw(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented::Bool = false)
+    poly_copy = deepcopy(poly)
+    orient_facets_ccw!(poly_copy; atol = atol, is_oriented = is_oriented)
+    return poly_copy
+end
+
+"""
+    vol(poly::AbstractPolyhedron)
+
+Calculate the volume of the polyhedron poly.
+If is_oriented == true, poly is expected to be oriented.
+"""
+function vol(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented::Bool = false)
+    return abs(vol_signed(poly))
 end
