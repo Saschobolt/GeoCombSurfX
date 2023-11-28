@@ -29,6 +29,30 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
     function Polyhedron(verts::Vector{<:Vector{<:Real}}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8)
         return Polyhedron(hcat(verts...), edges, facets; atol = atol)
     end
+
+    function Polyhedron(; verts = nothing, edges = nothing, facets = nothing)
+        if isnothing(facets)
+            facets = Vector{Int64}[]
+        end
+
+        if isnothing(edges)
+            if facets == []
+                edges = Vector{Int64}[]
+            else
+                edges = Vector{typeof(facets[1][1])}[]
+                for f in facets
+                    n = length(f)
+                    append!(edges, [[f[mod1(i, n), f[mod1(i+1, n)]]] for i in 1:n])
+                end
+            end
+        end
+
+        if isnothing(verts)
+            error("verts is nothing. Case not implemented yet.")
+        end
+
+        return Polyhedron(verts, edges, facets)
+    end
 end
 
 
@@ -310,7 +334,7 @@ function inpolyhedron(point::Vector{<:Real}, poly::AbstractPolyhedron; atol::Rea
     end
 
     while true
-        v = normalize!(randn(Float64, 3))
+        v = normalize!(rand(Float64, 3))
         # println(v)
         r = Ray(point, v)
         numIntersections = 0 # number of intersections of r and the facets of poly
@@ -321,17 +345,15 @@ function inpolyhedron(point::Vector{<:Real}, poly::AbstractPolyhedron; atol::Rea
             try
                 intersect(r, E)
             catch error
-                # println("error: $(error)")
                 continue
             end
 
             p = intersect(r, E)
-            println(p)
 
-            if inpolygon3d(polygon, p, atol = atol) == -1
+            if inpolygon3d(get_verts(poly)[:, facet], p, atol = atol) == -1
                 error("Ray intersects the boundary of a facet.")
                 break
-            elseif inpolygon3d(polygon, p, atol = atol) == 1
+            elseif inpolygon3d(get_verts(poly)[:, facet], p, atol = atol) == 1
                 numIntersections = numIntersections + 1
             end
         end
