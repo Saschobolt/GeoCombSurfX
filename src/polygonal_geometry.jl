@@ -1,25 +1,33 @@
 include("affine_geometry.jl")
 
-function intriang3d(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real})
+function intriang3d(triang::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-8)
     # https://gdbooks.gitbooks.io/3dcollisions/content/Chapter4/point_in_triangle.html
-    @assert all(length.(triang) .== 3) "triang has to consist of 3-vectors."
-    @assert length(triang) == 3 "triang needs to be a list of 3 points."
+    @assert size(triang)[2] == 3 "triang has to consist of 3-vectors."
+    @assert size(triang)[1] == 3 "triang needs to be a list of 3 points."
     @assert length(p) == 3 "p has to be a point in 3-space."
-    @assert affinedim(triang) == 2 "triang is degenerate."
+    @assert affinedim(triang, atol = atol) == 2 "triang is degenerate."
+
+    # TODO: seems unreliable... 
+    # tetrahedron = Polyhedron([0 2 0 0; 0 0 2 0; 0 0 0 2], [[1,2], [2,3], [3,1], [4,2], [4,3], [4,1]], [[1,2,3], [2,3,4], [1,2,4], [3,4,1]])
+    # @test inpolyhedron(center_of_mass(get_verts(tetrahedron)), tetrahedron) == 1
+    if affinedim(hcat(triang, p), atol = 1e-4) > 2
+        println("affine dim is >2.")
+        return 0
+    end
 
     # determine whether p lies on the boundary of triang
     for i in 1:3
         for j in (i+1):3
-            if affinedim([triang[i], triang[j], p]) == 1 && dot(triang[i] - p, triang[j] - p) < 0
+            if affinedim([triang[:,i], triang[:,j], p], atol = atol) == 1 && dot(triang[:,i] - p, triang[:,j] - p) <= 0
                 return -1
             end
         end
     end
 
     # translate p into origin
-    a = triang[1] - p
-    b = triang[2] - p
-    c = triang[3] - p
+    a = triang[:,1] - p
+    b = triang[:,2] - p
+    c = triang[:,3] - p
 
     # compute normals of triangles pab, pbc, pca
     u = cross(a,b)
@@ -41,25 +49,25 @@ end
 
 
 """
-    is_ccw(polygon::Vector{<:Vector{<:Real}}, n::Vector{<:Real}; atol = 1e-12)
+    is_ccw(polygon::Matrix{<:Real}, n::Vector{<:Real}; atol = 1e-12)
 
 Determine whether the orientation of the polygon is counterclockwise. Clockwise means, that the vertices follow a negative rotation around the normal vector n.
 """
-function is_ccw(polygon::Vector{<:Vector{<:Real}}, n::Vector{<:Real}; atol = 1e-12)
+function is_ccw(polygon::AbstractMatrix{<:Real}, n::Vector{<:Real}; atol = 1e-12)
     # https://math.stackexchange.com/questions/2152623/determine-the-order-of-a-3d-polygon
-    if polygon[1] == polygon[end]
-        coords = polygon[1:end-1]
+    if polygon[:,1] == polygon[:,end]
+        coords = polygon[:,1:end-1]
     else
         coords = polygon
     end
 
-    m = length(coords)
+    m = size(coords)[2]
 
-    @assert all([dot(n, coords[mod1(i+1, m)] - coords[mod1(i, m)]) == 0 for i in 1:m]) "n is not normal to the polygon."
+    @assert all([dot(n, coords[:, mod1(i+1, m)] - coords[:, mod1(i, m)]) == 0 for i in 1:m]) "n is not normal to the polygon."
 
-    s = sum([cross(coords[mod1(i,m)], coords[mod1(i+1, m)]) for i in 1:m])
+    s = sum([cross(coords[:, mod1(i,m)], coords[:, mod1(i+1, m)]) for i in 1:m])
 
-    if dot(s,n) < 0
+    if dot(s,n) > 0
         return true
     else
         return false
@@ -67,19 +75,19 @@ function is_ccw(polygon::Vector{<:Vector{<:Real}}, n::Vector{<:Real}; atol = 1e-
 end
 
 
-function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
+function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
     # earcut algorithm: https://www.geometrictools.com/Documentation/TriangulationByEarClipping.pdf
     # https://www.mathematik.uni-marburg.de/~thormae/lectures/graphics1/code/JsCoarseImg/EarCutting.html
-    @assert all(length.(polygon) .== 3) "polygon needs to be 3d Polygon."
+    @assert size(polygon)[1] == 3 "polygon needs to be 3d Polygon."
     # TODO: assert that polygon is simple
 
-    if polygon[1] == polygon[end]
-        coords = polygon[1:end-1]
+    if polygon[:,1] == polygon[:,end]
+        coords = polygon[:,1:end-1]
     else
         coords = polygon
     end
 
-    remaining_verts = collect(1:length(coords))
+    remaining_verts = collect(1:size(coords)[2])
     if length(remaining_verts) == 3
         return [remaining_verts]
     end
@@ -96,10 +104,10 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
     end
 
     # normal vector of polygon Plane
-    n = normalvec(coords[remaining_verts])
+    n = normalvec(coords[:,remaining_verts])
 
     # signed angles at vertices
-    angles  = [signedangle3d_right(coords[neighbors(v)[1]] - coords[v], coords[v] - coords[neighbors(v)[2]], n, atol = 1e-12) for v in remaining_verts]
+    angles  = [signedangle3d_right(coords[:,neighbors(v)[1]] - coords[:,v], coords[:,v] - coords[:,neighbors(v)[2]], n, atol = 1e-12) for v in remaining_verts]
     angles[abs.(angles) .< 1e-12] .= 0
 
     # sign of angles at convex vertices is the same as the sum of angle array (2pi or -2pi)
@@ -109,7 +117,7 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
     function isconvex(v::Int)
         neighbor1 = neighbors(v)[1]
         neighbor2 = neighbors(v)[2]
-        angle = signedangle3d_right(coords[neighbor1] - coords[v], coords[v] - coords[neighbor2], n, atol = 1e-12)
+        angle = signedangle3d_right(coords[:,neighbor1] - coords[:,v], coords[:,v] - coords[:,neighbor2], n, atol = 1e-12)
         # @info "check, if $(v) is convex; neighbor1: $(neighbor1), neighbor2: $(neighbor2), angle: $(angle)"
         if abs(angle) < 1e-12
             return false
@@ -131,17 +139,17 @@ function earcut3d(polygon::Vector{<:Vector{<:Real}}; atol = 1e-8)
     # - the affine dimension of the polygon after removing v is still 2
     function isear(v::Int)
         neighbor1, neighbor2 = neighbors(v)
-        triangle = [coords[neighbor1], coords[v], coords[neighbor2]]
+        triangle = coords[:, [neighbor1, v, neighbor2]]
 
         # @info "check, if $(v) is an ear; neighbor1: $(neighbor1), neighbor2: $(neighbor2)"
 
-        return all([intriang3d(triangle, coords[w]) == 0 for w in setdiff(reflex, [neighbor1, neighbor2])]) && affinedim(coords[setdiff(remaining_verts, [v])]) == 2
+        return all([intriang3d(triangle, coords[:,w]) == 0 for w in setdiff(reflex, [neighbor1, neighbor2])]) && affinedim(coords[:, setdiff(remaining_verts, [v])]) == 2
     end
 
     # calculate the ration of the area and the circumference of an ear: area / circumference.
     function acratio(v::Int)
         neighbor1, neighbor2 = neighbors(v)
-        triangle = [coords[neighbor1], coords[neighbor2], coords[v]]
+        triangle = [coords[:,neighbor1], coords[:,neighbor2], coords[:,v]]
         side1 = triangle[2] - triangle[1]
         side2 = triangle[3] - triangle[2]
         side3 = triangle[1] - triangle[3]
@@ -220,7 +228,7 @@ end
 
 
 """
-    inpolygon3d(poly::Vector{<:Vector{<:Real}}, p::Vector{<:Real}; atol = 1e-8)
+    inpolygon3d(poly::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-8)
 
 Determine whether the point p lies inside the polygon poly.
 
@@ -228,47 +236,27 @@ Determine whether the point p lies inside the polygon poly.
 0: p is outside polygon
 -1: p lies on the boundary of polygon
 """
-function inpolygon3d(poly::Vector{<:Vector{<:Real}}, p::Vector{<:Real}; atol = 1e-8)
-    @assert all(length.(poly) .== 3) "poly has to consist of 3-vectors."
-
-    poly_triang = [poly[triangle] for triangle in earcut3d(poly, atol = atol)]
-    if any([intriang3d(triang, p) == 1 for triang in poly_triang])
-        return 1
+function inpolygon3d(poly::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-8)
+    @assert size(poly)[1] == 3 "poly has to be a 3×n-matrix, but is of size $(size(poly))."
+    if poly[:, end] == poly[:, 1]
+        coords = poly[:, 1:end-1]
+    else 
+        coords = poly
     end
-    # TODO: return -1 if p lies on the boundary of the polygon
+    n = size(coords)[2]
+
+    for i in 1:size(poly)[2]
+        if affinedim([coords[:, mod1(i,n)], coords[:, mod1(i+1,n)], p]) == 1 && dot(coords[:, mod1(i,n)] - p, coords[:, mod1(i+1,n)] - p) <= 0
+            return -1
+        end
+    end
+
+    poly_triang = [poly[:, triangle] for triangle in earcut3d(poly, atol = atol)]
+    for triang in poly_triang
+        if intriang3d(triang, p) != 0
+            return 1
+        end
+    end
+    
     return 0
 end
-
-
-
-# """
-# returns 1 if the 3d point p lies in the polygon poly embedded into R^3, -1 if it lies on its boundary and 0 otherwise
-# """
-# function inpolygon3d(p::AbstractVector, poly::AbstractVector; atol::Real=1e-5)
-#     d = 3
-#     @assert length(p) == 3 "Only 3d case."
-#     @assert all([length(v) == 3 for v in poly]) "Only 3d case."
-
-#     E = Plane(poly, atol = atol)
-#     point = deepcopy(p)
-
-#     preim = [E.point, E.point + E.vectors[1], E.point + E.vectors[2], E.point + normalize(cross(E.vectors[1], E.vectors[2]))]
-#     im = [[0,0,0], [1,0,0], [0,1,0], [0,0,1]]
-
-#     # affine map so that the affine basis of the polygon is mapped to the xy plane
-#     aff = affinemap(preim, im, atol = atol)
-
-#     # transformed polygon and point
-#     polytransformed = aff.(poly)
-#     pointtransformed = aff(point)
-    
-
-#     if abs(pointtransformed[3]) < atol
-#          # inpolygon projects onto the xy plane and decides the problem.
-#          # If p and poly lie in the same plane, then this is enough to decide the problem
-#         return inpolygon(pointtransformed, polytransformed)
-#     else
-#         # p and poly don't lie in the same plane
-#         return 0 
-#     end
-# end

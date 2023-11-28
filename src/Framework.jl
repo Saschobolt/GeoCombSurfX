@@ -21,22 +21,23 @@ mutable struct Graph{T<:Integer} <: AbstractSimpleGraph{T}
         T = typeof(verts[1])
         return new{T}(sort(verts), sort(sort.(edges)))
     end
-end
-
-function Graph(;verts = nothing, edges = nothing)
-    if isnothing(edges)
-        edges = Vector{Int64}[]
-    end
-    if isnothing(verts)
-        if edges == []
-            verts = Int64[]
-        else
-            verts = collect(1:max(vcat(edges...)...))
+    
+    function Graph(;verts = nothing, edges = nothing)
+        if isnothing(edges)
+            edges = Vector{Int64}[]
         end
+        if isnothing(verts)
+            if edges == []
+                verts = Int64[]
+            else
+                verts = collect(1:max(vcat(edges...)...))
+            end
+        end
+    
+        return Graph(verts, edges)
     end
-
-    return Graph(verts, edges)
 end
+
 
 """
     get_verts(g::AbstractSimpleGraph)
@@ -62,6 +63,9 @@ get_edges(g::AbstractSimpleGraph) = deepcopy(g.edges)
 TBW
 """
 function set_edges!(g::AbstractSimpleGraph, edges::Vector{<:Vector{<:Integer}})
+    if setdiff(vcat(edges...), get_verts(g)) != []
+        error("Edges need to consist of vertices of the graph.")
+    end
     g.edges = edges
 end
 
@@ -76,18 +80,23 @@ function no_concomponents(g::AbstractSimpleGraph)
 
     visited = [false for v in verts]
 
-    function update(k)
+    function update!(k)
         visited[k] = true
 
-        adj = filter(l -> !visited[l], union(filter(e -> k in e, get_edges(g))...))
+        inc_edges = filter(e -> k in e, get_edges(g))
+        if inc_edges == []
+            return
+        end
+
+        adj = filter(l -> !visited[l], union(inc_edges...))
         for l in adj
-            update(l)
+            update!(l)
         end
     end
 
     for k in verts
         if !visited[k]
-            update(k)
+            update!(k)
             sol = sol + 1
         end
     end
@@ -111,19 +120,24 @@ mutable struct Framework{S<:Real, T<:Integer} <:AbstractEmbeddedGraph{S,T}
     """
     function Framework(verts::Matrix{<:Real}, edges::Vector{<:Vector{<:Integer}})
         combgraph = Graph(edges=edges)
-        @assert no_concomponents(combgraph) == 1 "Graph is not connected."
-        @assert size(verts)[2] >= max(vcat(edges...)...) "Not every vertex of an edge has a coordinate assigned to it."
+        if no_concomponents(combgraph) != 1
+            error("Graph is not connected.")
+        end
+        if size(verts)[2] < max(vcat(edges...)...)
+            error("Not every vertex of an edge has a coordinate assigned to it.")
+        end
 
         S = typeof(verts[1,1])
         T = typeof(edges[1][1])
         return new{S,T}(verts, get_edges(combgraph))
     end
+    
+    function Framework(g::Graph)
+        verts = rand(Float64, (3, max(get_verts(g)...)))
+        return Framework(verts, get_edges(g))
+    end
 end
 
-function Framework(g::Graph)
-    verts = rand(Float64, (3, max(get_verts(g)...)))
-    return Framework(verts, get_edges(g))
-end
 
 """
     set_verts!(g::AbstractEmbeddedGraph, verts::Matrix{<:Real})

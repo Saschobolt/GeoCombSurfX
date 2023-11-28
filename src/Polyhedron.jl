@@ -3,33 +3,49 @@ using PolygonOps
 import Base.Multimedia.display
 import Base.==
 
+include("Framework.jl")
 include("affine_geometry.jl")
 include("polygonal_geometry.jl")
 
-abstract type AbstractPolyhedron{S<:Real,T<:Integer} end
+abstract type AbstractPolyhedron{S<:Real,T<:Integer} <: AbstractEmbeddedGraph{S, T} end
 
 mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
-    verts::Vector{Vector{S}} # vertex array. Every vertex is an array of 3 spatial coordinates
+    verts::Matrix{S} # matrix of coordinates of the vertices. Columns correspond to vertices.
     edges::Vector{Vector{T}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
     # TODO: Neuen constructor mit optionalen Argumenten (wenn nur coordinates gegeben werden, ist Ergebnis die konvexe Hülle der Punkte + check der Dimension
     # wenn nur Facets gegeben sind, werden Edges automatisch gesetzt und es wird gecheckt, dass Vertizes auf einer Facet koplanar aber nicht kollinear sind)
+    function Polyhedron(verts::AbstractMatrix{<:Real}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8)
+        framework = Framework(verts, edges)
+        if any([affinedim(verts[:,f]; atol = atol) != 2 for f in facets])
+            error("Facets have to span a space of affine dimension 2.")
+        end
+        # TODO: Facets sind zyklische Graphen -> In Framework.jl für Graphen implementieren: iscyclic.
+        S = typeof(verts[1,1])
+        T = typeof(edges[1][1])
+        return orient_facets(new{S,T}(verts, edges, facets); atol = atol)
+    end
+
+    function Polyhedron(verts::Vector{<:Vector{<:Real}}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8)
+        return Polyhedron(hcat(verts...), edges, facets; atol = atol)
+    end
 end
+
 
 function get_verts(poly::AbstractPolyhedron)
     return deepcopy(poly.verts)
 end
 
-function set_verts!(poly::AbstractPolyhedron, verts::Vector{<:Vector{<:Real}})
-    d = length(verts[1])
+function set_verts!(poly::AbstractPolyhedron, verts::Matrix{<:Real})
+    d = size(verts)[1]
     @assert d == 3 "Only 3-dimensional polyhedra supported."
-    @assert all([length(v) == d for v in verts]) "Dimension mismatch in vertices."
     poly.verts = verts
 end
 
-function get_edges(poly::AbstractPolyhedron)
-    return deepcopy(poly.edges)
+function set_verts!(poly::AbstractPolyhedron, verts::Vector{<:Vector{<:Real}})
+    set_verts!(poly, hcat(verts...))
 end
+
 
 function set_edges!(poly::AbstractPolyhedron, edges::Vector{<:Vector{<:Int}})
     @assert all(length(e) == 2 for e in edges) "Edges need to consist of vectors of length 2."
@@ -43,16 +59,20 @@ function get_facets(poly::AbstractPolyhedron)
     return deepcopy(poly.facets)
 end
 
-function set_facets!(poly::AbstractPolyhedron, facets::Vector{<:Vector{<:Int}})
+function set_facets!(poly::AbstractPolyhedron, facets::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
     # @assert sort(union(facets...)) == [1:max(union(facets...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
-    @assert all([affinedim(get_verts(poly)[f]) == 2 for f in facets]) "Facets have to span affine spaces of dimension 2."
+    if any([affinedim(get_verts(poly)[:, f]; atol = atol) != dimension(poly) - 1 for f in facets])
+        error("Facets have to span affine spaces of dimension $(dimension(poly) - 1).")
+    end
     for j = 1:length(facets)
         facet1 = facets[j]
         edges1 = Set.(union([[facet1[i], facet1[i+1]] for i in 1:length(facet1)-1], [[facet1[end], facet1[1]]]))
         for k = j+1:length(facets)
             facet2 = facets[k]
             edges2 = Set.(union([[facet2[i], facet2[i+1]] for i in 1:length(facet2)-1], [[facet2[end], facet2[1]]]))
-            @assert setdiff(edges1, edges2) != [] && setdiff(edges2, edges1) != [] "One of facets $(facet1) and $(facet2) is contained in the other."
+            if setdiff(edges1, edges2) == [] && setdiff(edges2, edges1) == [] 
+                error("One of facets $(facet1) and $(facet2) is contained in the other.")
+            end
         end
     end
     poly.facets = facets
@@ -61,7 +81,7 @@ end
 function ==(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol = 1e-12)
     verts1 = get_verts(poly1)
     verts2 = get_verts(poly2)
-    if length(verts1) != length(verts2)
+    if size(verts1)[2] != size(verts2)[2]
         return false
     end
 
@@ -89,7 +109,6 @@ end
 """
     iscongruent(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron)
 
-Determine whether two polyhedra are congruent, 
 i.e. they have the same combinatorics and there exists a rigid map mapping the verts of poly1 to the verts of poly2.
 """
 function iscongruent(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron)
@@ -116,12 +135,12 @@ end
 Get the dimension of the unerlying space the polyhedron is embedded into.
 """
 function dimension(poly::AbstractPolyhedron)
-    return length(get_verts(poly)[1])
+    return size(get_verts(poly))[1]
 end
 
 
 function display(poly::AbstractPolyhedron)
-    print("""$(typeof(poly)) embedded into $(dimension(poly))-space with $(length(get_verts(poly))) vertices, $(length(get_edges(poly))) edges and $(length(get_facets(poly))) facets.\n 
+    print("""$(typeof(poly)) embedded into $(dimension(poly))-space with $(size(get_verts(poly))[2]) vertices, $(length(get_edges(poly))) edges and $(length(get_facets(poly))) facets.\n 
     Edges:  $(get_edges(poly))
     Facets: $(get_facets(poly)) \n""")
 end
@@ -281,38 +300,43 @@ end
 """
     Randomized algorithm to check whether a point is contained in a polyhedron.
 """
-function inpolyhedron(point::Vector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-5)::Int 
+function inpolyhedron(point::Vector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-8)::Int 
     # check whether point lies on the boundary of poly
     for facet in get_facets(poly)
-        polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
+        polygon = get_verts(poly)[:, facet]
         if  inpolygon3d(polygon, point, atol= atol) != 0
             return -1
         end
     end
 
     while true
-        r = Ray(point, normalize!(randn(Float64, 3)))
+        v = normalize!(randn(Float64, 3))
+        # println(v)
+        r = Ray(point, v)
         numIntersections = 0 # number of intersections of r and the facets of poly
 
         for facet in get_facets(poly)
-            polygon = push!(map(v -> poly.verts[v], facet), poly.verts[facet[1]])
-            E = Plane(polygon)
+            E = Plane(get_verts(poly)[:, facet])
 
             try
                 intersect(r, E)
             catch error
+                # println("error: $(error)")
                 continue
             end
 
             p = intersect(r, E)
+            println(p)
 
             if inpolygon3d(polygon, p, atol = atol) == -1
+                error("Ray intersects the boundary of a facet.")
                 break
             elseif inpolygon3d(polygon, p, atol = atol) == 1
                 numIntersections = numIntersections + 1
             end
         end
 
+        # println(numIntersections)
         if mod(numIntersections, 2) == 0
             return 0
         else
@@ -327,9 +351,9 @@ end
 
 Orient the facets of the polyhedron poly.
 """
-function orient_facets!(poly::AbstractPolyhedron{S, T}) where {S<:Real, T<:Integer}
+function orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
     # https://stackoverflow.com/questions/48093451/calculating-outward-normal-of-a-non-convex-polyhedral#comment83177517_48093451
-    newfacets = Vector{T}[]
+    newfacets = Vector{Int}[]
 
     f = get_facets(poly)[1]
     adj = adjfacets(poly, f)
@@ -383,15 +407,15 @@ function orient_facets!(poly::AbstractPolyhedron{S, T}) where {S<:Real, T<:Integ
     for f in newfacets
         for k in 2:length(f)-1
             # signed volume of the tetrahedron spanned by [0,0,0], f[1], f[k], f[k+1]. The sum of all those for every facet is the signed vol of poly.
-            vol += 1/2 * det(hcat(get_verts(poly)[f[1]], get_verts(poly)[f[k]], get_verts(poly)[f[k+1]]))
+            vol += 1/2 * det(get_verts(poly)[:, [f[1], f[k], f[k+1]]])
         end
     end
 
     # if sign is negative, the facets are ordered clockwise wrt the outward normal
     if vol >= 0
-        set_facets!(poly, newfacets)
+        set_facets!(poly, newfacets; atol = atol)
     else
-        set_facets!(poly, reverse.(newfacets))
+        set_facets!(poly, reverse.(newfacets); atol = atol)
     end
 end
 
@@ -400,9 +424,9 @@ end
 
 Orient the facets of the polyhedron poly.
 """
-function orient_facets(poly::AbstractPolyhedron)
+function orient_facets(poly::AbstractPolyhedron; atol::Real = 1e-8)
     polycopy = deepcopy(poly)
-    orient_facets!(polycopy)
+    orient_facets!(polycopy; atol = atol)
     return polycopy
 end
 
@@ -411,14 +435,14 @@ end
 
 Calculate the volume of the polyhedron poly.
 """
-function vol(poly::AbstractPolyhedron)
-    poly_orient = orient_facets(poly)
+function vol(poly::AbstractPolyhedron; atol::Real = 1e-8)
+    poly_orient = orient_facets(poly; atol = atol)
 
     vol = 0
     for f in get_facets(poly_orient)
         for k in 2:length(f)-1
             # signed volume of the tetrahedron spanned by [0,0,0], f[1], f[k], f[k+1]. The sum of all those for every facet is the signed vol of poly.
-            vol += 1/2 * det(hcat(get_verts(poly)[f[1]], get_verts(poly)[f[k]], get_verts(poly)[f[k+1]]))
+            vol += 1/2 * det(get_verts(poly)[:, [f[1], f[k], f[k+1]]])
         end
     end
 
