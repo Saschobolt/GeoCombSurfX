@@ -220,7 +220,7 @@ function isturnable(e::Vector{<:Integer}, polyhedron::Polyhedron; atol::Real=1e-
     mid = (get_verts(polyhedron)[:,butterflytips[1]] + get_verts(polyhedron)[:,butterflytips[2]]) / 2
 
     # if midpoint of turned edge is inside the polyhedron the edge is turnable
-    if inpolyhedron(mid, polyhedron, atol = atol) != 1 # TODO: Testen: macht hier flattenfacets(polyhedron) die Methode wirklich robuster? Wie kann flattenfacets optimiert werden -> sie ist jetzt seeeeehr langsam.
+    if inpolyhedron(mid, polyhedron, atol = atol) == 0 # TODO: Testen: macht hier flattenfacets(polyhedron) die Methode wirklich robuster? Wie kann flattenfacets optimiert werden -> sie ist jetzt seeeeehr langsam.
         return 0
     end
 
@@ -229,26 +229,21 @@ end
 
 
 """
-    isconvex(poly::Polyhedron; atol::Real=1e-5)::Bool
+    isconvex(poly::Polyhedron; is_oriented::Bool=false, atol::Real=1e-8)::Bool
 
 
-determine whether the polyhedron poly is convex. Floats with abs value <atol are considered zeros
+Determine whether the polyhedron poly is convex. Floats with abs value <atol are considered zero.
+If is_oriented == true, poly is expected to be oriented ccw wrt the outward normals of the facets. 
 """
-function isconvex(poly::AbstractPolyhedron; atol::Real=1e-5)::Bool
-    polyhedron = deepcopy(poly)
-
-    # if poly is a non degenerate tetrahedron, it is convex
-    if size(get_verts(polyhedron))[2] == 4 && length(get_edges(polyhedron)) == 6 && length(unique(get_verts(polyhedron))) == length(get_verts(polyhedron))
-        return 1
-    end
-
-    # otherwise triangulate the surface and check if every edge is turnable
-    if any(length.(get_facets(polyhedron)).!=3)
-        polyhedron = triangulate(polyhedron)
+function isconvex(poly::AbstractPolyhedron; is_oriented::Bool=false, atol::Real=1e-8)::Bool
+    if !is_oriented
+        polyhedron = orient_facets_ccw(poly)
+    else
+        polyhedron = deepcopy(poly)
     end
 
     for edge in get_edges(polyhedron)
-        if !isturnable(edge, polyhedron,atol=atol)
+        if edgetype(polyhedron, edge; atol = atol, is_oriented = true) == "concave"
             return 0
         end
     end

@@ -140,7 +140,57 @@ function test()
         @test_throws "cannot be merged" merge(cube1, cube2, [[1,2,3,4]], [[1,2,3,4]])
     end
 
-    
+    @testset "decomposition.jl" begin
+        function nprism(n::Integer)
+            alpha = 1/dist([1,0], [cos(2*pi/n), sin(2*pi/n)])
+            verts = vcat([[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 0] for k in 0:n-1], [[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 1] for k in 0:n-1])
+            facets = vcat([[1:n...]], [[(n+1):(2*n)...]], [[k, k+1, k+n+1, k+n] for k in 1:(n-1)], [[n,1,n+1,2*n]])
+            edges = vcat([[k, k+1] for k in 1:(n-1)], [[n,1]], [[n+k, n+k+1] for k in 1:(n-1)], [[2*n, n+1]], [[k, k+n] for k in 1:n])
+            return Polyhedron(verts, edges, facets)
+        end
+
+        for n in 3:10
+            @test length(get_facets(triangulate(nprism(n)))) == 2*n + 2*(n-2)
+        end
+
+        tetrahedron = Polyhedron([0 2 0 0; 0 0 2 0; 0 0 0 2], [[1,2], [2,3], [3,1], [4,2], [4,3], [4,1]], [[1,2,3], [4,3,2], [4,2,1], [3,4,1]])
+        @test outward_normal(tetrahedron, [1,2,3]) == [0,0,-1]
+        set_facets!(tetrahedron, reverse.(get_facets(tetrahedron)))
+        @test outward_normal(tetrahedron, [3,2,1]) == [0,0,-1]
+        
+        @test isconvex(tetrahedron) == true
+
+        function tiblock(n1::Integer, n2::Integer, nmerges::Integer; atol::Real = 1e-8)
+            @assert mod(n1, nmerges) == 0 "Number of blocks on the side needs to divide n1."
+            
+            if n2 == 3
+                sideelem = nprism(3)
+                merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]], atol = atol)
+                merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]], atol = atol)
+            elseif n2 == 4
+                sideelem = nprism(4)
+                merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]], atol = atol)
+                merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]], atol = atol)
+            else
+                sideelem = nprism(n2)
+            end
+            
+            block = nprism(n1)
+            for k in 3:Int(n1 / nmerges):length(get_facets(nprism(n1)))
+                merge!(block, sideelem, [get_facets(nprism(n1))[k]], [[n2+1,1,2, n2+2]], atol = atol)
+            end
+            
+            return block
+        end
+        poly = tiblock(6,3,2)
+        edgetypes = [edgetype(poly, e) for e in get_edges(poly)]
+        @test count(e -> e == "flat", edgetypes) == 10
+        @test count(e -> e == "convex", edgetypes) == 24
+        @test count(e -> e == "concave", edgetypes) == 14
+        @test isconvex(poly) == false
+        @test length(get_facets(flattenfacets(poly))) == 16
+        @test length(get_edges(flattenfacets(poly))) == 38
+    end
 end
 
 test()
