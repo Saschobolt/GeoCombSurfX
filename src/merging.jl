@@ -28,7 +28,7 @@ function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<
     for i in 1:length(verts_to_align1)
         for j in i+1:size(verts_to_align2)[2]
             if abs(dist(verts_to_align1[:, i], verts_to_align1[:, j]) - dist(verts_to_align2[:, i], verts_to_align2[:, j])) >= atol
-                error("Polyhedra cannot be merged. Distance between Vertex $(ind_to_align[i,1]) and $(ind_to_align[j,1]) of poly1 is $(dist(verts_to_align1[i], verts_to_align1[j])), but the distance between vertex $(ind_to_align[i,2]) and $(ind_to_align[j,2]) of poly2 is $(dist(verts_to_align2[i], verts_to_align2[j]))")
+                error("Polyhedra cannot be merged. Distance between Vertex $(ind_to_align[i,1]) and $(ind_to_align[j,1]) of poly1 is $(dist(verts_to_align1[:,i], verts_to_align1[:,j])), but the distance between vertex $(ind_to_align[i,2]) and $(ind_to_align[j,2]) of poly2 is $(dist(verts_to_align2[:, i], verts_to_align2[:, j]))")
             end
         end
     end

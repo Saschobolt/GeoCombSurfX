@@ -112,6 +112,35 @@ function test()
             @test vol(square) ≈ d^2
         end
     end
+
+    @testset "merging.jl" begin
+        function nprism(n::Integer)
+            alpha = 1/dist([1,0], [cos(2*pi/n), sin(2*pi/n)])
+            verts = vcat([[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 0] for k in 0:n-1], [[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 1] for k in 0:n-1])
+            facets = vcat([[1:n...]], [[(n+1):(2*n)...]], [[k, k+1, k+n+1, k+n] for k in 1:(n-1)], [[n,1,n+1,2*n]])
+            edges = vcat([[k, k+1] for k in 1:(n-1)], [[n,1]], [[n+k, n+k+1] for k in 1:(n-1)], [[2*n, n+1]], [[k, k+n] for k in 1:n])
+            return Polyhedron(verts, edges, facets)
+        end
+
+        cube1 = nprism(4)
+        cube2 = nprism(4)
+
+        @test_throws DimensionMismatch merge(cube1, cube2, [[1,2,3,4]], [[1,2,3,4], [5,6,2,1]])
+        @test_throws "consist of facets" merge(cube1, cube2, [[1,2,3,4]], [[1,2,3,5]])
+        @test_throws "well defined" merge(cube1, cube2, [[1,2,3,4], [1,2,3,4]], [[1,2,3,4], [5,6,2,1]])
+        poly = merge(cube1, cube2, [[1,2,3,4]], [[1,2,3,4]])
+        @test size(get_verts(poly))[2] == size(get_verts(cube1))[2] + size(get_verts(cube2))[2] - 4
+        @test sort(unique(vcat(get_edges(poly)...))) == collect(1:12)
+        @test length(get_edges(poly)) == length(get_edges(cube1)) + length(get_edges(cube2)) - 4
+        @test sort(unique(vcat(get_facets(poly)...))) == collect(1:12)
+        @test length(get_facets(poly)) == length(get_facets(cube1)) + length(get_facets(cube2)) - 2
+        @test_throws "cannot be merged" merge(cube1, cube2, [[1,2,3,4]], [[2,1,3,4]])
+
+        set_verts!(cube2, 3 * get_verts(cube2))
+        @test_throws "cannot be merged" merge(cube1, cube2, [[1,2,3,4]], [[1,2,3,4]])
+    end
+
+    
 end
 
 test()
