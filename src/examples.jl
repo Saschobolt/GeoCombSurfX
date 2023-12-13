@@ -62,7 +62,7 @@ function tiblock(n1::Integer, n2::Integer, nmerges::Integer; atol::Real = 1e-8)
 
   block = nprism(n1)
   for k in 3:Int(n1 / nmerges):length(get_facets(nprism(n1)))
-    merge!(block, sideelem, [get_facets(nprism(n1))[k]], [[n2+1,1,2, n2+2]], atol = atol)
+    merge!(block, sideelem, [reverse(get_facets(nprism(n1))[k])], [[n2+1,1,2, n2+2]], atol = atol)
   end
 
   return block
@@ -79,7 +79,7 @@ function assembly1(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
   block = flattenfacets(tiblock(n1, n2, nmerges))
   theta = -pi / n1
   rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
-  set_verts!(block, [rotmat * coords for coords in get_verts(block)])
+  set_verts!(block, rotmat * get_verts(block))
   push!(assembly, block)
   
   for i in 2:nblocks
@@ -88,14 +88,14 @@ function assembly1(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
     lastcoords = get_verts(lastblock)
     newcoords = get_verts(newblock)
 
-    preim = [newcoords[1], newcoords[2], newcoords[3], newcoords[1] + cross(newcoords[2] - newcoords[1], newcoords[3] - newcoords[1])]
+    preim = [newcoords[:,1], newcoords[:,2], newcoords[:,3], newcoords[:,1] + cross(newcoords[:,2] - newcoords[:,1], newcoords[:,3] - newcoords[:,1])]
     if mod(i, 2) == 0
-      im = [lastcoords[n1 + 2], lastcoords[n1 + 3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
+      im = [lastcoords[:,n1 + 2], lastcoords[:,n1 + 3], lastcoords[:,n1+4], lastcoords[:, n1+2] + cross(lastcoords[:, n1+3] - lastcoords[:, n1+2], lastcoords[:, n1+4] - lastcoords[:, n1+2])]
     else
-      im = [lastcoords[2 * n1], lastcoords[n1+1], lastcoords[n1+2], lastcoords[2*n1] + cross(lastcoords[n1+1] - lastcoords[2*n1], lastcoords[n1+2] - lastcoords[2*n1])]
+      im = [lastcoords[:, 2 * n1], lastcoords[:,n1+1], lastcoords[:, n1+2], lastcoords[:, 2*n1] + cross(lastcoords[:, n1+1] - lastcoords[:, 2*n1], lastcoords[:, n1+2] - lastcoords[:, 2*n1])]
     end
     aff = rigidmap(preim, im)
-    set_verts!(newblock, aff.(newcoords))
+    set_verts!(newblock, aff(newcoords))
 
     push!(assembly, newblock)
   end
@@ -112,7 +112,7 @@ function assembly2(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
   block = flattenfacets(tiblock(n1, n2, nmerges))
   theta = -pi / n1
   rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
-  set_verts!(block, [rotmat * coords for coords in get_verts(block)])
+  set_verts!(block, rotmat*get_verts(block))
   push!(assembly, block)
   
   for i in 2:nblocks
@@ -121,14 +121,14 @@ function assembly2(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
     lastcoords = get_verts(lastblock)
     newcoords = get_verts(newblock)
 
-    preim = [newcoords[1], newcoords[2], newcoords[3], newcoords[1] + cross(newcoords[2] - newcoords[1], newcoords[3] - newcoords[1])]
+    preim = [newcoords[:,1], newcoords[:,2], newcoords[:,3], newcoords[:,1] + cross(newcoords[:,2] - newcoords[:,1], newcoords[:,3] - newcoords[:,1])]
     if mod(i, 3) != 0
-      im = [lastcoords[n1 + 2], lastcoords[n1 + 3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
+      im = [lastcoords[:,n1 + 2], lastcoords[:,n1 + 3], lastcoords[:,n1+4], lastcoords[:,n1+2] + cross(lastcoords[:,n1+3] - lastcoords[:,n1+2], lastcoords[:,n1+4] - lastcoords[:,n1+2])]
     else
-      im = [lastcoords[2*n1 - 1], lastcoords[2*n1], lastcoords[n1+1], lastcoords[2*n1 - 1] + cross(lastcoords[2*n1] - lastcoords[2*n1 - 1], lastcoords[n1+1] - lastcoords[2*n1 - 1])]
+      im = [lastcoords[:,2*n1 - 1], lastcoords[:,2*n1], lastcoords[:,n1+1], lastcoords[:,2*n1 - 1] + cross(lastcoords[:,2*n1] - lastcoords[:,2*n1 - 1], lastcoords[:,n1+1] - lastcoords[:,2*n1 - 1])]
     end
     aff = rigidmap(preim, im)
-    set_verts!(newblock, aff.(newcoords))
+    set_verts!(newblock, aff(newcoords))
 
     push!(assembly, newblock)
   end
@@ -156,10 +156,12 @@ function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::
       towerblocks = tower[[j + (i-1) * offset for j in collect(1:4)]]
       towerblockcoords = get_verts.(towerblocks)
 
-      preim = newcoords[[n1÷2+1, n1÷2+2, n1÷2+1+n1, n1÷2+2+n1, collect((2*n1+7):(2*n1+12))...]]
-      im = [towerblockcoords[1][[2*n1+5, 2*n1+6]]..., towerblockcoords[4][[2*n1+3, 2*n1+4]]..., towerblockcoords[2][[2*n1, n1+1, n1, 1]]..., towerblockcoords[3][[n1+2,n1+3]]...]
+      preim = newcoords[:,[n1÷2+1, n1÷2+2, n1÷2+1+n1, n1÷2+2+n1, collect((2*n1+7):(2*n1+12))...]]
+      im = hcat(towerblockcoords[1][:,[2*n1+5, 2*n1+6]], towerblockcoords[4][:,[2*n1+3, 2*n1+4]], towerblockcoords[2][:,[2*n1, n1+1, n1, 1]], towerblockcoords[3][:,[n1+2,n1+3]])
+      display(preim)
+      display(im)
       aff = rigidmap(preim, im)
-      set_verts!(newblock, aff.(newcoords))
+      set_verts!(newblock, aff(newcoords))
 
       push!(assembly, newblock)
       push!(link, length(assembly))
@@ -180,12 +182,12 @@ function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::
     refcoords = get_verts(reflink)
     towercoords = get_verts.(newassembly)
 
-    preim = [towercoords[1][[2*n1+11, 2*n1+12]]..., towercoords[4][[2*n1+9, 2*n1+10]]..., towercoords[2][[n1÷2+n1, n1÷2+n1+1, n1÷2, n1÷2+1]]..., towercoords[3][[n1÷2+n1+2, n1÷2+n1+3]]...]
-    im = refcoords[[1, 2, n1+1, n1+2, collect((2*n1+1):2*n1+6)...]]
+    preim = hcat(towercoords[1][:,[2*n1+11, 2*n1+12]], towercoords[4][:,[2*n1+9, 2*n1+10]], towercoords[2][:,[n1÷2+n1, n1÷2+n1+1, n1÷2, n1÷2+1]], towercoords[3][:,[n1÷2+n1+2, n1÷2+n1+3]])
+    im = refcoords[:,[1, 2, n1+1, n1+2, collect((2*n1+1):2*n1+6)]]
     aff = rigidmap(preim, im)
 
     for block in newassembly
-      set_verts!(block, aff.(get_verts(block)))
+      set_verts!(block, aff(get_verts(block)))
     end
     append!(assembly, newassembly)
 
@@ -214,7 +216,7 @@ function assembly4(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
     preim = [newcoords[1], newcoords[2], newcoords[3], newcoords[1] + cross(newcoords[2] - newcoords[1], newcoords[3] - newcoords[1])]
     im = [lastcoords[n1 + 2], lastcoords[n1 + 3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
     aff = rigidmap(preim, im)
-    set_verts!(newblock, aff.(newcoords))
+    set_verts!(newblock, aff(newcoords))
 
     push!(assembly, newblock)
   end
