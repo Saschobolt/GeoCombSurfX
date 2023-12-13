@@ -191,6 +191,10 @@ function test()
         @test length(get_facets(flattenfacets(poly))) == 16
         @test length(get_edges(flattenfacets(poly))) == 38
     end
+
+    @testset "interlocking.jl" begin
+        
+    end
 end
 
 test()
