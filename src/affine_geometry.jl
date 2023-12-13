@@ -32,7 +32,7 @@ calculate maximal linear independent subset of the columns of A.
 """
 function indcols(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
     indices = indcols_indices(A, atol = atol)
-    return [A[:,i] for i in indices]
+    return A[:, indices]
 end
 
 """
@@ -42,8 +42,8 @@ end
 Returns an orthonormal basis for the columnspace of the matrix A using QR decomposition. Singular values with abs < atol are treated as 0.
 """
 function colspace(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
-    Q, R = qr(A)
-    return indcols(Matrix(Q), atol = atol)
+    Q, R = qr(indcols(A))
+    return Q[:, 1:size(R)[1]]
 end
 
 """
@@ -75,7 +75,7 @@ Real values < atol are considered zero.
 """
 function affinebasis(A::AbstractMatrix{<:Real}; atol::Real = 1e-8)
     indices = affinebasis_indices(A, atol = atol)
-    return [A[:,i] for i in indices]
+    return A[:,indices]
 end
 
 """
@@ -127,9 +127,20 @@ function affinemap(preim::AbstractMatrix{<:Real}, im::AbstractMatrix{<:Real}; at
     b = im[:, basisind]
     b = vcat(b, transpose(repeat([1], d_pre + 1))) # embed image into higher dimensional space
 
-    function aff(x::Vector{<:Real})
+    function aff(x::AbstractVecOrMat{<:Real})
+        if typeof(x) <: AbstractVector
+            y = vcat(x, [1])
+        elseif typeof(x) <: AbstractMatrix
+            y = vcat(x, ones(1, size(x)[2]))
+        end
+
         M = b * inv(A)
-        return (M * vcat(x, [1]))[1:(end-1)]
+        sol = (M * y)[1:(end-1), :]
+        if size(sol)[2] == 1
+            return sol[:, 1]
+        end
+
+        return (M * y)[1:(end-1), :]
     end
 
     return aff
@@ -159,7 +170,7 @@ function rigidmap(preim::Matrix{<:Real}, im::Matrix{<:Real}; atol::Real = 1e-8)
 
     for i in 1:size(preimbasis)[2]
         for j in (i+1):size(preimbasis)[2]
-            @assert abs(dist(preimbasis[:,i], preimbasis[:,j]) - dist(imbasis[:,i], imbasis[:,j])) < atol "Distance between preimage and image points need needs to be identical, but the distance between the points $(i) and $(j) is $(dist(preim[i], preim[j])) in the perimage and $(dist(im[i], im[j])) in the image."
+            @assert abs(dist(preimbasis[:,i], preimbasis[:,j]) - dist(imbasis[:,i], imbasis[:,j])) < atol "Distance between preimage and image points need needs to be identical, but the distance between the points $(i) and $(j) is $(dist(preim[:,i], preim[:,j])) in the perimage and $(dist(im[:,i], im[:,j])) in the image."
         end
     end
 
@@ -174,14 +185,32 @@ TBW
 function rigidmap(preim::Vector{<:Vector{<:Real}}, im::Vector{<:Vector{<:Real}}; atol::Real = 1e-8)
     return rigidmap(hcat(preim...), hcat(im...), atol = atol)
 end
+
 struct Ray{T<:Real}
     point::Vector{T}
-    vector::Vector{T} 
+    vector::Vector{T}
+
+    function Ray(point::AbstractVector{<:Real}, vector::AbstractVector{<:Real})
+        return new{Float64}(point, vector)
+    end
 end
 
 struct Plane{T<:Real}
     point::Vector{T} 
-    vectors::Vector{Vector{T}} 
+    vectors::Matrix{T}
+
+    function Plane(point::AbstractVector{<:Real}, vectors::AbstractMatrix{<:Real})
+        return new{Float64}(point, vectors)
+    end
+end
+
+function Plane(points::AbstractMatrix{<:Real}; atol::Real=1e-8)
+    @assert affinedim(points) == 2 "points doesn't span a plane."
+    basis = affinebasis(points, atol = atol)
+    
+    v = basis[:, 1]
+    A = basis[:, 2:end] - repeat(v, 1, size(basis)[2] - 1)
+    return Plane(v, A)
 end
 
 """
@@ -190,15 +219,7 @@ end
 Calculate the affine plane in which points lie.
 """
 function Plane(points::Vector{<:Vector{<:Real}}; atol::Real=1e-8)
-    basis = affinebasis(points, atol = atol)
-    if length(basis) != 3
-        @info "points: $(points)"
-        @info "basis: $(basis)"
-    end
-    @assert length(basis) == 3 "points doesn't span a plane."
-    v = basis[1]
-    A = map(b -> b-v, basis[2:end])
-    return Plane(v, A)
+    return Plane(hcat(points...))
 end
 
 """
@@ -207,7 +228,7 @@ end
 Calculate the normalized normal vector of a plane.
 """
 function normalvec(plane::Plane)
-    return normalize(cross(plane.vectors[1], plane.vectors[2]))
+    return normalize(cross(plane.vectors[:, 1], plane.vectors[:, 2]))
 end
 
 """
@@ -219,6 +240,10 @@ function normalvec(points::Vector{<:Vector{<:Real}})
     return normalvec(Plane(points))
 end
 
+function normalvec(points::AbstractMatrix{<:Real})
+    return normalvec([points[:,i] for i in 1:size(points)[2]])
+end
+
 """
 returns the intersection between a ray and a plane if it exists.
 """
@@ -226,8 +251,8 @@ function intersect(ray::Ray, plane::Plane; atol::Real = 1e-8)
     vr = ray.point
     vp = plane.point
 
-    A = hcat(union(plane.vectors, [-ray.vector])...)
-    if length(colspace(A, atol=atol)) < 3
+    A = hcat(plane.vectors, -ray.vector)
+    if rank(A) < 3
         throw(ErrorException("ray and plane are parallel."))
     end
     
@@ -278,4 +303,8 @@ Calculate the center of a set of points.
 """
 function center_of_mass(points::Vector{<:Vector{<:Real}})
     return sum(points) / length(points)
+end
+
+function center_of_mass(points::AbstractMatrix{<:Real})
+    return center_of_mass([points[:,i] for i in 1:size(points)[2]])
 end

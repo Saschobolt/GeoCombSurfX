@@ -17,7 +17,17 @@ mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurfa
     end
 end
 
-function SimplicialSurface(verts::Vector{<:Vector{<:Real}}, facets::Vector{<:Vector{<:Integer}})
+function SimplicialSurface(;verts::Vector{<:Vector{<:Real}} = nothing, edges::Vector{<:Vector{<:Integer}} = nothing, facets::Vector{<:Vector{<:Integer}})
+    if isnothing(verts)
+
+    end
+
+    if isnothing(edges) && !isnothing(facets)
+
+    elseif isnothing(facets) && !isnothing(edges)
+        error("not implemented yet.")
+    else
+
     edges = collect.(union([[Set([f[1], f[2]]), Set([f[2], f[3]]), Set([f[1], f[3]])] for f in facets]...)) # 2-element subsets of facets.
     return SimplicialSurface(verts, edges, facets)
 end
