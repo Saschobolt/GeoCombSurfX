@@ -3,13 +3,13 @@ include("Polyhedron.jl")
 include("affine_geometry.jl")
 
 """
-    merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}})
+    merge!(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}})
 
 Merge the two polyhedra poly1 and poly2 such that the corresponding vertices of the faces in faces1 and faces2 align. 
 The aligned faces are deleted in the resulting polyhedron so that the result itself is a 2-dimensional piecewise linear manifold.
 Real values < atol are considered zero.
 """
-function merge!(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
+function merge!(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
     @assert all([Set(f) in Set.(get_facets(poly1)) for f in facets1]) "faces1 needs to consist of facets of poly1."
     @assert all([Set(f) in Set.(get_facets(poly2)) for f in facets2]) "faces2 needs to consist of facets of poly2."
 
@@ -87,13 +87,13 @@ end
 
 
 """
-    merge(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}})
+    merge(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}})
 
 Merge the two polyhedra poly1 and poly2 such that the corresponding vertices of the faces in faces1 and faces2 align. 
 The aligned faces are deleted in the resulting polyhedron so that the result itself is a 2-dimensional piecewise linear manifold.
 Real values < atol are considered zero.
 """
-function merge(poly1::Polyhedron, poly2::Polyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
+function merge(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron, facets1::Vector{<:Vector{<:Int}}, facets2::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
     poly1_copy = deepcopy(poly1)
     merge!(poly1_copy, poly2, facets1, facets2, atol = atol)
 

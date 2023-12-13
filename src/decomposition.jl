@@ -4,11 +4,11 @@ include("affine_geometry.jl")
 include("polygonal_geometry.jl")
 
 
-# triangulate surface of Polyhedron
+# triangulate surface of AbstractPolyhedron
 """
 returns a polyhedron containing the vertices and edges of poly such that every facet is triangular.
 """
-function triangulate!(poly::Polyhedron; atol = 1e-8)
+function triangulate!(poly::AbstractPolyhedron; atol = 1e-8)
     coords = get_verts(poly)
     newedges = get_edges(poly)
     newfacets = Vector{Int}[]
@@ -27,7 +27,7 @@ function triangulate!(poly::Polyhedron; atol = 1e-8)
 end
 
 
-function triangulate(poly::Polyhedron; atol = 1e-5)::Polyhedron
+function triangulate(poly::AbstractPolyhedron; atol = 1e-5)
     polycopy = deepcopy(poly)
     triangulate!(polycopy, atol = atol)
 
@@ -36,11 +36,11 @@ end
 
 
 """
-    outward_normal(poly::Polyhedron, facet::Vector{<:Integer}; is_oriented::Bool = false, atol::Real = 1e-8)
+    outward_normal(poly::AbstractPolyhedron, facet::Vector{<:Integer}; is_oriented::Bool = false, atol::Real = 1e-8)
 
 Calculate the outward facing normal of the facet facet of poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented ccw wrt the outward normals. Otherwise an orientation is computed.
 """
-function outward_normal(poly::Polyhedron, facet::Vector{<:Integer}; is_oriented::Bool = false, atol::Real = 1e-8)
+function outward_normal(poly::AbstractPolyhedron, facet::Vector{<:Integer}; is_oriented::Bool = false, atol::Real = 1e-8)
     @assert facet in get_facets(poly) || reverse(facet) in get_facets(poly) "facet needs to be a facet of poly."
     if is_oriented
         poly_orient = deepcopy(poly)
@@ -62,11 +62,11 @@ end
 
 
 """
-    isflatedge(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
+    isflatedge(poly::AbstractPolyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
 
-Determine whether the edge edge of the Polyhedron poly is flat. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
+Determine whether the edge edge of the AbstractPolyhedron poly is flat. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
 """
-function isflatedge(poly::Polyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
+function isflatedge(poly::AbstractPolyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
     facets = adjfacets(poly, edge)
 
     return affinedim(get_verts(poly)[:, union(facets...)], atol = atol) == 2
@@ -74,11 +74,11 @@ end
 
 
 """
-    edgetype(poly::Polyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
+    edgetype(poly::AbstractPolyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
 
 Determine the type of the edge of poly as either "flat", "concave" or "convex". If the option is_oriented is set to true, the polyhedron is assumed to be oriented ccw wrt the outward normals. Otherwise an orientation is computed.
 """
-function edgetype(poly::Polyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
+function edgetype(poly::AbstractPolyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
     @assert edge in get_edges(poly)|| reverse(edge) in get_edges(poly) "edge has to be an edge of poly."
     verts = get_verts(poly)
     
@@ -128,11 +128,11 @@ end
 
 
 """
-    flattenfacets!(poly::Polyhedron; is_oriented::Bool = false, atol = 1e-8)
+    flattenfacets!(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-8)
 
-Remove flat edges of the Polyhedron poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
+Remove flat edges of the AbstractPolyhedron poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
 """
-function flattenfacets!(poly::Polyhedron; is_oriented::Bool = false, atol = 1e-8)
+function flattenfacets!(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-8)
     flat_edges = filter(e -> isflatedge(poly, e), get_edges(poly))
     set_edges!(poly, setdiff(get_edges(poly), flat_edges))
 
@@ -188,22 +188,22 @@ function flattenfacets!(poly::Polyhedron; is_oriented::Bool = false, atol = 1e-8
 end
 
 
-function flattenfacets(poly::Polyhedron; is_oriented::Bool = false, atol = 1e-5)
+function flattenfacets(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-5)
     polycopy = deepcopy(poly)
     flattenfacets!(polycopy, is_oriented = is_oriented, atol = atol)
     return polycopy
 end
 
 """
-    isturnable(e::Vector{<:Integer}, polyhedron::Polyhedron; atol::Real=1e-5)::Bool
+    isturnable(e::Vector{<:Integer}, polyhedron::AbstractPolyhedron; atol::Real=1e-5)::Bool
 
 Checks whether the edge e is turnable edge of poly. I.e. poly is 
     - a spherical simplicial surface and 
     - the line connecting the wingtips of the butterfly with inner edge e is contained in poly.
 Floats with abs value <atol are considered zeros
 """
-# TODO: Reihenfolge der Argumente überall glattziehen: immer zuerst Polyhedron übergeben, oder das, worauf sich Methode bezieht?
-function isturnable(e::Vector{<:Integer}, polyhedron::Polyhedron; atol::Real=1e-5)::Bool
+# TODO: Reihenfolge der Argumente überall glattziehen: immer zuerst AbstractPolyhedron übergeben, oder das, worauf sich Methode bezieht?
+function isturnable(e::Vector{<:Integer}, polyhedron::AbstractPolyhedron; atol::Real=1e-5)::Bool
     @assert all(length.(get_facets(polyhedron)).==3) "poly may only have triangle facets"
     @assert in(e, get_edges(polyhedron)) || in(reverse(e), get_edges(polyhedron)) "e has to be an edge of poly"
     
@@ -229,7 +229,7 @@ end
 
 
 """
-    isconvex(poly::Polyhedron; is_oriented::Bool=false, atol::Real=1e-8)::Bool
+    isconvex(poly::AbstractPolyhedron; is_oriented::Bool=false, atol::Real=1e-8)::Bool
 
 
 Determine whether the polyhedron poly is convex. Floats with abs value <atol are considered zero.
