@@ -171,12 +171,11 @@ end
 
 
 """
-    isadjacent(poly::AbstractPolyhedron, facetoredge::Vector{<:Int}, facet::Vector{<:Int})
-
+    isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer})
 
 Calculate whether the facet or edge facetoredge and the facet facet of the polyhedron poly are adjacent, i.e. share a common edge.
 """
-function isadjacent(poly::AbstractPolyhedron, facetoredge::Vector{<:Int}, facet::Vector{<:Int})
+function isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer})
     @assert Set(facetoredge) in Set.(get_facets(poly)) || Set(facetoredge) in Set.(get_edges(poly)) "facetoredge has to be a facet or an edge of poly."
     @assert Set(facet) in Set.(get_facets(poly)) "facet has to be a facet of poly."
 
@@ -187,11 +186,11 @@ end
 
 
 """
-    adjfacets(poly::AbstractPolyhedron, facetoredge::Vector{<:Int})
+    adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer})
 
 Calculate the adjacent facets of the facet or edge facetoredge in the Polyhedron poly, i.e. the facets sharing at least one edge with facet.
 """
-function adjfacets(poly::AbstractPolyhedron, facetoredge::Vector{<:Int})
+function adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer})
     sol = filter(facet2 -> isadjacent(poly, facetoredge, facet2) && Set(facet2) != Set(facetoredge), get_facets(poly))
     setdiff!(sol, [facetoredge])
     return sol
@@ -199,60 +198,60 @@ end
 
 
 """
-    isincident(v::Int, facetoredge::Vector{<:Int})
+    isincident(v::Integer, facetoredge::AbstractVector{<:Integer})
 
 Return true if the vertex with index v is incident to the facet or edge facetoredge, i.e. it is contained in facetoredge.
 """
-function isincident(v::Int, facetoredge::Vector{<:Int})
+function isincident(v::Integer, facetoredge::AbstractVector{<:Integer})
     return v in facetoredge
 end
 
 
 """
-    incfacets(poly::AbstractPolyhedron, vertexarray::Vector{<:Int})
+    incfacets(poly::AbstractPolyhedron, vertexarray::AbstractVector{<:Integer})
 
 Return the facets of the polyhedron poly, that are incident to all vertices in vertexarray, i.e. that contain all vertices in vertexarray.
 """
-function incfacets(poly::AbstractPolyhedron, vertexarray::Vector{<:Int})
+function incfacets(poly::AbstractPolyhedron, vertexarray::AbstractVector{<:Integer})
     return filter(f -> all([isincident(v, f) for v in vertexarray]), get_facets(poly))
 end
 
 
 """
-    incfacets(poly::AbstractPolyhedron, v::Int)
+    incfacets(poly::AbstractPolyhedron, v::Integer)
 
 Return the facets of the polyhedron poly, that are incident to the vertex v, i.e. that contain v.
 """
-function incfacets(poly::AbstractPolyhedron, v::Int)
+function incfacets(poly::AbstractPolyhedron, v::Integer)
     return filter(f -> isincident(v, f), get_facets(poly))
 end
 
 
 """
-    incedges(poly::AbstractPolyhedron, v::Int)
+    incedges(poly::AbstractPolyhedron, v::Integer)
 
 Return the edges of the polyhedron poly, that are incident to the vertex v, i.e. that contain v.
 """
-function incedges(poly::AbstractPolyhedron, v::Int)
+function incedges(poly::AbstractPolyhedron, v::Integer)
     return filter(e -> isincident(v, e), get_edges(poly))
 end
 
 """
-    incedges(poly::AbstractPolyhedron, f::Vertex{<:Int})
+    incedges(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
 
 Return the edges of the polyhedron poly, that are incident to the facet f, i.e. that are a subset of f.
 """
-function incedges(poly::AbstractPolyhedron, f::Vector{<:Int})
+function incedges(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
     return filter(e -> issubset(e, f), get_edges(poly))
 end
 
 
 """
-    formpath!(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+    formpath!(vertexarray::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}})
 
 Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
 """
-function formpath!(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+function formpath!(vertexarray::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}})
     endpoints = filter(v -> length(filter(e -> v in e, edges)) == 1, vertexarray)
     if length(endpoints) > 2
         @info "vertexarray: $(vertexarray)"
@@ -288,11 +287,11 @@ end
 
 
 """
-    formpath(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+    formpath(vertexarray::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}})
 
 Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
 """
-function formpath(vertexarray::Vector{<:Int}, edges::Vector{<:Vector{<:Int}})
+function formpath(vertexarray::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}})
     vertexarraycopy = deepcopy(vertexarray)
     formpath!(vertexarraycopy, edges)
     return vertexarraycopy
@@ -309,11 +308,11 @@ function formpath!(vertexindices::Vector{<:Int}, poly::AbstractPolyhedron)
 end
 
 """
-    formpath(vertexindices::Vector{<:Int}, poly::AbstractPolyhedron)
+    formpath(vertexindices::AbstractVector{<:Integer}, poly::AbstractPolyhedron)
 
 Sort the vector vertexindices such that the corresponding vertices of the Polyhedron poly form a vertex edges path.
 """
-function formpath(vertexindices::Vector{<:Int}, poly::AbstractPolyhedron)
+function formpath(vertexindices::AbstractVector{<:Integer}, poly::AbstractPolyhedron)
     vertexindicescopy = deepcopy(vertexindices)
     formpath!(vertexindicescopy, poly)
     return vertexindicescopy
@@ -322,9 +321,12 @@ end
 
 # decide whether point is inside of polyhedron
 """
+    inpolyhedron(point::AbstractVector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-8)::Int
+
+
     Randomized algorithm to check whether a point is contained in a polyhedron.
 """
-function inpolyhedron(point::Vector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-8)::Int 
+function inpolyhedron(point::AbstractVector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-8)::Int 
     # check whether point lies on the boundary of poly
     for facet in get_facets(poly)
         polygon = get_verts(poly)[:, facet]
