@@ -195,6 +195,31 @@ function test()
     @testset "interlocking.jl" begin
         
     end
+
+    @testset "SimplicialSurface.jl" begin
+        vertices=1.0*[[1,0,1],[ 1, 1, 0 ], [ 2, 1, 1 ],[ 1, 1, 2 ], [ 0, 1, 1 ],[ 1, 2, 1 ]]
+        facets=[ [ 1, 2, 3 ], [ 2, 5, 6 ], [ 1, 2, 5 ], [ 2, 3, 6 ], [ 1, 4, 5 ], 
+        [ 3, 4, 6 ], [ 1, 3, 4 ], [ 4, 5, 6 ] ]
+        edges=[ [ 1, 2 ], [ 1, 3 ], [ 1, 4 ], [ 1, 5 ], [ 2, 3 ], [ 2, 5 ], [ 2, 6 ], 
+        [ 3, 4 ], [ 3, 6 ], [ 4, 5 ], [ 4, 6 ], [ 5, 6 ] ]
+        Octahedron=Polyhedron(vertices,edges,facets)
+
+        surf = SimplicialSurface(Octahedron)
+        @test length(boundary(surf)) == 0
+        @test length(get_verts(surf)) == length(get_verts(edgeturn(surf, [1,2])))
+        @test length(get_edges(surf)) == length(get_edges(edgeturn(surf, [1,2])))
+        @test length(get_facets(surf)) == length(get_facets(edgeturn(surf, [1,2])))
+        @test length(Base.intersect([[1,2], [2,1]], get_edges(edgeturn(surf, [1,2])))) == 0
+
+        Tetrahedron=Polyhedron([[0.5,0,0],[-0.5,0.,0.],[0.,0.5,sqrt(3.)/2.],[0.,-0.5,sqrt(3.)/2.]],
+            [ [ 1, 2 ], [1, 3 ], [ 1, 4 ], [ 2, 3 ], [ 2, 4 ], [ 3, 4 ] ],
+            [ [ 1, 2, 3 ], [ 1, 2, 4 ], [ 2, 3, 4 ], [ 1, 3, 4 ] ])
+        surf = SimplicialSurface(Tetrahedron)
+        @test_throws "not turnable" edgeturn(surf, [1,2])
+
+        set_facets!(surf, [[1,2,3], [1,2,4], [2,3,4]])
+        @test length(boundary(surf)) == 3
+    end
 end
 
 test()
