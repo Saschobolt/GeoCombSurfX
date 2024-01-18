@@ -1,7 +1,16 @@
 include("Polyhedron.jl")
+include("SimplicialSurface.jl")
 include("merging.jl")
 include("Combinatorics//combinatorics.jl")
 include("affine_geometry.jl")
+
+# n-gon
+function ngon(n::Integer)
+  verts = collect(1:n+1)
+  edges = vcat([[1, k] for k in 2:n+1], [[mod1(k, n) + 1, mod1(k+1, n) + 1] for k in 1:n])
+  facets = [[1, mod1(k,n) + 1, mod1(k+1,n) + 1] for k in 1:n]
+  return CombSimplicialSurface(verts, edges, facets)
+end
 
 function cube_assembly()
   cube1 = Cube
