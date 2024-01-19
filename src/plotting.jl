@@ -37,7 +37,7 @@ function trace(f::AbstractEmbeddedGraph;
     end
 
     # plot vertices
-    if drawverts
+    if drawverts || labels
         mode = labels ? "markers+text" : "markers"
         trace = scatter3d(
             x = get_verts(f)[1, :],
@@ -47,7 +47,7 @@ function trace(f::AbstractEmbeddedGraph;
             mode = mode,
             text = string.(collect(1:size(get_verts(f))[2])),
             textposition = "bottom center",
-            marker = attr(color = vertexcolors)
+            marker = attr(color = vertexcolors, size = drawverts ? 4 : 0)
         )
 
         push!(traces, trace)
@@ -72,7 +72,7 @@ function trace(f::AbstractEmbeddedGraph;
 end
 
 function trace(poly::AbstractPolyhedron; 
-            facetcolors::AbstractVector{<:Color} = [RGB(0,0.9,1)], opacity::Real = 0.5, kwargs...)
+            facetcolors::AbstractVector{<:Color} = [RGB(64/255, 127/255, 183/255)], opacity::Real = 0.5, kwargs...)
     polytriang = triangulate(poly)
     if length(facetcolors) == 1
         facetcolors = repeat(facetcolors, length(get_facets(polytriang)))
@@ -128,20 +128,15 @@ function trace(assembly::AbstractVector{<:AbstractEmbeddedGraph};
     return traces
 end
 
-function plot(assembly::AbstractVector{<:AbstractEmbeddedGraph}; 
+function plot(object::Union{AbstractEmbeddedGraph, AbstractVector{<:AbstractEmbeddedGraph}}; 
         subplots::Tuple{<:Integer, <:Integer} = (1,1), viewpoints::AbstractVecOrMat{<:Vector{<:Real}} = [[2.5,2.5,2.5]], width::Integer = 800, height::Integer = 800, showbackground::Bool = false, kwargs...)
     n_rows, n_cols = subplots
     n_subplots = n_rows * n_cols
-    traces = trace(assembly; kwargs...)
-    
-    center_of_mass_verts = center_of_mass(hcat(get_verts.(assembly)...))
-    p = make_subplots(rows=n_rows, cols=n_cols, specs=fill(Spec(kind="scene"), n_rows, n_cols), vertical_spacing = 0.05, horizontal_spacing = 0.05) # TODO: subplot matrix is only one row?
-    # display(p)
+    traces = trace(object; kwargs...)
 
     function subplot_layout(i)
         # set subplot camera eye and center
         subplot_eye = viewpoints[i]
-        subplot_center = center_of_mass_verts
 
         # create scene
         scene = attr(
@@ -173,6 +168,19 @@ function plot(assembly::AbstractVector{<:AbstractEmbeddedGraph};
         return scene
     end
 
+    p = Plot(traces, Layout(scene = subplot_layout(1)))
+    for i in 2:n_rows
+        p = vcat(p, Plot(traces, Layout(scene = subplot_layout(i))))
+    end
+
+    for i in 2:n_cols
+        p = hcat(p, vcat([Plot(traces, subplot_layout(i)) for i in i*(n_rows-1)+1:i*n_rows]...))
+    end
+
+    relayout!(p, width = width, height = height, showlegend = false)
+
+    return p
+
     for i in 1:n_subplots
         # update the subplot layouts
         if i == 1
@@ -190,15 +198,14 @@ function plot(assembly::AbstractVector{<:AbstractEmbeddedGraph};
             add_trace!(p, trace, row = row_idx, col = col_idx)
         end
     end
-    
-    relayout!(p, width = width, height = height, showlegend = false)
+
     return p
 end
 
-function plot(g::AbstractEmbeddedGraph; kwargs...)
+# function plot(g::AbstractEmbeddedGraph; kwargs...)
 
-    return plot([g]; kwargs...)
-end
+#     return plot([g]; kwargs...)
+# end
 # """
 # Aux function to plot a polyhedron. Returns array of traces that can be handled by PlotlyJS.
 # """
