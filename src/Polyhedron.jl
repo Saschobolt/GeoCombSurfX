@@ -247,6 +247,45 @@ end
 
 
 """
+    boundary(poly::AbstractPolyhedron)
+
+Compute the boundary of the polyhedron poly, i.e. the set of facets that are incident to exactly one edge.
+"""
+function boundary(poly::AbstractPolyhedron)
+    return filter(f -> length(incedges(poly, f)) == 1, get_facets(poly))
+end
+
+function removefacet!(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
+    @assert Set(f) in Set.(get_facets(poly)) "Facet f not in poly."
+    fac = filter(facet -> Base.intersect(f, facet) == f, get_facets(poly))[1]
+    relevantedges = incedges(poly, fac)
+    setdiff!(poly.facets, [fac])
+    setdiff!(poly.edges, Base.intersect(relevantedges, boundary(poly)))
+end
+
+function removefacet(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
+    p = deepcopy(poly)
+    removefacet!(p, f)
+    return p
+end
+
+function removeedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer})
+    @assert Set(e) in Set.(get_edges(poly)) "Edge e not in poly."
+    ed = filter(edge -> Base.intersect(e, edge) == e, get_edges(poly))[1]
+    relevantfacets = incfacets(poly, ed)
+    for f in relevantfacets
+        removefacet!(poly, f)
+    end
+    setdiff!(poly.edges, [ed])
+end
+
+function removeedge(poly::AbstractPolyhedron, e::AbstractVector{<:Integer})
+    p = deepcopy(poly)
+    removeedge!(p, e)
+    return p
+end
+
+"""
     formpath!(vertexarray::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}})
 
 Sort the vector vertexarray such that they lie on a common path along the edges defined in the vector edges.
