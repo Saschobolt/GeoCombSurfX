@@ -4,6 +4,7 @@ import PlotlyJS.plot
 
 include("Polyhedron.jl")
 include("decomposition.jl")
+include("SimplicialSurface.jl")
 
 function trace(f::AbstractEmbeddedGraph; 
                 vertexcolors::AbstractVector{<:Color} = [RGB(0,0,0)], edgecolors::AbstractVector{<:Color} = [RGB(0,0,0)], labels::Bool = false,
@@ -72,8 +73,13 @@ function trace(f::AbstractEmbeddedGraph;
 end
 
 function trace(poly::AbstractPolyhedron; 
-            facetcolors::AbstractVector{<:Color} = [RGB(64/255, 127/255, 183/255)], opacity::Real = 0.5, kwargs...)
-    polytriang = triangulate(poly)
+            is_triangulated::Bool = false,  facetcolors::AbstractVector{<:Color} = [RGB(64/255, 127/255, 183/255)], opacity::Real = 0.5, kwargs...)
+    if !is_triangulated
+        polytriang = triangulate(poly)
+    else
+        polytriang = deepcopy(poly)
+    end
+
     if length(facetcolors) == 1
         facetcolors = repeat(facetcolors, length(get_facets(polytriang)))
     elseif length(facetcolors) != length(get_facets(poly))
@@ -96,6 +102,10 @@ function trace(poly::AbstractPolyhedron;
     append!(traces, trace(Framework(get_verts(poly), get_edges(poly)); kwargs...))
 
     return traces
+end
+
+function trace(surf::AbstractSimplicialSurface, kwargs...)
+    return trace(Polyhedron(surf); is_triangulated = true, kwargs...)
 end
 
 function trace(assembly::AbstractVector{<:AbstractEmbeddedGraph}; 
