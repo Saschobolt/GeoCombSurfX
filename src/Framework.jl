@@ -19,7 +19,7 @@ mutable struct Graph{T<:Integer} <: AbstractSimpleGraph{T}
         @assert Set(verts) == Set(1:length(verts)) "Verts have to be 1,..., n."
 
         T = typeof(verts[1])
-        return new{T}(sort(verts), sort(sort.(edges)))
+        return new{T}(sort(verts), edges)
     end
     
     function Graph(;verts = nothing, edges = nothing)
