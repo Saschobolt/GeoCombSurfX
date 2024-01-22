@@ -141,6 +141,11 @@ mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurfa
         return new{S,T}(verts, edges, get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
     end
 
+    function SimplicialSurface(verts::AbstractVector{<:AbstractVector{<:Real}}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}})
+        vertsmat = hcat(verts...)
+        return SimplicialSurface(vertsmat, edges, facets)
+    end
+    
     function SimplicialSurface(;verts = nothing, edges = nothing, facets = nothing)    
         comb_surf = CombSimplicialSurface(edges = edges, facets = facets)
 
@@ -150,12 +155,7 @@ mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurfa
         end
         S = typeof(verts[1,1])
         T = typeof(get_edges(comb_surf)[1][1])
-        return new{S,T}(verts, get_edges(comb_surf), get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
-    end
-    
-    function SimplicialSurface(verts::AbstractVector{<:AbstractVector{<:Real}}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}})
-        vertsmat = hcat(verts...)
-        return SimplicialSurface(vertsmat, edges, facets)
+        return SimplicialSurface(verts, get_edges(comb_surf), get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
     end
 end
 
