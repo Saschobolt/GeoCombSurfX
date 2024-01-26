@@ -7,19 +7,41 @@ include("decomposition.jl")
 include("SimplicialSurface.jl")
 
 function trace(f::AbstractEmbeddedGraph; 
-                vertexcolors::AbstractVector{<:Color} = [RGB(0,0,0)], edgecolors::AbstractVector{<:Color} = [RGB(0,0,0)], labels::Bool = false,
-                drawverts::Bool = false)
-    if length(vertexcolors) == 1
-        vertexcolors = repeat(vertexcolors, size(get_verts(f))[2])
-    elseif length(vertexcolors) != size(get_verts(f))[2]
-        error("Every vertex needs a color assigned to it.")
+                vertexcolors::Union{AbstractDict{Any, <:Color}, AbstractVector{<:Color}} = [RGB(0,0,0)], vertexsizes::Union{AbstractDict{Any, <:Real}, AbstractVector{<:Real}} = [4],
+                edgecolors::Union{AbstractDict{Any, <:Color}, AbstractVector{<:Color}} = [RGB(0,0,0)], edgewidths::Union{AbstractDict{Any, <:Real}, AbstractVector{<:Real}} = [2],
+                labels::Bool = false, drawverts::Bool = false)
+    if typeof(vertexcolors)<:AbstractVector
+        if length(vertexcolors) == 1
+            vertexcolors = repeat(vertexcolors, size(get_verts(f))[2])
+        elseif length(vertexcolors) != size(get_verts(f))[2]
+            error("Every vertex needs a color assigned to it.")
+        end
     end
 
-    if length(edgecolors) == 1
-        edgecolors = repeat(edgecolors, length(get_edges(f)))
-    elseif length(edgecolors) != length(get_edges(f))
-        error("Every edge needs a color assigned to it.")
+    if typeof(vertexsizes)<:AbstractVector
+        if length(vertexsizes) == 1
+            vertexsizes = repeat(vertexsizes, size(get_verts(f))[2])
+        elseif length(vertexsizes) != size(get_verts(f))[2]
+            error("Every vertex needs a size assigned to it.")
+        end
     end
+
+    if typeof(edgecolors)<:AbstractVector
+        if length(edgecolors) == 1
+            edgecolors = repeat(edgecolors, length(get_edges(f)))
+        elseif length(edgecolors) != length(get_edges(f))
+            error("Every edge needs a color assigned to it.")
+        end
+    end
+
+    if typeof(edgewidths)<:AbstractVector
+        if length(edgewidths) == 1
+            edgewidths = repeat(edgewidths, length(get_edges(f)))
+        elseif length(edgewidths) != length(get_edges(f))
+            error("Every edge needs a width assigned to it.")
+        end
+    end
+
     traces = GenericTrace[]
 
     # plot edges
@@ -29,7 +51,8 @@ function trace(f::AbstractEmbeddedGraph;
             y = get_verts(f)[2, e],
             z = get_verts(f)[3, e],
 
-            line = attr(color = edgecolors[i]),
+            line = attr(color = typeof(edgecolors)<:AbstractVector ? edgecolors[i] : get(edgecolors, e, get!(edgecolors, "default", RGB(0,0,0))),
+                        width = typeof(edgewidths)<:AbstractVector ? edgewidths[i] : get(edgewidths, e, get!(edgewidths, "default", 2))),
             mode = "lines",
             type = "scatter3d"
         )
@@ -48,7 +71,9 @@ function trace(f::AbstractEmbeddedGraph;
             mode = mode,
             text = string.(collect(1:size(get_verts(f))[2])),
             textposition = "bottom center",
-            marker = attr(color = vertexcolors, size = drawverts ? 4 : 0)
+            marker = attr(color = typeof(vertexcolors)<:AbstractVector ? vertexcolors : map(v -> get(vertexcolors, v, get!(vertexcolors, "default", RGB(0,0,0))), collect(1:size(get_verts(f))[2])),
+                        # size = drawverts ? 6 : 0            
+            size = drawverts ? (typeof(vertexsizes)<:AbstractVector ? vertexsizes : map(v -> get(vertexsizes, v, get!(vertexsizes, "default", 4)), collect(1:size(get_verts(f))[2]))) : 0)
         )
 
         push!(traces, trace)
@@ -73,17 +98,19 @@ function trace(f::AbstractEmbeddedGraph;
 end
 
 function trace(poly::AbstractPolyhedron; 
-            is_triangulated::Bool = false,  facetcolors::AbstractVector{<:Color} = [RGB(64/255, 127/255, 183/255)], opacity::Real = 0.5, kwargs...)
+            is_triangulated::Bool = false,  facetcolors::Union{AbstractDict{Any,<:Color}, AbstractVector{<:Color}} = [RGB(64/255, 127/255, 183/255)], opacity::Real = 0.5, kwargs...)
     if !is_triangulated
         polytriang = triangulate(poly)
     else
         polytriang = deepcopy(poly)
     end
 
-    if length(facetcolors) == 1
-        facetcolors = repeat(facetcolors, length(get_facets(polytriang)))
-    elseif length(facetcolors) != length(get_facets(poly))
-        error("Every facet needs a color assigned to it.")
+    if typeof(facetcolors) <: AbstractVector
+        if length(facetcolors) == 1
+            facetcolors = repeat(facetcolors, length(get_facets(polytriang)))
+        elseif length(facetcolors) != length(get_facets(poly))
+            error("Every facet needs a color assigned to it.")
+        end
     end
 
     mesh = mesh3d(
@@ -94,7 +121,7 @@ function trace(poly::AbstractPolyhedron;
         j = [triang[2] for triang in get_facets(polytriang)].-1,
         k = [triang[3] for triang in get_facets(polytriang)].-1,
 
-        facecolor = facetcolors,
+        facecolor = typeof(facetcolors)<:AbstractVector ? facetcolors : map(f -> get(facetcolors, f, get!(facetcolors, "default", RGB(64/255, 127/255, 183/255))), get_facets(poly_triang)),
         opacity = opacity
     )
 
