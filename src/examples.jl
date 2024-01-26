@@ -240,7 +240,7 @@ function assembly2(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
   return assembly, frame
 end
 
-function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::Int = 2)
+function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::Int = 2; atol::Real = 1e-8)
   assembly, frame = assembly2(n1, 3, 2, towerheight)
   link = Int[]
 
@@ -262,7 +262,7 @@ function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::
       im = hcat(towerblockcoords[1][:,[2*n1+5, 2*n1+6]], towerblockcoords[4][:,[2*n1+3, 2*n1+4]], towerblockcoords[2][:,[2*n1, n1+1, n1, 1]], towerblockcoords[3][:,[n1+2,n1+3]])
       display(preim)
       display(im)
-      aff = rigidmap(preim, im)
+      aff = rigidmap(preim, im, atol = atol)
       set_verts!(newblock, aff(newcoords))
 
       push!(assembly, newblock)
