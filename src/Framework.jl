@@ -163,3 +163,7 @@ function display(g::Framework)
         """
     )
 end
+
+function edge_lengths(f::Framework)
+    [sqrt(sqdist(get_verts(f)[:, e[1]], get_verts(f)[:, e[2]])) for e in get_edges(f)]
+end
