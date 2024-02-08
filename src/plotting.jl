@@ -13,7 +13,7 @@ function trace(f::AbstractEmbeddedGraph;
     if typeof(vertexcolors)<:AbstractVector
         if length(vertexcolors) == 1
             vertexcolors = repeat(vertexcolors, size(get_verts(f))[2])
-        elseif length(vertexcolors) != size(get_verts(f))[2]
+        elseif length(vertexcolors) < size(get_verts(f))[2]
             error("Every vertex needs a color assigned to it.")
         end
     end
@@ -21,7 +21,7 @@ function trace(f::AbstractEmbeddedGraph;
     if typeof(vertexsizes)<:AbstractVector
         if length(vertexsizes) == 1
             vertexsizes = repeat(vertexsizes, size(get_verts(f))[2])
-        elseif length(vertexsizes) != size(get_verts(f))[2]
+        elseif length(vertexsizes) < size(get_verts(f))[2]
             error("Every vertex needs a size assigned to it.")
         end
     end
@@ -29,7 +29,7 @@ function trace(f::AbstractEmbeddedGraph;
     if typeof(edgecolors)<:AbstractVector
         if length(edgecolors) == 1
             edgecolors = repeat(edgecolors, length(get_edges(f)))
-        elseif length(edgecolors) != length(get_edges(f))
+        elseif length(edgecolors) < length(get_edges(f))
             error("Every edge needs a color assigned to it.")
         end
     end
@@ -37,7 +37,7 @@ function trace(f::AbstractEmbeddedGraph;
     if typeof(edgewidths)<:AbstractVector
         if length(edgewidths) == 1
             edgewidths = repeat(edgewidths, length(get_edges(f)))
-        elseif length(edgewidths) != length(get_edges(f))
+        elseif length(edgewidths) < length(get_edges(f))
             error("Every edge needs a width assigned to it.")
         end
     end
@@ -108,7 +108,7 @@ function trace(poly::AbstractPolyhedron;
     if typeof(facetcolors) <: AbstractVector
         if length(facetcolors) == 1
             facetcolors = repeat(facetcolors, length(get_facets(polytriang)))
-        elseif length(facetcolors) != length(get_facets(poly))
+        elseif length(facetcolors) < length(get_facets(poly))
             error("Every facet needs a color assigned to it.")
         end
     end
@@ -142,19 +142,19 @@ function trace(assembly::AbstractVector{<:AbstractEmbeddedGraph};
     
     if length(vertexcolors) == 1
         vertexcolors = repeat(vertexcolors, length(assembly))
-    elseif length(vertexcolors) != length(assembly)
+    elseif length(vertexcolors) < length(assembly)
         error("Every element of the assembly needs vertexcolors assigned to it.")
     end
 
     if length(edgecolors) == 1
         edgecolors = repeat(edgecolors, length(assembly))
-    elseif length(edgecolors) != length(assembly)
+    elseif length(edgecolors) < length(assembly)
         error("Every element of the assembly needs edgecolors assigned to it.")
     end
 
     if length(facetcolors) == 1
         facetcolors = repeat(facetcolors, length(assembly))
-    elseif length(facetcolors) != length(assembly)
+    elseif length(facetcolors) < length(assembly)
         error("Every element of the assembly needs facetcolors assigned to it.")
     end
 

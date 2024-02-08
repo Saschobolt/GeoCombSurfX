@@ -170,7 +170,7 @@ function rigidmap(preim::Matrix{<:Real}, im::Matrix{<:Real}; atol::Real = 1e-8)
 
     for i in 1:size(preimbasis)[2]
         for j in (i+1):size(preimbasis)[2]
-            @assert abs(dist(preimbasis[:,i], preimbasis[:,j]) - dist(imbasis[:,i], imbasis[:,j])) < atol "Distance between preimage and image points need needs to be identical, but the distance between the points $(i) and $(j) is $(dist(preim[:,i], preim[:,j])) in the perimage and $(dist(im[:,i], im[:,j])) in the image."
+            @assert abs(dist(preimbasis[:,i], preimbasis[:,j]) - dist(imbasis[:,i], imbasis[:,j])) < atol "Distance between preimage and image points need needs to be identical, but the distance between the points $(i) and $(j) is $(dist(preimbasis[:,i], preimbasis[:,j])) in the perimage and $(dist(imbasis[:,i], imbasis[:,j])) in the image."
         end
     end
 
