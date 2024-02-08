@@ -168,6 +168,10 @@ function SimplicialSurface(comb_surf::AbstractCombSimplicialSurface)
     return SimplicialSurface(edges = get_edges(comb_surf), facets = get_facets(comb_surf))
 end
 
+function Polyhedron(surf::AbstractSimplicialSurface)
+    return Polyhedron(surf.verts, surf.edges, surf.facets)
+end
+
 function CombSimplicialSurface(surf::AbstractSimplicialSurface)
     return CombSimplicialSurface(edges = get_edges(surf), facets = get_facets(surf))
 end
