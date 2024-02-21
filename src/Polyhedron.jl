@@ -42,8 +42,9 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
                 edges = Vector{typeof(facets[1][1])}[]
                 for f in facets
                     n = length(f)
-                    append!(edges, [[f[mod1(i, n), f[mod1(i+1, n)]]] for i in 1:n])
+                    append!(edges, [[f[mod1(i, n)], f[mod1(i+1, n)]] for i in 1:n])
                 end
+                edges = collect.(unique(Set.(edges)))
             end
         end
 
@@ -100,6 +101,85 @@ function set_facets!(poly::AbstractPolyhedron, facets::Vector{<:Vector{<:Int}}; 
         end
     end
     poly.facets = facets
+end
+
+function remove_edge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
+    if e in get_edges(poly)
+        edge = e
+    elseif reverse(e) in get_edges(poly)
+        edge = reverse(e)
+    else
+        error("Edge not in polyhedron.")
+    end
+    neighbors = adjfacets(poly, edge)
+
+    if length(neighbors) == 1
+        # edge can be removed by removing the whole adjacent facet
+        border_edges = filter(e -> length(adjfacets(poly, e)) == 1, incedges(poly, neighbors[1]))
+        setdiff!(poly.facets, neighbors)
+        setdiff!(poly.edges, border_edges)
+        # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
+        endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
+        remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
+    elseif length(neighbors) == 2
+        # edge can only be removed, if neighboring facets are coplanar
+        if affinedim(get_verts(poly)[:, unique(vcat(neighbors...))], atol = atol) != 2
+            error("Edge can only be removed if neighboring facets are coplanar.")
+        end
+
+        # if one edge between neighbors is removed, all edges between neighbors are removed
+        border_edges = Base.intersect(incedges(poly, neighbors[1]), incedges(poly, neighbors[2]))
+
+        # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
+        endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
+        start = endpoints[1]
+        finish = endpoints[2]
+        remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
+
+        # remove the vertices to be removed from neighbors. Combine them together so that the new facet is the union of the two old facets withouth the removed vertices.
+        setdiff!(poly.facets, neighbors) # remove neighbors from facets to add them combined later
+        neighbors = [setdiff(neighbors[1], remove_verts), setdiff(neighbors[2], remove_verts)]
+        # rearrange neighbors so that in neighbors[1] the start vertex is the first and the finish vertex is the last and in neighbors[2] it's the other way around.
+        start_index1 = findfirst(x -> x == start, neighbors[1])
+        finish_index2 = findfirst(x -> x == finish, neighbors[2])
+
+        neighbors[1] = neighbors[1][[mod1(i+start_index1-1, length(neighbors[1])) for i in eachindex(neighbors[1])]] # now first entry of neighbors[1] is start
+        println(neighbors[1])
+        if neighbors[1][end] != finish # if last entry of neighbors[1] is not finish, then finish is the second entry of neighbors[1]. Reverse neighbors[1] and shift by one to the right so that first entry is start and last one is finish.
+            neighbors[1] = reverse(neighbors[1])[[mod1(i-1, length(neighbors[1])) for i in eachindex(neighbors[1])]]
+        end
+
+        neighbors[2] = neighbors[2][[mod1(i+finish_index2-1, length(neighbors[2])) for i in eachindex(neighbors[2])]] # now first entry of neighbors[2] is finish
+        if neighbors[2][end] != start # if last entry of neighbors[2] is not start, then start is the second entry of neighbors[2]. Reverse neighbors[2] and shift by one to the right so that first entry is finish and last one is start.
+            neighbors[2] = reverse(neighbors[2])[[mod1(i-1, length(neighbors[2])) for i in eachindex(neighbors[2])]]
+        end
+        println(neighbors)
+
+        # now the vertex orders of neighbors[1] and neighbors[2] are consistent with the vertex order of the new facet.
+        newfacet = unique(vcat(neighbors[1], neighbors[2]))
+        
+        # add new facet to poly
+        push!(poly.facets, newfacet)
+    else
+        error("Edge has more than 2 neighboring facets.")
+    end
+
+    # remove the border edges from poly
+    setdiff!(poly.edges, border_edges)
+
+    # remove remove_verts from poly by deleting the columns from verts and shifting the corresponding entries in the edges and facets so that the vertex labels are 1,...,n
+    vertexmap(v) = v - count(x -> x < v, remove_verts)
+    poly.edges = [vertexmap.(e) for e in poly.edges]
+    poly.facets = [vertexmap.(f) for f in poly.facets]
+    poly.verts = poly.verts[:, setdiff(1:size(poly.verts)[2], remove_verts)]
+
+    return poly
+end
+
+function remove_edge(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
+    p = deepcopy(poly)
+    remove_edge!(p, e; atol = atol)
+    return p
 end
 
 function ==(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol = 1e-12)
