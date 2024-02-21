@@ -118,7 +118,7 @@ mutable struct Framework{S<:Real, T<:Integer} <:AbstractEmbeddedGraph{S,T}
 
     TBW
     """
-    function Framework(verts::Matrix{<:Real}, edges::Vector{<:Vector{<:Integer}})
+    function Framework(verts::AbstractMatrix{<:Real}, edges::Vector{<:Vector{<:Integer}})
         combgraph = Graph(edges=edges)
         if no_concomponents(combgraph) != 1
             error("Graph is not connected.")
@@ -144,7 +144,7 @@ end
 
 TBW
 """
-function set_verts!(g::AbstractEmbeddedGraph, verts::Matrix{<:Real})
+function set_verts!(g::AbstractEmbeddedGraph, verts::AbstractMatrix{<:Real})
     @assert size(verts)[2] >= max(vcat(get_edges(g)...)...) "Not every vertex of an edge has a coordinate assigned to it."
     g.verts = verts
 end
