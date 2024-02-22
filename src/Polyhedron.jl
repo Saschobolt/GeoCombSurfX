@@ -577,7 +577,7 @@ function vol_signed(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented = f
     if !is_oriented
         poly_orient = orient_facets(poly)
     else 
-        poly_orient = deeocopy(poly)
+        poly_orient = deepcopy(poly)
     end
 
     # now all facets are oriented. Volume can be calculated from the signed volumes of parallelopiped
