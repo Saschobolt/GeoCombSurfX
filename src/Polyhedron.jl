@@ -638,7 +638,7 @@ Calculate the volume of the polyhedron poly.
 If is_oriented == true, poly is expected to be oriented.
 """
 function vol(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented::Bool = false)
-    return abs(vol_signed(poly))
+    return abs(vol_signed(poly, atol = atol, is_oriented = is_oriented))
 end
 
 """
