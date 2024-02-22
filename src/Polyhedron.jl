@@ -249,26 +249,33 @@ end
 
 
 """
-    isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer})
+    isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool = true)
 
-Calculate whether the facet or edge facetoredge and the facet facet of the polyhedron poly are adjacent, i.e. share a common edge.
+Calculate whether the facet or edge facetoredge and the facet facet of the polyhedron poly are adjacent, i.e. share a common edge. 
+If check is set to false, the function will not check whether facetoredge and facet are actually facets or edges of poly.
 """
-function isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer})
-    @assert Set(facetoredge) in Set.(get_facets(poly)) || Set(facetoredge) in Set.(get_edges(poly)) "facetoredge has to be a facet or an edge of poly."
-    @assert Set(facet) in Set.(get_facets(poly)) "facet has to be a facet of poly."
+function isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool = true)
+    if check
+        @assert Set(facetoredge) in Set.(get_edges(poly)) || Set(facetoredge) in Set.(get_facets(poly)) "facetoredge is not an edge or facet of poly."
+        @assert Set(facet) in Set.(get_facets(poly)) "facet is not a facet of poly."
+    end
 
     intersection = Base.intersect(facetoredge, facet)
 
-    return any(map(edge -> Base.intersect(edge, intersection) == edge, get_edges(poly)))
+    return Set(intersection) in Set.(get_edges(poly))
 end
 
 
 """
-    adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer})
+    adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}; check::Bool = true)
 
 Calculate the adjacent facets of the facet or edge facetoredge in the Polyhedron poly, i.e. the facets sharing at least one edge with facet.
+If check is set to false, the function will not check whether facetoredge is actually a facet or edge of poly.
 """
-function adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer})
+function adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}; check::Bool = true)
+    if check
+        @assert Set(facetoredge) in Set.(get_edges(poly)) || Set(facetoredge) in Set.(get_facets(poly)) "facetoredge is not an edge or facet of poly."
+    end
     sol = filter(facet2 -> isadjacent(poly, facetoredge, facet2) && Set(facet2) != Set(facetoredge), get_facets(poly))
     setdiff!(sol, [facetoredge])
     return sol
@@ -632,4 +639,23 @@ If is_oriented == true, poly is expected to be oriented.
 """
 function vol(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented::Bool = false)
     return abs(vol_signed(poly))
+end
+
+"""
+    facet_adjacency(poly::AbstractPolyhedron)
+
+Adjacency matrix for the facets of the polyhedron poly. Two facets are adjacent if they share an edge.
+"""
+function facet_adjacency(poly::AbstractPolyhedron)
+    facets = get_facets(poly)
+    adj = zeros(Bool, length(facets), length(facets))
+    for i in 1:length(facets)
+        for j in i+1:length(facets)
+            if isadjacent(poly, facets[i], facets[j])
+                adj[i,j] = true
+                adj[j,i] = true
+            end
+        end
+    end
+    return adj
 end
