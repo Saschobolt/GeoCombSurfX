@@ -69,7 +69,7 @@ Determine whether the edge edge of the AbstractPolyhedron poly is flat. If the o
 function isflatedge(poly::AbstractPolyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
     facets = adjfacets(poly, edge)
 
-    return affinedim(get_verts(poly)[:, union(facets...)], atol = atol) == 2
+    return affinedim(get_verts(poly)[:, unique(vcat(facets...))], atol = atol) == 2
 end
 
 
@@ -127,70 +127,92 @@ function edgetype(poly::AbstractPolyhedron, edge::Vector{<:Int}; is_oriented::Bo
 end
 
 
+
 """
     flattenfacets!(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-8)
 
 Remove flat edges of the AbstractPolyhedron poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
 """
-function flattenfacets!(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-8)
-    flat_edges = filter(e -> isflatedge(poly, e), get_edges(poly))
-    set_edges!(poly, setdiff(get_edges(poly), flat_edges))
-
-    # facets of poly that have a flat edge
-    flat_facets = filter(f -> any(map(e -> issubset(e, f), flat_edges)), get_facets(poly))
-
-    # vertices of poly that lie in the inside of a flat facet
-    flat_verts = filter(v -> !any([v in e for e in get_edges(poly)]), union(get_facets(poly)...))
-
-    # boolean matrix: (i,j) = true if flat_facet[i] and flat_facet[j] share a flat edge.
-    shareflatedge = [any(map(e -> issubset(e, Base.intersect(flat_facets[i], flat_facets[j])), flat_edges)) for i in eachindex(flat_facets), j in eachindex(flat_facets)]
-
-    # array that keeps track of which flat facets to merge
-    merges = Vector{Int}[]
-
-    # recursive function to find all indices of flat facets (with greater index than i) that are subsets of the new facet that the flat facet i is a subset of
-    function findmergesrec(i) # Performance verbesserung durch dynamic programming?
-        if filter(j -> j > i, findall(shareflatedge[i,:])) == [] 
-            return [i]
+function flattenfacets!(poly::AbstractPolyhedron; atol = 1e-8)
+    finished = false
+    while !finished
+        for edge in get_edges(poly)
+            if edge == get_edges(poly)[end]
+                finished = true
+            end
+            if isflatedge(poly, edge, atol = atol)
+                remove_edge!(poly, edge, atol = atol)
+                break
+            end
         end
-
-        return union([i], [findmergesrec(j) for j in filter(j -> j > i, findall(shareflatedge[i,:]))]...)
     end
-
-    for i in 1:length(flat_facets)
-        if any([i in a for a in merges]) continue end
-
-        push!(merges, findmergesrec(i))
-    end
-
-    newfacets = [union(flat_facets[a]...) for a in merges]
-    newfacets = [filter(v -> !(v in flat_verts), f) for f in newfacets]
-    # edge facet adjacency matrix for the new facets
-    edgefacetadj = [issubset(get_edges(poly)[i], newfacets[j]) for i in eachindex(get_edges(poly)), j in eachindex(newfacets)]
-    newfacets = [formpath(newfacets[j], get_edges(poly)[findall(edgefacetadj[:,j])]) for j in eachindex(newfacets)]
-
-    facets = get_facets(poly)
-    setdiff!(facets, flat_facets)
-    append!(facets, newfacets)
-    set_facets!(poly, facets; atol = atol)
-
-    # if a vertex lies inside a polygon forming a facet, it can be ignored. 
-    # Thus the entries of sol_edges have to be transformed in order to be labeled 1,...,n
-    function indexmap(i::Integer)
-        return indexin(i, sort(union(get_edges(poly)...)))[1]
-    end
-
-    # if a vertex lies inside a polygon forming a facet, it can be ignored
-    set_verts!(poly, get_verts(poly)[:, sort(union(get_edges(poly)...))])    
-
-    set_edges!(poly, [indexmap.(e) for e in get_edges(poly)])
-    set_facets!(poly, [indexmap.(f) for f in get_facets(poly)]; atol = atol)
+    return poly
 end
 
+# """
+#     flattenfacets!(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-8)
 
-function flattenfacets(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-5)
+# Remove flat edges of the AbstractPolyhedron poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
+# """
+# function flattenfacets!(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-8)
+#     flat_edges = filter(e -> isflatedge(poly, e), get_edges(poly))
+#     set_edges!(poly, setdiff(get_edges(poly), flat_edges))
+
+#     # facets of poly that have a flat edge
+#     flat_facets = filter(f -> any(map(e -> issubset(e, f), flat_edges)), get_facets(poly))
+
+#     # vertices of poly that lie in the inside of a flat facet
+#     flat_verts = filter(v -> !any([v in e for e in get_edges(poly)]), union(get_facets(poly)...))
+
+#     # boolean matrix: (i,j) = true if flat_facet[i] and flat_facet[j] share a flat edge.
+#     shareflatedge = [any(map(e -> issubset(e, Base.intersect(flat_facets[i], flat_facets[j])), flat_edges)) for i in eachindex(flat_facets), j in eachindex(flat_facets)]
+
+#     # array that keeps track of which flat facets to merge
+#     merges = Vector{Int}[]
+
+#     # recursive function to find all indices of flat facets (with greater index than i) that are subsets of the new facet that the flat facet i is a subset of
+#     function findmergesrec(i) # Performance verbesserung durch dynamic programming?
+#         if filter(j -> j > i, findall(shareflatedge[i,:])) == [] 
+#             return [i]
+#         end
+
+#         return union([i], [findmergesrec(j) for j in filter(j -> j > i, findall(shareflatedge[i,:]))]...)
+#     end
+
+#     for i in 1:length(flat_facets)
+#         if any([i in a for a in merges]) continue end
+
+#         push!(merges, findmergesrec(i))
+#     end
+
+#     newfacets = [union(flat_facets[a]...) for a in merges]
+#     newfacets = [filter(v -> !(v in flat_verts), f) for f in newfacets]
+#     # edge facet adjacency matrix for the new facets
+#     edgefacetadj = [issubset(get_edges(poly)[i], newfacets[j]) for i in eachindex(get_edges(poly)), j in eachindex(newfacets)]
+#     newfacets = [formpath(newfacets[j], get_edges(poly)[findall(edgefacetadj[:,j])]) for j in eachindex(newfacets)]
+
+#     facets = get_facets(poly)
+#     setdiff!(facets, flat_facets)
+#     append!(facets, newfacets)
+#     set_facets!(poly, facets; atol = atol)
+
+#     # if a vertex lies inside a polygon forming a facet, it can be ignored. 
+#     # Thus the entries of sol_edges have to be transformed in order to be labeled 1,...,n
+#     function indexmap(i::Integer)
+#         return indexin(i, sort(union(get_edges(poly)...)))[1]
+#     end
+
+#     # if a vertex lies inside a polygon forming a facet, it can be ignored
+#     set_verts!(poly, get_verts(poly)[:, sort(union(get_edges(poly)...))])    
+
+#     set_edges!(poly, [indexmap.(e) for e in get_edges(poly)])
+#     set_facets!(poly, [indexmap.(f) for f in get_facets(poly)]; atol = atol)
+# end
+
+
+function flattenfacets(poly::AbstractPolyhedron; atol = 1e-5)
     polycopy = deepcopy(poly)
-    flattenfacets!(polycopy, is_oriented = is_oriented, atol = atol)
+    flattenfacets!(polycopy, atol = atol)
     return polycopy
 end
 

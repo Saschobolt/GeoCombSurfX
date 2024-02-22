@@ -144,7 +144,6 @@ function remove_edge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
         finish_index2 = findfirst(x -> x == finish, neighbors[2])
 
         neighbors[1] = neighbors[1][[mod1(i+start_index1-1, length(neighbors[1])) for i in eachindex(neighbors[1])]] # now first entry of neighbors[1] is start
-        println(neighbors[1])
         if neighbors[1][end] != finish # if last entry of neighbors[1] is not finish, then finish is the second entry of neighbors[1]. Reverse neighbors[1] and shift by one to the right so that first entry is start and last one is finish.
             neighbors[1] = reverse(neighbors[1])[[mod1(i-1, length(neighbors[1])) for i in eachindex(neighbors[1])]]
         end
@@ -153,7 +152,6 @@ function remove_edge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
         if neighbors[2][end] != start # if last entry of neighbors[2] is not start, then start is the second entry of neighbors[2]. Reverse neighbors[2] and shift by one to the right so that first entry is finish and last one is start.
             neighbors[2] = reverse(neighbors[2])[[mod1(i-1, length(neighbors[2])) for i in eachindex(neighbors[2])]]
         end
-        println(neighbors)
 
         # now the vertex orders of neighbors[1] and neighbors[2] are consistent with the vertex order of the new facet.
         newfacet = unique(vcat(neighbors[1], neighbors[2]))
