@@ -188,7 +188,10 @@ function isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Inte
         return false
     end
 
-    return Set(intersection[[1,2]]) in Set.(get_edges(poly))
+    ind_1 = indexin(intersection, facetoredge)
+    ind_2 = indexin(intersection, facet)
+
+    return (abs(ind_1[1] - ind_1[2]) == 1 || Set(facetoredge[ind_1]) == Set(facetoredge[[1,end]])) && (abs(ind_2[1] - ind_2[2]) == 1 || Set(facet[ind_2]) == Set(facet[[1,end]]))
 end
 
 
