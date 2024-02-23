@@ -184,7 +184,7 @@ function isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Inte
     end
 
     intersection = Base.intersect(facetoredge, facet)
-    if length(intersection) < 2
+    if length(intersection) < 2 || length(intersection) == length(facetoredge)
         return false
     end
 
@@ -205,9 +205,8 @@ function adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integ
     if check
         @assert Set(facetoredge) in Set.(get_edges(poly)) || Set(facetoredge) in Set.(get_facets(poly)) "facetoredge is not an edge or facet of poly."
     end
-    sol = filter(facet2 -> isadjacent(poly, facetoredge, facet2) && Set(facet2) != Set(facetoredge), get_facets(poly))
-    setdiff!(sol, [facetoredge])
-    return sol
+    
+    return filter(f -> isadjacent(poly, facetoredge, f, check = false), get_facets(poly))
 end
 
 
