@@ -103,83 +103,6 @@ function set_facets!(poly::AbstractPolyhedron, facets::Vector{<:Vector{<:Int}}; 
     poly.facets = facets
 end
 
-function remove_edge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
-    if e in get_edges(poly)
-        edge = e
-    elseif reverse(e) in get_edges(poly)
-        edge = reverse(e)
-    else
-        error("Edge not in polyhedron.")
-    end
-    neighbors = adjfacets(poly, edge)
-
-    if length(neighbors) == 1
-        # edge can be removed by removing the whole adjacent facet
-        border_edges = filter(e -> length(adjfacets(poly, e)) == 1, incedges(poly, neighbors[1]))
-        setdiff!(poly.facets, neighbors)
-        setdiff!(poly.edges, border_edges)
-        # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
-        endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
-        remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
-    elseif length(neighbors) == 2
-        # edge can only be removed, if neighboring facets are coplanar
-        if affinedim(get_verts(poly)[:, unique(vcat(neighbors...))], atol = atol) != 2
-            error("Edge can only be removed if neighboring facets are coplanar.")
-        end
-
-        # if one edge between neighbors is removed, all edges between neighbors are removed
-        border_edges = Base.intersect(incedges(poly, neighbors[1]), incedges(poly, neighbors[2]))
-
-        # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
-        endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
-        start = endpoints[1]
-        finish = endpoints[2]
-        remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
-
-        # remove the vertices to be removed from neighbors. Combine them together so that the new facet is the union of the two old facets withouth the removed vertices.
-        setdiff!(poly.facets, neighbors) # remove neighbors from facets to add them combined later
-        neighbors = [setdiff(neighbors[1], remove_verts), setdiff(neighbors[2], remove_verts)]
-        # rearrange neighbors so that in neighbors[1] the start vertex is the first and the finish vertex is the last and in neighbors[2] it's the other way around.
-        start_index1 = findfirst(x -> x == start, neighbors[1])
-        finish_index2 = findfirst(x -> x == finish, neighbors[2])
-
-        neighbors[1] = neighbors[1][[mod1(i+start_index1-1, length(neighbors[1])) for i in eachindex(neighbors[1])]] # now first entry of neighbors[1] is start
-        if neighbors[1][end] != finish # if last entry of neighbors[1] is not finish, then finish is the second entry of neighbors[1]. Reverse neighbors[1] and shift by one to the right so that first entry is start and last one is finish.
-            neighbors[1] = reverse(neighbors[1])[[mod1(i-1, length(neighbors[1])) for i in eachindex(neighbors[1])]]
-        end
-
-        neighbors[2] = neighbors[2][[mod1(i+finish_index2-1, length(neighbors[2])) for i in eachindex(neighbors[2])]] # now first entry of neighbors[2] is finish
-        if neighbors[2][end] != start # if last entry of neighbors[2] is not start, then start is the second entry of neighbors[2]. Reverse neighbors[2] and shift by one to the right so that first entry is finish and last one is start.
-            neighbors[2] = reverse(neighbors[2])[[mod1(i-1, length(neighbors[2])) for i in eachindex(neighbors[2])]]
-        end
-
-        # now the vertex orders of neighbors[1] and neighbors[2] are consistent with the vertex order of the new facet.
-        newfacet = unique(vcat(neighbors[1], neighbors[2]))
-        
-        # add new facet to poly
-        push!(poly.facets, newfacet)
-    else
-        error("Edge has more than 2 neighboring facets.")
-    end
-
-    # remove the border edges from poly
-    setdiff!(poly.edges, border_edges)
-
-    # remove remove_verts from poly by deleting the columns from verts and shifting the corresponding entries in the edges and facets so that the vertex labels are 1,...,n
-    vertexmap(v) = v - count(x -> x < v, remove_verts)
-    poly.edges = [vertexmap.(e) for e in poly.edges]
-    poly.facets = [vertexmap.(f) for f in poly.facets]
-    poly.verts = poly.verts[:, setdiff(1:size(poly.verts)[2], remove_verts)]
-
-    return poly
-end
-
-function remove_edge(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
-    p = deepcopy(poly)
-    remove_edge!(p, e; atol = atol)
-    return p
-end
-
 function ==(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol = 1e-12)
     verts1 = get_verts(poly1)
     verts2 = get_verts(poly2)
@@ -261,8 +184,11 @@ function isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Inte
     end
 
     intersection = Base.intersect(facetoredge, facet)
+    if length(intersection) < 2
+        return false
+    end
 
-    return Set(intersection) in Set.(get_edges(poly))
+    return Set(intersection[[1,2]]) in Set.(get_edges(poly))
 end
 
 
@@ -495,62 +421,125 @@ end
 
 
 """
-    orient_facets!(poly::AbstractPolyhedron)
+    orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
 
-Orient the facets of the polyhedron poly.
+Orient the facets of the polyhedron poly in line with the first facet. 
 """
 function orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
     # https://stackoverflow.com/questions/48093451/calculating-outward-normal-of-a-non-convex-polyhedral#comment83177517_48093451
-    newfacets = Vector{Int}[]
+    adj = facet_adjacency(poly)
 
-    f = get_facets(poly)[1]
-    adj = adjfacets(poly, f)
-    push!(newfacets, f)
-
-    # exterior facets that have been oriented
-    extfacets = Vector{Int}[]
-
-    function direction(facet, edge)
-        # function that determines if edge is oriented forwards (1) or backwards (-1) in facet. 
-        inds = indexin(edge, facet)
-        if mod1(inds[2] - inds[1], length(facet)) == 1 return 1 end
-        return -1
+    oriented = [1]
+    ext_facets = Dict{Int, Int}() # exterior facets that have to be oriented
+    for i in findall(adj[:, 1])
+        ext_facets[i] = 1
     end
 
-    while length(newfacets) < length(get_facets(poly))
-        setdiff!(extfacets, [f])
-
-        for g in adj
-            if g in newfacets || reverse(g) in newfacets 
-                continue
-            end
-
-            inter = Base.intersect(f,g)
-            e = [inter[1], inter[2]]
-
-            if direction(f, [inter[1], inter[2]]) == direction(g, [inter[1], inter[2]])
-                reverse!(g)
-            end
-
-            # g is now oriented and a newfacet and an exteriorfacet in this step
-            push!(newfacets, g)
-            push!(extfacets, g)
+    while length(oriented) < length(get_facets(poly))
+        f_ind = collect(keys(ext_facets))[1]
+        f = get_facets(poly)[f_ind]
+        g_ind = ext_facets[f_ind]
+        g = get_facets(poly)[ext_facets[f_ind]]
+        
+        inter = Base.intersect(f,g)
+        indin_f = indexin(inter, f)
+        indin_g = indexin(inter, g)
+        
+        # delete f_ind from ext_facets and add all adjacent facets of f to ext_facets
+        delete!(ext_facets, f_ind)
+        for i in Base.intersect(findall(adj[:, f_ind]), setdiff(collect(1:length(get_facets(poly))), oriented))
+            ext_facets[i] = f_ind
         end
-
-        for g in extfacets
-            adj_new = adjfacets(poly, g)
-            if length(setdiff(Set.(adj_new), Set.(newfacets))) > 0
-                f = g
-                adj = adj_new
-                break
+        
+        # add f_ind to oriented
+        oriented = [oriented; f_ind]
+        
+        # orient f with regard to g
+        if indin_g[1] == length(g) && indin_g[2] == 1 || indin_g[1] == indin_g[2] - 1
+            # inter is oriented "forwards" in g
+            if indin_f[2] == length(f) && indin_f[1] == 1 || indin_f[2] == indin_f[1] - 1
+                # inter is oriented "backwards" in f -> don't need to change orientation of f
+            elseif indin_f[1] == length(f) && indin_f[2] == 1 || indin_f[1] == indin_f[2] - 1
+                # inter is oriented "forwards" in f -> reverse f
+                reverse!(poly.facets[f_ind])
+            else
+                error("Something went wrong. Either facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
             end
-            # there are no adjacent facets of g that are not oriented already -> g is not exterior.
-            setdiff!(extfacets, [g])
+        elseif indin_g[2] == length(g) && indin_g[1] == 1 || indin_g[2] == indin_g[1] - 1
+            # inter is oriented "backwards" in g
+            if indin_f[1] == length(f) && indin_f[2] == 1 || indin_f[1] == indin_f[2] - 1
+                # inter is oriented "forwards" in f -> don't need to change orientation of f
+            elseif indin_f[2] == length(f) && indin_f[1] == 1 || indin_f[2] == indin_f[1] - 1
+                # inter is oriented "backwards" in f -> reverse f
+                reverse!(poly.facets[f_ind])
+            else
+                error("Something went wrong. Either facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
+            end
+        else
+            error("Something went wrong. Either facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
         end
     end
 
-    set_facets!(poly, newfacets; atol = atol)
+    return poly
 end
+
+# """
+#     orient_facets!(poly::AbstractPolyhedron)
+
+# Orient the facets of the polyhedron poly.
+# """
+# function orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
+#     # https://stackoverflow.com/questions/48093451/calculating-outward-normal-of-a-non-convex-polyhedral#comment83177517_48093451
+#     newfacets = Vector{Int}[]
+
+#     f = get_facets(poly)[1]
+#     adj = adjfacets(poly, f)
+#     push!(newfacets, f)
+
+#     # exterior facets that have been oriented
+#     extfacets = Vector{Int}[]
+
+#     function direction(facet, edge)
+#         # function that determines if edge is oriented forwards (1) or backwards (-1) in facet. 
+#         inds = indexin(edge, facet)
+#         if mod1(inds[2] - inds[1], length(facet)) == 1 return 1 end
+#         return -1
+#     end
+
+#     while length(newfacets) < length(get_facets(poly))
+#         setdiff!(extfacets, [f])
+
+#         for g in adj
+#             if g in newfacets || reverse(g) in newfacets 
+#                 continue
+#             end
+
+#             inter = Base.intersect(f,g)
+#             e = [inter[1], inter[2]]
+
+#             if direction(f, [inter[1], inter[2]]) == direction(g, [inter[1], inter[2]])
+#                 reverse!(g)
+#             end
+
+#             # g is now oriented and a newfacet and an exteriorfacet in this step
+#             push!(newfacets, g)
+#             push!(extfacets, g)
+#         end
+
+#         for g in extfacets
+#             adj_new = adjfacets(poly, g)
+#             if length(setdiff(Set.(adj_new), Set.(newfacets))) > 0
+#                 f = g
+#                 adj = adj_new
+#                 break
+#             end
+#             # there are no adjacent facets of g that are not oriented already -> g is not exterior.
+#             setdiff!(extfacets, [g])
+#         end
+#     end
+
+#     set_facets!(poly, newfacets; atol = atol)
+# end
 
 """
     orient_facets(poly::AbstractPolyhedron)
@@ -651,7 +640,7 @@ function facet_adjacency(poly::AbstractPolyhedron)
     adj = zeros(Bool, length(facets), length(facets))
     for i in 1:length(facets)
         for j in i+1:length(facets)
-            if isadjacent(poly, facets[i], facets[j])
+            if isadjacent(poly, facets[i], facets[j], check = false)
                 adj[i,j] = true
                 adj[j,i] = true
             end
