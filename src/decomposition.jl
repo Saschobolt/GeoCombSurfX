@@ -64,10 +64,10 @@ end
 """
     isflatedge(poly::AbstractPolyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
 
-Determine whether the edge edge of the AbstractPolyhedron poly is flat. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
+Determine whether the edge edge of the AbstractPolyhedron poly is flat. If check is set to true, the function checks if the edge is really an edge of poly.
 """
-function isflatedge(poly::AbstractPolyhedron, edge::Vector{<:Int}; atol::Real = 1e-12)
-    facets = adjfacets(poly, edge)
+function isflatedge(poly::AbstractPolyhedron, edge::Vector{<:Int}; atol::Real = 1e-12, check::Bool = true)
+    facets = adjfacets(poly, edge, check = check)
 
     return affinedim(get_verts(poly)[:, unique(vcat(facets...))], atol = atol) == 2
 end
@@ -78,11 +78,11 @@ end
 
 Determine the type of the edge of poly as either "flat", "concave" or "convex". If the option is_oriented is set to true, the polyhedron is assumed to be oriented ccw wrt the outward normals. Otherwise an orientation is computed.
 """
-function edgetype(poly::AbstractPolyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12)
+function edgetype(poly::AbstractPolyhedron, edge::Vector{<:Int}; is_oriented::Bool = false, atol::Real = 1e-12, check::Bool = true)
     @assert edge in get_edges(poly)|| reverse(edge) in get_edges(poly) "edge has to be an edge of poly."
     verts = get_verts(poly)
     
-    if isflatedge(poly, edge, atol = atol)
+    if isflatedge(poly, edge, atol = atol, check = check)
         return "flat"
     end
 
@@ -126,6 +126,88 @@ function edgetype(poly::AbstractPolyhedron, edge::Vector{<:Int}; is_oriented::Bo
     error("Could't determine edge type.")
 end
 
+"""
+    remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
+
+Aux function to remove a flat edge from the AbstractPolyhedron poly. The edge e is removed by removing the adjacent facet if there is only one. If there are two adjacent facets, the edge is removed if the two facets are coplanar. In this case the two facets are combined to one facet. If the two facets are not coplanar, an error is thrown. The function returns the modified polyhedron.
+"""
+function remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
+    if e in get_edges(poly)
+        edge = e
+    elseif reverse(e) in get_edges(poly)
+        edge = reverse(e)
+    else
+        error("Edge not in polyhedron.")
+    end
+    neighbors = adjfacets(poly, edge)
+
+    if length(neighbors) == 1
+        # edge can be removed by removing the whole adjacent facet
+        border_edges = filter(e -> length(adjfacets(poly, e)) == 1, incedges(poly, neighbors[1]))
+        setdiff!(poly.facets, neighbors)
+        setdiff!(poly.edges, border_edges)
+        # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
+        endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
+        remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
+    elseif length(neighbors) == 2
+        # edge can only be removed, if neighboring facets are coplanar
+        if affinedim(get_verts(poly)[:, unique(vcat(neighbors...))], atol = atol) != 2
+            error("Edge can only be removed if neighboring facets are coplanar.")
+        end
+
+        # if one edge between neighbors is removed, all edges between neighbors are removed
+        border_edges = Base.intersect(incedges(poly, neighbors[1]), incedges(poly, neighbors[2]))
+
+        # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
+        endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
+        start = endpoints[1]
+        finish = endpoints[2]
+        remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
+
+        # remove the vertices to be removed from neighbors. Combine them together so that the new facet is the union of the two old facets withouth the removed vertices.
+        setdiff!(poly.facets, neighbors) # remove neighbors from facets to add them combined later
+        neighbors = [setdiff(neighbors[1], remove_verts), setdiff(neighbors[2], remove_verts)]
+        # rearrange neighbors so that in neighbors[1] the start vertex is the first and the finish vertex is the last and in neighbors[2] it's the other way around.
+        start_index1 = findfirst(x -> x == start, neighbors[1])
+        finish_index2 = findfirst(x -> x == finish, neighbors[2])
+
+        neighbors[1] = neighbors[1][[mod1(i+start_index1-1, length(neighbors[1])) for i in eachindex(neighbors[1])]] # now first entry of neighbors[1] is start
+        if neighbors[1][end] != finish # if last entry of neighbors[1] is not finish, then finish is the second entry of neighbors[1]. Reverse neighbors[1] and shift by one to the right so that first entry is start and last one is finish.
+            neighbors[1] = reverse(neighbors[1])[[mod1(i-1, length(neighbors[1])) for i in eachindex(neighbors[1])]]
+        end
+
+        neighbors[2] = neighbors[2][[mod1(i+finish_index2-1, length(neighbors[2])) for i in eachindex(neighbors[2])]] # now first entry of neighbors[2] is finish
+        if neighbors[2][end] != start # if last entry of neighbors[2] is not start, then start is the second entry of neighbors[2]. Reverse neighbors[2] and shift by one to the right so that first entry is finish and last one is start.
+            neighbors[2] = reverse(neighbors[2])[[mod1(i-1, length(neighbors[2])) for i in eachindex(neighbors[2])]]
+        end
+
+        # now the vertex orders of neighbors[1] and neighbors[2] are consistent with the vertex order of the new facet.
+        newfacet = unique(vcat(neighbors[1], neighbors[2]))
+        
+        # add new facet to poly
+        push!(poly.facets, newfacet)
+    else
+        error("Edge has more than 2 neighboring facets.")
+    end
+
+    # remove the border edges from poly
+    setdiff!(poly.edges, border_edges)
+
+    # remove remove_verts from poly by deleting the columns from verts and shifting the corresponding entries in the edges and facets so that the vertex labels are 1,...,n
+    vertexmap(v) = v - count(x -> x < v, remove_verts)
+    poly.edges = [vertexmap.(e) for e in poly.edges]
+    poly.facets = [vertexmap.(f) for f in poly.facets]
+    poly.verts = poly.verts[:, setdiff(1:size(poly.verts)[2], remove_verts)]
+
+    return poly
+end
+
+function remove_edge(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
+    p = deepcopy(poly)
+    remove_flatedge!(p, e; atol = atol)
+    return p
+end
+
 
 
 """
@@ -133,15 +215,18 @@ end
 
 Remove flat edges of the AbstractPolyhedron poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
 """
+# TODO: when removing a flat edge it can happen that a degenerate polyhedron is created. Handle this case!
 function flattenfacets!(poly::AbstractPolyhedron; atol = 1e-8)
+    # array of non flat edges
+    nonflat = Vector{Int}[]
     finished = false
     while !finished
-        for edge in get_edges(poly)
+        for edge in setdiff(get_edges(poly), nonflat)
             if edge == get_edges(poly)[end]
                 finished = true
             end
             if isflatedge(poly, edge, atol = atol)
-                remove_edge!(poly, edge, atol = atol)
+                remove_flatedge!(poly, edge, atol = atol)
                 break
             end
         end

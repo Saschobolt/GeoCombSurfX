@@ -184,7 +184,7 @@ function isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Inte
     end
 
     intersection = Base.intersect(facetoredge, facet)
-    if length(intersection) < 2 || length(intersection) == length(facetoredge)
+    if length(intersection) < 2 || length(intersection) == length(facet)
         return false
     end
 
