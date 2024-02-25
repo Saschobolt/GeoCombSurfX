@@ -2,3 +2,6 @@
 /Images/*.jpg
 
 /*.ipynb
+/Interlocking/*.txt
+/Interlocking/*.obj
+/Interlocking/*.ipynb
