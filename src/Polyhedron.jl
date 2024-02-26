@@ -15,25 +15,34 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
     facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
     # TODO: Neuen constructor mit optionalen Argumenten (wenn nur coordinates gegeben werden, ist Ergebnis die konvexe Hülle der Punkte + check der Dimension
     # wenn nur Facets gegeben sind, werden Edges automatisch gesetzt und es wird gecheckt, dass Vertizes auf einer Facet koplanar aber nicht kollinear sind)
-    function Polyhedron(verts::AbstractMatrix{<:Real}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8)
+    function Polyhedron(verts::AbstractMatrix{<:Real}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8, check_consistency::Bool = true)
         framework = Framework(verts, edges)
         if any([affinedim(verts[:,f]; atol = atol) != 2 for f in facets])
             error("Facets have to span a space of affine dimension 2.")
         end
 
-        for f in facets
-            n = length(f)
-            for i in 1:n
-                if !(f[[mod1(i, n), mod1(i+1, n)]] in edges || f[[mod1(i+1, n), mod1(i, n)]] in edges)
-                    error("Facets and edges are not consistent.")
+        if check_consistency
+            for f in facets
+                n = length(f)
+                for i in 1:n
+                    if !(f[[mod1(i, n), mod1(i+1, n)]] in edges || f[[mod1(i+1, n), mod1(i, n)]] in edges)
+                        error("Facets and edges are not consistent.")
+                    end
                 end
             end
         end
 
-        # TODO: Facets sind zyklische Graphen -> In Framework.jl für Graphen implementieren: iscyclic.
         S = typeof(verts[1,1])
         T = typeof(edges[1][1])
-        return orient_facets(new{S,T}(verts, edges, facets); atol = atol)
+        poly = new{S,T}(verts, edges, facets)
+        if check_consistency
+            for e in edges
+                if length(adjfacets(poly, e)) > 2
+                    error("Edge $(e) has to be edge of at least one and at most two facets, but is adjacent to $(adjfacets(poly, e)).")
+                end
+            end
+        end
+        return orient_facets(poly)
     end
 
     function Polyhedron(verts::Vector{<:Vector{<:Real}}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8)
@@ -262,10 +271,13 @@ end
 """
     incedges(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
 
-Return the edges of the polyhedron poly, that are incident to the facet f, i.e. that are a subset of f.
+Return the edges of the polyhedron poly, that are incident to the facet f, i.e. that are a subset of f. If check is set to true, it is checked, whether f is a facet of poly.
 """
-function incedges(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
-    return filter(e -> issubset(e, f), get_edges(poly))
+function incedges(poly::AbstractPolyhedron, f::AbstractVector{<:Integer}; check::Bool = true)
+    if check
+        @assert Set(f) in Set.(get_facets(poly)) "f is not a facet of poly."
+    end
+    return filter(e -> isadjacent(poly, e, f, check = false), get_edges(poly))
 end
 
 
