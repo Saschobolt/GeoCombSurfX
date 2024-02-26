@@ -110,8 +110,8 @@ function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
     n = normalvec(coords[:,remaining_verts])
 
     # signed angles at vertices
-    angles  = [signedangle3d_right(coords[:,neighbors(v)[1]] - coords[:,v], coords[:,v] - coords[:,neighbors(v)[2]], n, atol = 1e-12) for v in remaining_verts]
-    angles[abs.(angles) .< 1e-12] .= 0
+    angles  = [signedangle3d_right(coords[:,neighbors(v)[1]] - coords[:,v], coords[:,v] - coords[:,neighbors(v)[2]], n, atol = atol) for v in remaining_verts]
+    angles[abs.(angles) .< atol] .= 0
 
     # sign of angles at convex vertices is the same as the sum of angle array (2pi or -2pi)
     convexsign = sign(sum(angles))
@@ -120,9 +120,9 @@ function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
     function isconvex(v::Int)
         neighbor1 = neighbors(v)[1]
         neighbor2 = neighbors(v)[2]
-        angle = signedangle3d_right(coords[:,neighbor1] - coords[:,v], coords[:,v] - coords[:,neighbor2], n, atol = 1e-12)
+        angle = signedangle3d_right(coords[:,neighbor1] - coords[:,v], coords[:,v] - coords[:,neighbor2], n, atol = atol)
         # @info "check, if $(v) is convex; neighbor1: $(neighbor1), neighbor2: $(neighbor2), angle: $(angle)"
-        if abs(angle) < 1e-12
+        if abs(angle) < atol
             return false
         end
         return sign(angle) == convexsign
