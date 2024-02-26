@@ -241,7 +241,7 @@ function normalvec(points::Vector{<:Vector{<:Real}})
 end
 
 function normalvec(points::AbstractMatrix{<:Real})
-    return normalvec([points[:,i] for i in 1:size(points)[2]])
+    return normalvec(Plane(points))
 end
 
 """
