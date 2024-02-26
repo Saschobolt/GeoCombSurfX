@@ -24,6 +24,8 @@ function triangulate!(poly::AbstractPolyhedron; atol = 1e-8)
 
     set_edges!(poly, newedges)
     set_facets!(poly, newfacets; atol = atol)
+
+    return poly
 end
 
 
