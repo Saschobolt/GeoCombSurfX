@@ -20,6 +20,16 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
         if any([affinedim(verts[:,f]; atol = atol) != 2 for f in facets])
             error("Facets have to span a space of affine dimension 2.")
         end
+
+        for f in facets
+            n = length(f)
+            for i in 1:n
+                if !(f[[mod1(i, n), mod1(i+1, n)]] in edges || f[[mod1(i+1, n), mod1(i, n)]] in edges)
+                    error("Facets and edges are not consistent.")
+                end
+            end
+        end
+
         # TODO: Facets sind zyklische Graphen -> In Framework.jl für Graphen implementieren: iscyclic.
         S = typeof(verts[1,1])
         T = typeof(edges[1][1])
@@ -42,7 +52,7 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
                 edges = Vector{typeof(facets[1][1])}[]
                 for f in facets
                     n = length(f)
-                    append!(edges, [[f[mod1(i, n)], f[mod1(i+1, n)]] for i in 1:n])
+                    append!(edges, [f[[mod1(i, n), mod1(i+1, n)]] for i in 1:n])
                 end
                 edges = collect.(unique(Set.(edges)))
             end
