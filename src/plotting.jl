@@ -98,9 +98,9 @@ function trace(f::AbstractEmbeddedGraph;
 end
 
 function trace(poly::AbstractPolyhedron; 
-            is_triangulated::Bool = false,  facetcolors::Union{AbstractDict{Any,<:Color}, AbstractVector{<:Color}} = [RGB(64/255, 127/255, 183/255)], opacity::Real = 0.5, kwargs...)
+            is_triangulated::Bool = false,  facetcolors::Union{AbstractDict{Any,<:Color}, AbstractVector{<:Color}} = [RGB(64/255, 127/255, 183/255)], opacity::Real = 0.5, atol::Real = 1e-8, kwargs...)
     if !is_triangulated
-        polytriang = triangulate(poly)
+        polytriang = triangulate(poly, atol = atol)
     else
         polytriang = deepcopy(poly)
     end
