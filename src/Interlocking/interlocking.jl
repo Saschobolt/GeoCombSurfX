@@ -140,7 +140,7 @@ function titest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:I
     # if any block in the assembly contains flat edges, flatten the block
     for (i,block) in enumerate(assembly)
         if any([isflatedge(block, edge, atol = atol) for edge in get_edges(block)])
-            assembly[i] = flattenfacets(block)
+            assembly[i] = flattenfacets(block, atol = atol)
         end
 
         assembly[i] = orient_facets(block)
