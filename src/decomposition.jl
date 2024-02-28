@@ -15,15 +15,20 @@ function triangulate!(poly::AbstractPolyhedron; atol = 1e-8)
 
     # triangulate every facet of poly by the earcut algorithm
     for facet in get_facets(poly)
-        triangulation = earcut3d(coords[:,facet])
+        if length(facet) == 3
+            push!(newfacets, facet)
+            continue
+        end
+        triangulation = earcut3d(coords[:,facet], atol = atol)
         append!(newfacets, [facet[triang] for triang in triangulation])
         triangulationedges = vcat([ [facet[triang[[1,2]]], facet[triang[[1,3]]], facet[triang[[2,3]]]] for triang in triangulation ]...)
         append!(newedges, triangulationedges)
-        newedges = collect.(unique(Set.(newedges)))
     end
 
-    set_edges!(poly, newedges)
-    set_facets!(poly, newfacets; atol = atol)
+    newedges = collect.(unique(Set.(newedges)))
+
+    poly.edges = newedges
+    poly.facets = newfacets
 
     return poly
 end
@@ -141,21 +146,25 @@ function remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-
     else
         error("Edge not in polyhedron.")
     end
-    neighbors = adjfacets(poly, edge)
+    neighbors = adjfacets(poly, edge, check = false)
 
-    if length(neighbors) == 1
-        # edge can be removed by removing the whole adjacent facet
-        border_edges = filter(e -> length(adjfacets(poly, e)) == 1, incedges(poly, neighbors[1]))
-        setdiff!(poly.facets, neighbors)
-        setdiff!(poly.edges, border_edges)
-        # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
-        endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
-        remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
-    elseif length(neighbors) == 2
+    # if length(neighbors) == 1
+    #     # edge can be removed by removing the whole adjacent facet
+    #     border_edges = filter(e -> length(adjfacets(poly, e)) == 1, incedges(poly, neighbors[1]))
+    #     setdiff!(poly.facets, neighbors)
+    #     setdiff!(poly.edges, border_edges)
+    #     # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
+    #     endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
+    #     remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
+    if length(neighbors) == 2
         # edge can only be removed, if neighboring facets are coplanar
         if affinedim(get_verts(poly)[:, unique(vcat(neighbors...))], atol = atol) != 2
             error("Edge can only be removed if neighboring facets are coplanar.")
         end
+
+        # @info "neighbors: $(neighbors)"
+        # @info "incedges neighbors[1]: $(incedges(poly, neighbors[1]))"
+        # @info "incedges neighbors[2]: $(incedges(poly, neighbors[2]))"
 
         # if one edge between neighbors is removed, all edges between neighbors are removed
         border_edges = Base.intersect(incedges(poly, neighbors[1]), incedges(poly, neighbors[2]))
@@ -223,13 +232,15 @@ function flattenfacets!(poly::AbstractPolyhedron; atol = 1e-8)
     nonflat = Vector{Int}[]
     finished = false
     while !finished
-        for edge in setdiff(get_edges(poly), nonflat)
+        for edge in get_edges(poly)
             if edge == get_edges(poly)[end]
                 finished = true
             end
             if isflatedge(poly, edge, atol = atol)
                 remove_flatedge!(poly, edge, atol = atol)
                 break
+            else
+                push!(nonflat, edge)
             end
         end
     end

@@ -1,53 +1,80 @@
 include("affine_geometry.jl")
+import Meshes
 
-function intriang3d(triang::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-8)
-    # https://gdbooks.gitbooks.io/3dcollisions/content/Chapter4/point_in_triangle.html
-    @assert size(triang)[2] == 3 "triang has to consist of 3-vectors."
-    @assert size(triang)[1] == 3 "triang needs to be a list of 3 points."
-    @assert length(p) == 3 "p has to be a point in 3-space."
-    @assert affinedim(triang, atol = atol) == 2 "triang is degenerate."
+"""
+    to_xyplane(poly::AbstractMatrix{<:Real})
 
-    # TODO: seems unreliable... 
-    # tetrahedron = Polyhedron([0 2 0 0; 0 0 2 0; 0 0 0 2], [[1,2], [2,3], [3,1], [4,2], [4,3], [4,1]], [[1,2,3], [2,3,4], [1,2,4], [3,4,1]])
-    # @test inpolyhedron(center_of_mass(get_verts(tetrahedron)), tetrahedron) == 1
-    if affinedim(hcat(triang, p), atol = 1e-4) > 2
-        return 0
+Transform the polygon so that it lies in the xy plane (triangles will lie in the first quadrant).
+"""
+function to_xyplane(polygon::AbstractMatrix{<:Real}; atol::Real = 1e-8)
+    # transform polygon so that it lies in the xy plane
+    # https://math.stackexchange.com/questions/856666/how-can-i-transform-a-3d-triangle-to-xy-plane
+    if size(polygon)[1] == 2
+        return vcat(polygon, repeat([0], 1, size(polygon)[2]))
     end
 
-    # determine whether p lies on the boundary of triang
-    for i in 1:3
-        for j in (i+1):3
-            if affinedim([triang[:,i], triang[:,j], p], atol = atol) == 1 && dot(triang[:,i] - p, triang[:,j] - p) <= 0
-                return -1
-            end
-        end
-    end
+    @assert affinedim(polygon, atol = atol) == 2 "Polygon doesn't span a plane."
+    @assert size(polygon)[1] == 3 "only implemented for 3d polygons."
 
-    # translate p into origin
-    a = triang[:,1] - p
-    b = triang[:,2] - p
-    c = triang[:,3] - p
-
-    # compute normals of triangles pab, pbc, pca
-    u = cross(a,b)
-    v = cross(b,c)
-    w = cross(c,a)
-
-    # determine whether the normals face the same direction.
-    # then the triangles are wound the same and thus p is inside the triangle
-    if dot(u,v) < 0.0
-        return 0
-    end
-
-    if dot(u,w) < 0.0
-        return 0
-    end
-
-    return 1
+    n = size(polygon)[2]
+    j = findfirst(i -> affinedim(polygon[:, [mod1(i-1, n), i, mod1(i+1, n)]], atol = atol) == 2, collect(1:n))
+    polygon_trafo = copy(polygon) - repeat(polygon[:, j], 1, n)
+    triang = polygon_trafo[:, [mod1(j-1, n), j, mod1(j+1, n)]]
+    u = normalize(triang[:, 1])
+    w = normalize(cross(u, triang[:,3]))
+    v = cross(u, w)
+    M = transpose(hcat(u,v,w))
+    return M * polygon_trafo # lies in xy plane    
 end
 
-function intriang3d(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real})
-    return intriang3d(hcat(triang...), p)
+"""
+    intriang(triang::AbstractMatrix{<:Real}, p::Vector{<:Real})
+
+Determine whether the point p lies inside the triangle triang.
+"""
+function intriang(triang::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-8)
+    if affinedim(triang; atol = atol) < 2
+        display(triang)
+        display(affinedim(triang))
+        error("triang is degenerate.")
+    end
+
+    if size(triang)[1] == 3
+        # if point and triangle don't lie in the same plane, p is not inside triang
+        if affinedim(hcat(triang, p); atol = atol) > 2
+            return 0
+        end
+
+        # transform triang and p so that triang lies in the xy plane
+        p_trafo = copy(p) - triang[:, 1]
+        u = normalize(triang[:, 3])
+        w = normalize(cross(u, triang[:,2]))
+        v = cross(u,w)
+        M = transpose(hcat(u,v,w))
+        triang_trafo = (M * (triang - repeat(triang[:,1], 1, 3)))[1:2,:]
+        p_trafo = (M * p_trafo)[1:2]
+        return intriang(triang_trafo, p_trafo; atol = atol)
+    end
+
+    # determine baricentric coordinates of p with respect to the triangle
+    leg1 = triang[:,2] - triang[:,1]
+    leg2 = triang[:,3] - triang[:,1]
+
+    A = hcat(leg1, leg2)
+    b = p - triang[:,1]
+    s = A \ b
+
+    if all(s .>= 0) && sum(s) < 1
+        return 1
+    elseif all(s .>= 0) && sum(s) == 1
+        return -1
+    else
+        return 0
+    end
+end
+
+function intriang(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real}; atol = 1e-8)
+    return intriang(hcat(triang...), p; atol = atol)
 end
 
 
@@ -78,117 +105,253 @@ function is_ccw(polygon::AbstractMatrix{<:Real}, n::Vector{<:Real}; atol = 1e-12
 end
 
 
+# function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
+#     # earcut algorithm: https://www.geometrictools.com/Documentation/TriangulationByEarClipping.pdf
+#     # https://www.mathematik.uni-marburg.de/~thormae/lectures/graphics1/code/JsCoarseImg/EarCutting.html
+#     @assert size(polygon)[1] == 3 "polygon needs to be 3d Polygon."
+#     # TODO: assert that polygon is simple
+
+#     if polygon[:,1] == polygon[:,end]
+#         coords = polygon[:,1:end-1]
+#     else
+#         coords = polygon
+#     end
+
+#     remaining_verts = collect(1:size(coords)[2])
+#     if length(remaining_verts) == 3
+#         return [remaining_verts]
+#     end
+#     sol = Vector{Int}[]
+
+#     # @info "remaining_verts: $(remaining_verts)"
+
+    # # return the neighbors of vertex v in the polygon indexed by subfacet
+    # function neighbors(v::Int)
+    #     i = indexin(v, remaining_verts)[1]
+    #     neighbor1 = remaining_verts[mod1(i-1, length(remaining_verts))]
+    #     neighbor2 = remaining_verts[mod1(i+1, length(remaining_verts))]
+    #     return neighbor1, neighbor2
+    # end
+
+#     # normal vector of polygon Plane
+#     n = normalvec(coords[:,remaining_verts])
+
+#     # signed angles at vertices
+#     angles  = [signedangle3d_right(coords[:,neighbors(v)[1]] - coords[:,v], coords[:,v] - coords[:,neighbors(v)[2]], n, atol = atol) for v in remaining_verts]
+#     angles[abs.(angles) .< atol] .= 0
+
+#     # sign of angles at convex vertices is the same as the sum of angle array (2pi or -2pi)
+#     convexsign = sign(sum(angles))
+
+#     # boolean to determine whether a vertex is convex
+#     function isconvex(v::Int)
+#         neighbor1 = neighbors(v)[1]
+#         neighbor2 = neighbors(v)[2]
+
+#         if affinedim(coords[:, [neighbor1, v, neighbor2]]) < 2
+#             return false
+#         end
+
+#         n1 = normalvec(coords[:,[neighbor1, v, neighbor2]])
+#         if dot(n1, n) < 0
+#             n1 = -n1
+#         end
+
+#         angle = signedangle3d_right(coords[:,neighbor1] - coords[:,v], coords[:,v] - coords[:,neighbor2], n, atol = atol)
+#         # @info "check, if $(v) is convex; neighbor1: $(neighbor1), neighbor2: $(neighbor2), angle: $(angle)"
+#         if abs(angle) < atol
+#             return false
+#         end
+#         return sign(angle) == convexsign
+#     end
+
+#     # boolean to determine whether a vertex is reflex
+#     function isreflex(v::Int)
+#         return !isconvex(v)
+#     end
+
+#     # initialize vertex arrays
+#     convex  = remaining_verts[isconvex.(remaining_verts)]
+#     reflex  = remaining_verts[isreflex.(remaining_verts)]
+
+#     # boolean to check whether convex vertex v is an ear, i.e.
+#     # - all reflex vertices lie outside the triangle spanned by v and its neighbors 
+#     # - the affine dimension of the polygon after removing v is still 2
+#     function isear(v::Int)
+#         neighbor1, neighbor2 = neighbors(v)
+#         triangle = coords[:, [neighbor1, v, neighbor2]]
+
+#         # @info "check, if $(v) is an ear; neighbor1: $(neighbor1), neighbor2: $(neighbor2)"
+
+#         # if the triangle is degenerate, v can't be an ear
+#         if affinedim(triangle, atol = atol) < 2
+#             return false
+#         end
+
+#         return all([intriang3d(triangle, coords[:,w]) == 0 for w in setdiff(reflex, [neighbor1, neighbor2])]) && affinedim(coords[:, setdiff(remaining_verts, [v])]) == 2
+#     end
+
+#     # calculate the ration of the area and the circumference of an ear: area / circumference.
+#     function acratio(v::Int)
+#         neighbor1, neighbor2 = neighbors(v)
+#         triangle = [coords[:,neighbor1], coords[:,neighbor2], coords[:,v]]
+#         side1 = triangle[2] - triangle[1]
+#         side2 = triangle[3] - triangle[2]
+#         side3 = triangle[1] - triangle[3]
+
+#         # volume and circumference of the triangle
+#         volume = det(hcat(side1, -side3, normalize(cross(side1, -side3)))) / 2
+#         circumference = sum(norm.([side1, side2, side3]))
+
+#         return volume / circumference
+#     end
+
+#     ears = sort(filter(v -> isear(v), convex), by = acratio)
+
+#     # @info "convex: $(convex)"
+#     # @info "reflex: $(reflex)"
+#     # @info "ears: $(ears)"
+
+#     while length(remaining_verts) > 3
+#         # remove ears one at a time
+#         v = pop!(ears)
+#         # @info "removing ear $(v)"
+#         neighbor1 = neighbors(v)[1]
+#         neighbor2 = neighbors(v)[2]
+#         ear = [neighbor1, v, neighbor2]
+
+#         # ear is a triangle in the triangulation
+#         push!(sol, ear)
+
+#         # remove v from subfacet and vertex arrays
+#         setdiff!(remaining_verts, [v])
+#         setdiff!(convex, [v])
+
+
+#         # reevaluate neighbors: convex stays convex, ears don't have to stay ears, reflex can become convex or ear
+#         for w in [neighbor1, neighbor2]
+#             # @info "investigating neighbor $(w)"
+#             if w in reflex
+#                 if isconvex(w)
+#                     setdiff!(reflex, [w])
+#                     push!(convex, w)
+#                     isear(w) ? push!(ears, w) : continue
+#                 end
+#             end
+
+#             if w in convex && !(w in ears)
+#                 if isear(w) 
+#                     push!(ears, w)
+#                 end
+
+#                 continue
+#             end
+
+#             if w in ears
+#                 if !isear(w)
+#                     setdiff!(ears, [w])
+#                 end
+
+#                 continue
+#             end
+#         end
+
+#         sort!(ears, by = acratio)
+
+#         # @info "remaining verts: $(remaining_verts)"
+#         # @info "new convex: $(convex)"
+#         # @info "new reflex: $(reflex)"
+#         # @info "new ears: $(ears)"
+#     end
+
+#     # if the subfacet is a triangle, add it to the facet list and continue with the next facet
+#     push!(sol, remaining_verts)
+
+#     return sol
+# end
+
 function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
-    # earcut algorithm: https://www.geometrictools.com/Documentation/TriangulationByEarClipping.pdf
-    # https://www.mathematik.uni-marburg.de/~thormae/lectures/graphics1/code/JsCoarseImg/EarCutting.html
-    @assert size(polygon)[1] == 3 "polygon needs to be 3d Polygon."
-    # TODO: assert that polygon is simple
-
-    if polygon[:,1] == polygon[:,end]
-        coords = polygon[:,1:end-1]
-    else
-        coords = polygon
+    # transform polygon so that it lies in the xy plane
+    # https://math.stackexchange.com/questions/856666/how-can-i-transform-a-3d-triangle-to-xy-plane
+    polygon_trafo = to_xyplane(polygon, atol = atol)[1:2, :]
+    if polygon_trafo[:, end] == polygon_trafo[:, 1]
+        polygon_trafo = polygon_trafo[:, 1:end-1]
     end
-
-    remaining_verts = collect(1:size(coords)[2])
-    if length(remaining_verts) == 3
-        return [remaining_verts]
-    end
-    sol = []
-
-    # @info "remaining_verts: $(remaining_verts)"
-
+    
     # return the neighbors of vertex v in the polygon indexed by subfacet
     function neighbors(v::Int)
-        i = indexin(v, remaining_verts)[1]
-        neighbor1 = remaining_verts[mod1(i-1, length(remaining_verts))]
-        neighbor2 = remaining_verts[mod1(i+1, length(remaining_verts))]
+        i = indexin(v, remaining)[1]
+        neighbor1 = remaining[mod1(i-1, length(remaining))]
+        neighbor2 = remaining[mod1(i+1, length(remaining))]
         return neighbor1, neighbor2
     end
+    
+    n = size(polygon_trafo)[2]
+    remaining = collect(1:n)
+    angles = [signedangle2d(polygon_trafo[:, i] - polygon_trafo[:, neighbors(i)[1]], polygon_trafo[:, neighbors(i)[2]] - polygon_trafo[:, i]) for i in remaining]
+    # @info "angles: $(angles)"
+    sum_signed_angles = sum(angles)
+    # @info "sum_signed_angles: $(sum_signed_angles)"
+    convex_sign = sign(sum_signed_angles)
 
-    # normal vector of polygon Plane
-    n = normalvec(coords[:,remaining_verts])
+    function isconvex(v)
+        n1, n2 = neighbors(v)
+        angle = signedangle2d(polygon_trafo[:, v] - polygon_trafo[:, n1], polygon_trafo[:, n2] - polygon_trafo[:, v])
 
-    # signed angles at vertices
-    angles  = [signedangle3d_right(coords[:,neighbors(v)[1]] - coords[:,v], coords[:,v] - coords[:,neighbors(v)[2]], n, atol = atol) for v in remaining_verts]
-    angles[abs.(angles) .< atol] .= 0
-
-    # sign of angles at convex vertices is the same as the sum of angle array (2pi or -2pi)
-    convexsign = sign(sum(angles))
-
-    # boolean to determine whether a vertex is convex
-    function isconvex(v::Int)
-        neighbor1 = neighbors(v)[1]
-        neighbor2 = neighbors(v)[2]
-        angle = signedangle3d_right(coords[:,neighbor1] - coords[:,v], coords[:,v] - coords[:,neighbor2], n, atol = atol)
-        # @info "check, if $(v) is convex; neighbor1: $(neighbor1), neighbor2: $(neighbor2), angle: $(angle)"
-        if abs(angle) < atol
+        # flat edges are not convex
+        if abs(angle) < atol || abs(abs(angle) - pi) < atol
             return false
         end
-        return sign(angle) == convexsign
+        return sign(angle) == convex_sign
     end
 
-    # boolean to determine whether a vertex is reflex
-    function isreflex(v::Int)
+    convex = filter(v -> isconvex(v), remaining)
+
+    function isreflex(v)
         return !isconvex(v)
     end
 
-    # initialize vertex arrays
-    convex  = remaining_verts[isconvex.(remaining_verts)]
-    reflex  = remaining_verts[isreflex.(remaining_verts)]
+    reflex = setdiff(remaining, convex)
 
-    # boolean to check whether convex vertex v is an ear, i.e.
-    # - all reflex vertices lie outside the triangle spanned by v and its neighbors 
-    # - the affine dimension of the polygon after removing v is still 2
-    function isear(v::Int)
-        neighbor1, neighbor2 = neighbors(v)
-        triangle = coords[:, [neighbor1, v, neighbor2]]
+    function isear(v)
+        # v is an ear, if no reflex vertex lies in the triangle spanned by v and its neighbors in the subfacet
+        n1, n2 = neighbors(v)
 
-        # @info "check, if $(v) is an ear; neighbor1: $(neighbor1), neighbor2: $(neighbor2)"
-
-        return all([intriang3d(triangle, coords[:,w]) == 0 for w in setdiff(reflex, [neighbor1, neighbor2])]) && affinedim(coords[:, setdiff(remaining_verts, [v])]) == 2
+        return all([intriang(polygon_trafo[:, [n1,v,n2]], polygon_trafo[:, w]; atol = atol) == 0 for w in setdiff(reflex, [n1, n2])])
     end
 
-    # calculate the ration of the area and the circumference of an ear: area / circumference.
-    function acratio(v::Int)
-        neighbor1, neighbor2 = neighbors(v)
-        triangle = [coords[:,neighbor1], coords[:,neighbor2], coords[:,v]]
-        side1 = triangle[2] - triangle[1]
-        side2 = triangle[3] - triangle[2]
-        side3 = triangle[1] - triangle[3]
+    ears = filter(v -> isear(v), convex)
 
-        # volume and circumference of the triangle
-        volume = det(hcat(side1, -side3, normalize(cross(side1, -side3)))) / 2
-        circumference = sum(norm.([side1, side2, side3]))
-
-        return volume / circumference
+    # ratio of area to circumference of the triangle consisting of an ear and its neighbors
+    function acratio(v)
+        n1, n2 = neighbors(v)
+        area = det(hcat(polygon_trafo[:, n1] - polygon_trafo[:, v], polygon_trafo[:, n2] - polygon_trafo[:, v])) / 2
+        circ = sum([dist(polygon_trafo[:, n1], polygon_trafo[:, v]), dist(polygon_trafo[:, n2], polygon_trafo[:, v]), dist(polygon_trafo[:, n1], polygon_trafo[:, n2])])
+        return area/circ
     end
 
-    ears = sort(filter(v -> isear(v), convex), by = acratio)
+    # sort ears by acratio so that the first entry in ears is the ear with biggest acratio
+    sort!(ears, by = acratio)
 
-    # @info "convex: $(convex)"
-    # @info "reflex: $(reflex)"
-    # @info "ears: $(ears)"
+    sol = Vector{Int}[]
 
-    while length(remaining_verts) > 3
-        # remove ears one at a time
+    # iteratively clip ears of subfacet
+    while length(remaining) > 3
+        # @info "remaining: $(remaining)"
+        # @info "reflex: $(reflex)"
+        # @info "convex: $(convex)"
+        # @info "ears: $(ears)"
+
         v = pop!(ears)
-        # @info "removing ear $(v)"
-        neighbor1 = neighbors(v)[1]
-        neighbor2 = neighbors(v)[2]
-        ear = [neighbor1, v, neighbor2]
+        n1, n2 = neighbors(v)
 
-        # ear is a triangle in the triangulation
-        push!(sol, ear)
-
-        # remove v from subfacet and vertex arrays
-        setdiff!(remaining_verts, [v])
+        setdiff!(remaining, [v])
         setdiff!(convex, [v])
 
+        push!(sol, [n1, v, n2])
 
-        # reevaluate neighbors: convex stays convex, ears don't have to stay ears, reflex can become convex or ear
-        for w in [neighbor1, neighbor2]
-            # @info "investigating neighbor $(w)"
+        # reevaluate neighbors: convex stays convex. ear doesn't have to stay ear. reflex can become convex and ear
+        for w in [n1, n2]
             if w in reflex
                 if isconvex(w)
                     setdiff!(reflex, [w])
@@ -196,35 +359,21 @@ function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
                     isear(w) ? push!(ears, w) : continue
                 end
             end
-
-            if w in convex && !(w in ears)
-                if isear(w) 
-                    push!(ears, w)
-                end
-
-                continue
-            end
-
-            if w in ears
-                if !isear(w)
-                    setdiff!(ears, [w])
-                end
-
-                continue
-            end
         end
 
-        sort!(ears, by = acratio)
-
-        # @info "remaining verts: $(remaining_verts)"
-        # @info "new convex: $(convex)"
-        # @info "new reflex: $(reflex)"
-        # @info "new ears: $(ears)"
+        for w in [n1, n2]
+            if w in convex
+                if w in ears
+                    isear(w) ? continue : setdiff!(ears, w)
+                else
+                    isear(w) ? push!(ears, w) : continue
+                    sort!(ears, by = acratio)
+                end
+            end
+        end
     end
 
-    # if the subfacet is a triangle, add it to the facet list and continue with the next facet
-    push!(sol, remaining_verts)
-
+    push!(sol, remaining)
     return sol
 end
 
@@ -256,7 +405,7 @@ function inpolygon3d(poly::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-
 
     poly_triang = [poly[:, triangle] for triangle in earcut3d(poly, atol = atol)]
     for triang in poly_triang
-        if intriang3d(triang, p) != 0
+        if intriang(triang, p) != 0
             return 1
         end
     end
