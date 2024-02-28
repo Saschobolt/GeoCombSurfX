@@ -273,6 +273,13 @@ function sqdist(v::Vector{<:Real}, w::Vector{<:Real})
 end
 
 """
+    signedangle2d(v::Vector{<:Real}, w::Vector{<:Real})
+
+Calculate the signed angle of the rotation from the 2d vector v to w.
+"""
+signedangle2d(v::Vector{<:Real}, w::Vector{<:Real}) = atan(w[2]*v[1] - w[1]*v[2], dot(v,w)) # https://wumbo.net/formulas/angle-between-two-vectors-2d/
+
+"""
     signedangle3d_right(v::Vector{<:Real}, w::Vector{<:Real}, n::Vector{<:Real}; atol = 1e-12)
 
 Calculate the signed angle of the right handed rotation from the vector v to w with regard to the plane normal vector n. Real values < atol are considered 0. 
