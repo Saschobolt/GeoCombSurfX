@@ -75,6 +75,10 @@ Determine whether the edge edge of the AbstractPolyhedron poly is flat. If check
 """
 function isflatedge(poly::AbstractPolyhedron, edge::Vector{<:Int}; atol::Real = 1e-12, check::Bool = true)
     facets = adjfacets(poly, edge, check = check)
+    if length(facets) == 1
+        return false
+        
+    end
 
     return affinedim(get_verts(poly)[:, unique(vcat(facets...))], atol = atol) == 2
 end
@@ -134,11 +138,12 @@ function edgetype(poly::AbstractPolyhedron, edge::Vector{<:Int}; is_oriented::Bo
 end
 
 """
-    remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
+    remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol::Real = 1e-8, check::Bool = false)
 
-Aux function to remove a flat edge from the AbstractPolyhedron poly. The edge e is removed by removing the adjacent facet if there is only one. If there are two adjacent facets, the edge is removed if the two facets are coplanar. In this case the two facets are combined to one facet. If the two facets are not coplanar, an error is thrown. The function returns the modified polyhedron.
+Aux function to remove a flat edge from the AbstractPolyhedron poly. The edge e is removed by removing the adjacent facet if there is only one. If there are two adjacent facets, the edge is removed if the two facets are coplanar. 
+In this case the two facets are combined to one facet. If the two facets are not coplanar, an error is thrown. If check is set to true, the function checks, whether e really is a flat edge of poly. The function returns the modified polyhedron.
 """
-function remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-8)
+function remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol::Real = 1e-8, check::Bool = true)
     if e in get_edges(poly)
         edge = e
     elseif reverse(e) in get_edges(poly)
@@ -156,7 +161,9 @@ function remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-
     #     # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
     #     endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
     #     remove_verts = unique(setdiff(vcat(border_edges...), endpoints))
-    if length(neighbors) == 2
+    if length(neighbors) == 1
+        return poly
+    elseif length(neighbors) == 2
         # edge can only be removed, if neighboring facets are coplanar
         if affinedim(get_verts(poly)[:, unique(vcat(neighbors...))], atol = atol) != 2
             error("Edge can only be removed if neighboring facets are coplanar.")
@@ -167,7 +174,7 @@ function remove_flatedge!(poly::AbstractPolyhedron, e::Vector{<:Int}; atol = 1e-
         # @info "incedges neighbors[2]: $(incedges(poly, neighbors[2]))"
 
         # if one edge between neighbors is removed, all edges between neighbors are removed
-        border_edges = Base.intersect(incedges(poly, neighbors[1]), incedges(poly, neighbors[2]))
+        border_edges = Base.intersect(incedges(poly, neighbors[1], check = false), incedges(poly, neighbors[2], check = false))
 
         # border edges describe a vertex edge path between the two neighbors. All inner vertices of the path need to be removed. Start and end point remain.
         endpoints = filter(v -> count(x -> x == v, vcat(border_edges...)) == 1, vcat(border_edges...))
@@ -228,20 +235,18 @@ Remove flat edges of the AbstractPolyhedron poly. If the option is_oriented is s
 """
 # TODO: when removing a flat edge it can happen that a degenerate polyhedron is created. Handle this case!
 function flattenfacets!(poly::AbstractPolyhedron; atol = 1e-8)
-    # array of non flat edges
-    nonflat = Vector{Int}[]
-    finished = false
-    while !finished
-        for edge in get_edges(poly)
-            if edge == get_edges(poly)[end]
-                finished = true
-            end
-            if isflatedge(poly, edge, atol = atol)
-                remove_flatedge!(poly, edge, atol = atol)
-                break
-            else
-                push!(nonflat, edge)
-            end
+    i = 1
+    while i <= length(get_edges(poly))
+        # check if ith edge is flat
+        edge = get_edges(poly)[i]
+        if isflatedge(poly, edge, atol = atol)
+            # if ith edge is flat, remove that edge from the polyhedron. All other flat edges sharing the same facets are removed. 
+            # Their indices in get_edges(poly) are greater than i as they would have been removed in an earlier step otherwise.
+            # Thus the index i is not increased and the ith edge is checked in the next iteration as all edges with smaller index are not flat.
+            remove_flatedge!(poly, edge, atol = atol)
+        else
+            # all edges with smaller index than i are not flat. Thus the index i is increased and the next edge is checked.
+            i += 1
         end
     end
     return poly
