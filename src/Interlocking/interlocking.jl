@@ -38,7 +38,10 @@ function contacts(assembly::Vector{<:AbstractPolyhedron}; atol = 1e-8)
     return contacts_dict
 end
 
-function wangtest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
+function wangtest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:Int}; basis_translation::Matrix{<:Real} = [1 0 0; 0 1 0; 0 0 1], basis_rotation::Matrix{<:Real} = [1 0 0; 0 1 0; 0 0 1], atol = 1e-8)
+    @assert rank(basis_translation) == min(size(basis_translation)...) || all([i == 0 for i in basis_translation]) "The translation basis must be of full rank or zero matrix."
+    @assert rank(basis_rotation) == min(size(basis_rotation)...) || all([i == 0 for i in basis_rotation]) "The rotation basis must be of full rank or zero matrix."
+    
     # if any block in the assembly contains flat edges, flatten the block
     for (i,block) in enumerate(assembly)
         if any([isflatedge(block, edge, atol = atol) for edge in get_edges(block)])
@@ -56,8 +59,14 @@ function wangtest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<
     # set_optimizer_attribute(model, MOA.Algorithm(), MOA.EpsilonConstraint())
     # set_optimizer_attribute(model, MOA.SolutionLimit(), 50)
 
-    @variable(model, t[1:dimension(assembly[1]), 1:length(assembly)])
-    @variable(model, omega[1:dimension(assembly[1]), 1:length(assembly)])
+    @variable(model, t[1:size(basis_translation)[2], 1:length(assembly)])
+    if all([i == 0 for i in basis_translation])
+        @constraint(model, t .== 0)
+    end
+    @variable(model, omega[1:size(basis_rotation)[2], 1:length(assembly)])
+    if all([i == 0 for i in basis_rotation])
+        @constraint(model, omega .== 0)
+    end
 
     coms = [center_of_mass(get_verts(block)) for block in assembly]
     normals = [[outward_normal(block, facet) for facet in get_facets(block)] for block in assembly]
@@ -65,10 +74,10 @@ function wangtest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<
     # constraint that the velocity of c relative to block i points in the same direction as n.
     function nonpen_constraint!(i,j,n,c)
         ri = c - coms[i]
-        vi = t[:,i] + cross(omega[:,i], ri)
+        vi = basis_translation * t[:,i] + cross(basis_rotation * omega[:,i], ri)
 
         rj = c - coms[j]
-        vj = t[:,j] + cross(omega[:,j], rj)
+        vj = basis_translation * t[:,j] + cross(basis_rotation * omega[:,j], rj)
 
         @constraint(model, dot(vj-vi, n) >= 0)
     end
