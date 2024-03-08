@@ -38,98 +38,98 @@ function contacts(assembly::Vector{<:AbstractPolyhedron}; atol = 1e-8)
     return contacts_dict
 end
 
-# function wangtest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
-#     # if any block in the assembly contains flat edges, flatten the block
-#     for (i,block) in enumerate(assembly)
-#         if any([isflatedge(block, edge, atol = atol) for edge in get_edges(block)])
-#             assembly[i] = flattenfacets(block)
-#         end
+function wangtest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
+    # if any block in the assembly contains flat edges, flatten the block
+    for (i,block) in enumerate(assembly)
+        if any([isflatedge(block, edge, atol = atol) for edge in get_edges(block)])
+            assembly[i] = flattenfacets(block, atol = atol)
+        end
 
-#         assembly[i] = orient_facets(block)
-#     end
+        assembly[i] = orient_facets(block, atol = atol)
+    end
 
-#     contacts_dict = contacts(assembly, atol = 1e-12)
+    contacts_dict = contacts(assembly, atol = 1e-12)
 
-#     model = Model(HiGHS.Optimizer)
-#     # model = Model(() -> MOA.Optimizer(Ipopt.Optimizer))
-#     # set_silent(model)
-#     # set_optimizer_attribute(model, MOA.Algorithm(), MOA.EpsilonConstraint())
-#     # set_optimizer_attribute(model, MOA.SolutionLimit(), 50)
+    model = Model(HiGHS.Optimizer)
+    # model = Model(() -> MOA.Optimizer(Ipopt.Optimizer))
+    # set_silent(model)
+    # set_optimizer_attribute(model, MOA.Algorithm(), MOA.EpsilonConstraint())
+    # set_optimizer_attribute(model, MOA.SolutionLimit(), 50)
 
-#     @variable(model, t[1:dimension(assembly[1]), 1:length(assembly)])
-#     @variable(model, omega[1:dimension(assembly[1]), 1:length(assembly)])
+    @variable(model, t[1:dimension(assembly[1]), 1:length(assembly)])
+    @variable(model, omega[1:dimension(assembly[1]), 1:length(assembly)])
 
-#     coms = [center_of_mass(get_verts(block)) for block in assembly]
-#     normals = [[outward_normal(block, facet) for facet in get_facets(block)] for block in assembly]
+    coms = [center_of_mass(get_verts(block)) for block in assembly]
+    normals = [[outward_normal(block, facet) for facet in get_facets(block)] for block in assembly]
 
-#     # constraint that the velocity of c relative to block i points in the same direction as n.
-#     function nonpen_constraint!(i,j,n,c)
-#         ri = c - coms[i]
-#         vi = t[:,i] + cross(omega[:,i], ri)
+    # constraint that the velocity of c relative to block i points in the same direction as n.
+    function nonpen_constraint!(i,j,n,c)
+        ri = c - coms[i]
+        vi = t[:,i] + cross(omega[:,i], ri)
 
-#         rj = c - coms[j]
-#         vj = t[:,j] + cross(omega[:,j], rj)
+        rj = c - coms[j]
+        vj = t[:,j] + cross(omega[:,j], rj)
 
-#         @constraint(model, dot(vj-vi, n) >= 0)
-#     end
+        @constraint(model, dot(vj-vi, n) >= 0)
+    end
     
-#     # constraint for twodimensional contacts
-#     function twodim_constraint!(i,j,polygon)
-#         index = findfirst(map(entry -> entry == polygon, contacts_dict[[i,j]]))
-#         k = index[1]
+    # constraint for twodimensional contacts
+    function twodim_constraint!(i,j,polygon)
+        index = findfirst(map(entry -> size(entry)[2] == 0 ? false : Set([entry[:,col] for col in 1:size(entry)[2]]) == Set([polygon[:,col] for col in 1:size(polygon)[2]]), contacts_dict[[i,j]]))
+        k = index[1]
 
-#         n = normals[i][k]
-#         for c in polygon
-#             nonpen_constraint!(i,j,n,c)
-#         end
-#     end
+        n = normals[i][k]
+        for c in [polygon[:, col] for col in 1:size(polygon)[2]]
+            nonpen_constraint!(i,j,n,c)
+        end
+    end
 
 
-#     function extaffdim(a)
-#         if a == []
-#             return 0
-#         end
+    function extaffdim(a)
+        if a == []
+            return 0
+        end
 
-#         return affinedim(a)
-#     end
+        return affinedim(a)
+    end
 
-#     # constraints by paper
-#     for key in keys(contacts_dict)
-#         # @info "key: $(key)"
-#         i = key[1]
-#         j = key[2]
+    # constraints by paper
+    for key in keys(contacts_dict)
+        # @info "key: $(key)"
+        i = key[1]
+        j = key[2]
 
-#         if i in frameindices && j in frameindices continue end
+        if i in frameindices && j in frameindices continue end
         
-#         twodim = filter(x -> extaffdim(x) == 2, contacts_dict[[i,j]])
-#         for polygon in twodim
-#             twodim_constraint!(i,j,polygon)
-#         end
+        twodim = filter(x -> extaffdim(x) == 2, contacts_dict[[i,j]])
+        for polygon in twodim
+            twodim_constraint!(i,j,polygon)
+        end
         
-#     end
+    end
 
-#     # frame constraint
-#     for i in frameindices
-#         @constraint(model, t[:,i] == 0)
-#         @constraint(model, omega[:,i] == 0)
-#     end
+    # frame constraint
+    for i in frameindices
+        @constraint(model, t[:,i] == 0)
+        @constraint(model, omega[:,i] == 0)
+    end
 
-#     @objective(model, Max, sum(t) + sum(omega))
+    @objective(model, Max, sum(t) + sum(omega))
 
-#     optimize!(model)
+    optimize!(model)
 
-#     # @info "t: $(display(value.(t)))"
-#     # @info "omega: $(display(value.(omega)))"
+    # @info "t: $(display(value.(t)))"
+    # @info "omega: $(display(value.(omega)))"
 
-#     if all([norm(vcat(value.(t[:,i]), value.(omega[:,i]))) < atol for i in 1:length(assembly)])
-#         @info "The assembly is topologically interlocking as there are no infinitesimal motions of blocks with norm < $(atol). (Maximum norm of infinitesimal motion: $(max([norm(vcat(value.(t[:,i]), value.(omega[:,i]))) for i in 1:length(assembly)]...)))"
-#     else
-#         val, i = findmax(i -> norm(vcat(value.(t[:,i]), value.(omega[:,i]))), 1:length(assembly))
-#         @warn "The test is inconclusive. The block $(i) has an infinitesimal motion with norm $(val)"
-#     end
+    if all([norm(vcat(value.(t[:,i]), value.(omega[:,i]))) < atol for i in 1:length(assembly)])
+        @info "The assembly is topologically interlocking as there are no infinitesimal motions of blocks with norm < $(atol). (Maximum norm of infinitesimal motion: $(max([norm(vcat(value.(t[:,i]), value.(omega[:,i]))) for i in 1:length(assembly)]...)))"
+    else
+        val, i = findmax(i -> norm(vcat(value.(t[:,i]), value.(omega[:,i]))), 1:length(assembly))
+        @warn "The test is inconclusive. The block $(i) has an infinitesimal motion with norm $(val)"
+    end
 
-#     return model
-# end
+    return model
+end
 
 """
     titest(assembly::Vector{<:AbstractPolyhedron}, frameindices::Vector{<:Int}; atol = 1e-8)
