@@ -2,6 +2,7 @@ using GenericLinearAlgebra
 using PolygonOps
 import Base.Multimedia.display
 import Base.==
+import Graphs.connected_components
 
 include("Framework.jl")
 include("affine_geometry.jl")
@@ -16,9 +17,12 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
     # TODO: Neuen constructor mit optionalen Argumenten (wenn nur coordinates gegeben werden, ist Ergebnis die konvexe Hülle der Punkte + check der Dimension
     # wenn nur Facets gegeben sind, werden Edges automatisch gesetzt und es wird gecheckt, dass Vertizes auf einer Facet koplanar aber nicht kollinear sind)
     function Polyhedron(verts::AbstractMatrix{<:Real}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8, check_consistency::Bool = true)
-        framework = Framework(verts, edges)
-        if any([affinedim(verts[:,f]; atol = atol) != 2 for f in facets])
-            error("Facets have to span a space of affine dimension 2.")
+        for f in facets
+            if length(f) < 3
+                error("Facets need to consist of at least 3 vertices.")
+            elseif length(f) > 3 && affinedim(verts[:,f]; atol = atol) != 2
+                error("Facets with more than 3 vertices need to span a space of affine dimension 2.")
+            end                            
         end
 
         if check_consistency
@@ -31,10 +35,15 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
                 end
             end
         end
-
+        
         S = typeof(verts[1,1])
         T = typeof(edges[1][1])
         poly = new{S,T}(verts, edges, facets)
+
+        if length(connected_components(SimpleGraph(poly))) > 1
+            error("Skeleton of polyhedron is not connected.")
+        end
+
         if check_consistency
             for e in edges
                 if length(adjfacets(poly, e)) > 2

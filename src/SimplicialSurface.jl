@@ -1,9 +1,12 @@
+import Graphs.connected_components, Graphs.SimpleGraph
+
+include("Framework.jl")
 include("Polyhedron.jl")
 include("decomposition.jl")
 ############################################################################
 #       Combinatorial Simplicial Surfaces
 ############################################################################
-abstract type AbstractCombSimplicialSurface{T<:Integer} <: AbstractSimpleGraph{T} end
+abstract type AbstractCombSimplicialSurface{T<:Integer} end
 
 mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurface{T}
     verts::Vector{T}
@@ -14,8 +17,8 @@ mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurfac
         @assert all([length(f) == 3 for f in facets]) "Facets of simplicial Surfaces are triangles."
         @assert all([length(filter(f -> issubset(e, f), facets)) in [1,2] for e in edges]) "Edge of Simplicial Surface has to be edge of at least 1 and at most 2 facets."
 
-        graph = Graph(verts, edges)
-        @assert no_concomponents(graph) == 1 "1-Skeleton of Simplicial Surface has to be a connected graph."
+        graph = Graphs.SimpleGraph(Edge.(Tuple.(edges)))
+        @assert length(connected_components(graph)) "1-Skeleton of Simplicial Surface has to be a connected graph."
         T = typeof(verts[1])
 
         poly = Polyhedron(rand(Float64, 3, length(verts)), edges, facets)
