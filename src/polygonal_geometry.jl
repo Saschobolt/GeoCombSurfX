@@ -279,6 +279,7 @@ function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
     end
     
     # return the neighbors of vertex v in the polygon indexed by subfacet
+    # TODO: Use a graph structure to store the polygon. Graphs.jl has efficient implementation for neighbor calculations.
     function neighbors(v::Int)
         i = indexin(v, remaining)[1]
         neighbor1 = remaining[mod1(i-1, length(remaining))]

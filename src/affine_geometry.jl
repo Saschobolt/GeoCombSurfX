@@ -315,3 +315,18 @@ end
 function center_of_mass(points::AbstractMatrix{<:Real})
     return center_of_mass([points[:,i] for i in 1:size(points)[2]])
 end
+
+"""
+    surrounding_sphere(points::AbstractMatrix{<:Real})
+
+Calculate the center and radius of a ball, in which all points are contained. Note, that this is not necessarily the smallest possible ball.
+"""
+function surrounding_sphere(points::AbstractMatrix{<:Real})
+    center = center_of_mass(points)
+    radius = maximum([dist(center, points[:,i]) for i in 1:size(points)[2]])
+    return center, radius
+end
+
+function surrounding_sphere(points::Vector{<:Vector{<:Real}})
+    return surrounding_sphere(hcat(points...))
+end
