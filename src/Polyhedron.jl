@@ -20,7 +20,9 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
         for f in facets
             if length(f) < 3
                 error("Facets need to consist of at least 3 vertices.")
-            elseif length(f) > 3 && affinedim(verts[:,f]; atol = atol) != 2
+            elseif length(f) == 3
+                continue
+            elseif affinedim(verts[:,f]; atol = atol) != 2
                 error("Facets with more than 3 vertices need to span a space of affine dimension 2.")
             end                            
         end
