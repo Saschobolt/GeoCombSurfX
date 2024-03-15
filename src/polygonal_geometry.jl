@@ -1,5 +1,4 @@
 include("affine_geometry.jl")
-import Meshes
 
 """
     to_xyplane(poly::AbstractMatrix{<:Real})

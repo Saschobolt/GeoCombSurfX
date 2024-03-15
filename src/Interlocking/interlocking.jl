@@ -11,13 +11,33 @@ function contacts(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol = 1
     coords_facets1 = [get_verts(poly1)[:, facet] for facet in get_facets(poly1)]
     coords_facets2 = [get_verts(poly2)[:, facet] for facet in get_facets(poly2)]
 
-    poly_facets1 = [Polyhedra.polyhedron(Polyhedra.vrep(transpose(coords))) for coords in coords_facets1]
-    poly_facets2 = [Polyhedra.polyhedron(Polyhedra.vrep(transpose(coords))) for coords in coords_facets2]
+    # poly_facets1 = [Polyhedra.polyhedron(Polyhedra.vrep(transpose(coords))) for coords in coords_facets1]
+    # poly_facets2 = [Polyhedra.polyhedron(Polyhedra.vrep(transpose(coords))) for coords in coords_facets2]
 
-    intersections = transpose.(Matrix{Matrix{<:Real}}([Polyhedra.vrep(Polyhedra.intersect(face1, face2)).V for face1 in poly_facets1, face2 in poly_facets2]))
+    # intersections = transpose.(Matrix{Matrix{<:Real}}([Polyhedra.vrep(Polyhedra.intersect(face1, face2)).V for face1 in poly_facets1, face2 in poly_facets2]))
 
-    intersections = map(entry -> map(coor -> Base.round.(coor, digits = -Int(log10(atol))), entry), intersections)
-    intersections = map(entry -> map(coor -> map(x -> x == -0.0 ? 0.0 : x, coor), entry), intersections)
+    # intersections = map(entry -> map(coor -> Base.round.(coor, digits = -Int(log10(atol))), entry), intersections)
+    # intersections = map(entry -> map(coor -> map(x -> x == -0.0 ? 0.0 : x, coor), entry), intersections)
+
+    intersections = Matrix{Matrix{Float64}}(undef, length(get_facets(poly1)), length(get_facets(poly2)))
+
+    for (i, coords1) in enumerate(coords_facets1)
+        center1, radius1 = bounding_sphere(coords1)
+        polyface1 = Polyhedra.polyhedron(Polyhedra.vrep(transpose(coords1)))
+        for (j, coords2) in enumerate(coords_facets2)
+            center2, radius2 = bounding_sphere(coords2)
+
+            if dist(center1, center2) > radius1 + radius2
+                intersections[i,j] = Matrix{Float64}(undef, dimension(poly1), 0)
+                continue
+            end
+
+            polyface2 = Polyhedra.polyhedron(Polyhedra.vrep(transpose(coords2)))
+
+            inter = transpose(Polyhedra.vrep(Polyhedra.intersect(polyface1, polyface2)).V)
+            intersections[i,j] = inter
+        end
+    end
 
     return intersections
 end
@@ -27,7 +47,15 @@ function contacts(assembly::Vector{<:AbstractPolyhedron}; atol = 1e-8)
     contacts_dict = Dict()
 
     for i in 1:length(assembly)
+        centeri, radiusi = bounding_sphere(get_verts(assembly[i]))
         for j in i+1:length(assembly)
+            centerj, radiusj = bounding_sphere(get_verts(assembly[j]))
+
+            # heuristic: if the bounding spheres do not intersect, the blocks cannot intersect
+            if dist(centeri, centerj) > radiusi + radiusj
+                continue                
+            end
+
             intersections = contacts(assembly[i], assembly[j], atol = atol)
             if any(length.(intersections) .> 0)
                 get!(contacts_dict, [i,j], intersections)
