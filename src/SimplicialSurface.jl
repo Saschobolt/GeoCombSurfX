@@ -108,15 +108,12 @@ function edgeturn!(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Inte
     tips = symdiff(butterfly...)
 
     # delete e from edges and add tips as new edge
-    edges = get_edges(surf)
-    if tips in edges
+    if tips in surf.edges || reverse(tips) in surf.edges
         error("The tips of the butterfly $(butterfly) having $(e) as an interior edge is itself an edge of the Surface ($(tips)). Thus the edge is not turnable.")
     end
-    edges = setdiff(edges, [e, reverse(e)])
-    push!(edges, tips)
-
-    surf.edges = edges
-
+    setdiff!(surf.edges, [e, reverse(e)])
+    push!(surf.edges, tips)
+    
     # delete old facets and append new ones
     setdiff!(surf.facets, butterfly)
 
