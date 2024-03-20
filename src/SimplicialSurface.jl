@@ -17,8 +17,8 @@ mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurfac
         @assert all([length(f) == 3 for f in facets]) "Facets of simplicial Surfaces are triangles."
         @assert all([length(filter(f -> issubset(e, f), facets)) in [1,2] for e in edges]) "Edge of Simplicial Surface has to be edge of at least 1 and at most 2 facets."
 
-        graph = Graphs.SimpleGraph(Edge.(Tuple.(edges)))
-        @assert length(connected_components(graph)) "1-Skeleton of Simplicial Surface has to be a connected graph."
+        graph = Graphs.SimpleGraph(Graphs.Edge.(Tuple.(edges)))
+        @assert length(connected_components(graph)) == 1 "1-Skeleton of Simplicial Surface has to be a connected graph."
         T = typeof(verts[1])
 
         poly = Polyhedron(rand(Float64, 3, length(verts)), edges, facets)
@@ -41,11 +41,18 @@ mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurfac
             error("not implemented yet.")
         end
 
-        graph = Graph(verts = verts, edges = edges)
-        return CombSimplicialSurface(get_verts(graph), get_edges(graph), facets)
+        if isnothing(verts)
+            n = max(vcat(edges...)...)
+            verts = collect(1:n)
+        end
+
+        return CombSimplicialSurface(verts, edges, facets)
     end
 end
 
+get_verts(surf::AbstractCombSimplicialSurface) = deepcopy(surf.verts)
+
+get_edges(surf::AbstractCombSimplicialSurface) = deepcopy(surf.edges)
 
 get_facets(surf::AbstractCombSimplicialSurface) = deepcopy(surf.facets)
 
@@ -71,23 +78,26 @@ function orient_facets(surf::AbstractCombSimplicialSurface)
 end
 
 function boundary(surf::AbstractCombSimplicialSurface)
-    return filter(e -> length(filter(f -> issubset(e, f), get_facets(surf))) == 1, get_edges(surf))
+    return filter(e -> length(filter(f -> issubset(e, f), get_facets(surf))) == 1, surf.edges)
 end
 
 function incedges(surf::AbstractCombSimplicialSurface, f::AbstractVector{<:Integer})
-    return incedges(SimplicialSurface(surf), f)
+    if !(f in surf.facets) && !(reverse(f) in surf.facets)
+        error("f has to be a facet of surf, but got $(f).")
+    end
+    return filter(e -> issubset(e, f), surf.edges)
 end
 
 function incedges(surf::AbstractCombSimplicialSurface, v::Int)
-    return incedges(SimplicialSurface(surf), v)
+    return filter(e -> v in e, surf.edges)
 end
 
 function incfacets(surf::AbstractCombSimplicialSurface, vertexarray::AbstractVector{<:Integer})
-    return incfacets(SimplicialSurface(surf), vertexarray)    
+    return filter(f -> issubset(vertexarray, f), surf.facets)   
 end
 
 function incfacets(surf::AbstractCombSimplicialSurface, v::Integer)
-    return incfacets(SimplicialSurface(surf), v)    
+    return incfacets(surf, [v])
 end
 
 function edgeturn!(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Integer})
@@ -105,17 +115,14 @@ function edgeturn!(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Inte
     edges = setdiff(edges, [e, reverse(e)])
     push!(edges, tips)
 
-    set_edges!(surf, edges)
+    surf.edges = edges
 
     # delete old facets and append new ones
-    facets = get_facets(surf)
-    facets = setdiff(facets, butterfly)
+    setdiff!(surf.facets, butterfly)
 
-    newfacets = [[tips[1], tips[2], e[1]], [tips[1], tips[2], e[2]]]
-    append!(facets, newfacets)
-    set_facets!(surf, facets)
+    append!(surf.facets, [[e[1], tips[1], tips[2]], [e[2], tips[2], tips[1]]])
 
-    orient_facets!(surf)
+    return surf
 end
 
 function edgeturn(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Integer})
@@ -125,6 +132,37 @@ function edgeturn(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Integ
     return surf_copy
 end
 
+function remove_vertex!(surf::AbstractCombSimplicialSurface, v::Integer)
+    vertexmap = w -> w > v ? w - 1 : w
+    setdiff!(surf.verts, [v])
+    surf.verts = vertexmap.(surf.verts)
+    filter!(f -> !(v in f), surf.facets)
+    surf.facets = [vertexmap.(f) for f in surf.facets]
+    filter!(e -> !(v in e), surf.edges)
+    surf.edges = [vertexmap.(e) for e in surf.edges]
+
+    return surf
+end
+
+function vertex_degree(surf::AbstractCombSimplicialSurface, v::Integer)
+    return length(incfacets(surf, v))
+end
+
+"""
+    remove_tetrahedron(surf::AbstractCombSimplicialSurface, v::Integer)
+
+Remove vertex v of vertex degree 3 from the simplicial surface. Add the base of the correspnding tetrahedron as a facet of the surface.
+"""
+function remove_tetrahedron!(surf::AbstractCombSimplicialSurface, v::Integer)
+    if vertex_degree(surf, v) != 3
+        error("Vertex v has to have degree 3, but got $(vertex_degree(surf, v)).")
+    end
+
+    tetrahedron = incfacets(surf, v)
+    base = unique(setdiff(vcat(tetrahedron...), [v]))
+    remove_vertex!(surf, v)
+    push!(surf.facets, base)
+end
 
 
 ############################################################################
