@@ -404,55 +404,55 @@ function formpath(vertexindices::AbstractVector{<:Integer}, poly::AbstractPolyhe
 end
 
 
-# decide whether point is inside of polyhedron
-"""
-    inpolyhedron(point::AbstractVector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-8)::Int
+# # decide whether point is inside of polyhedron
+# """
+#     inpolyhedron(point::AbstractVector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-8)::Int
 
 
-    Randomized algorithm to check whether a point is contained in a polyhedron.
-"""
-function inpolyhedron(point::AbstractVector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-8)::Int 
-    # check whether point lies on the boundary of poly
-    for facet in get_facets(poly)
-        polygon = get_verts(poly)[:, facet]
-        if  inpolygon3d(polygon, point, atol= atol) != 0
-            return -1
-        end
-    end
+#     Randomized algorithm to check whether a point is contained in a polyhedron.
+# """
+# function inpolyhedron(point::AbstractVector{<:Real}, poly::AbstractPolyhedron; atol::Real=1e-8)::Int 
+#     # check whether point lies on the boundary of poly
+#     for facet in get_facets(poly)
+#         polygon = get_verts(poly)[:, facet]
+#         if  inpolygon3d(polygon, point, atol= atol) != 0
+#             return -1
+#         end
+#     end
 
-    while true
-        v = normalize!(rand(Float64, 3))
-        # println(v)
-        r = Ray(point, v)
-        numIntersections = 0 # number of intersections of r and the facets of poly
+#     while true
+#         v = normalize!(rand(Float64, 3))
+#         # println(v)
+#         r = Ray(point, v)
+#         numIntersections = 0 # number of intersections of r and the facets of poly
 
-        for facet in get_facets(poly)
-            E = Plane(get_verts(poly)[:, facet])
+#         for facet in get_facets(poly)
+#             E = Plane(get_verts(poly)[:, facet])
 
-            try
-                intersect(r, E)
-            catch error
-                continue
-            end
+#             try
+#                 intersect(r, E)
+#             catch error
+#                 continue
+#             end
 
-            p = intersect(r, E)
+#             p = intersect(r, E)
 
-            if inpolygon3d(get_verts(poly)[:, facet], p, atol = atol) == -1
-                error("Ray intersects the boundary of a facet.")
-                break
-            elseif inpolygon3d(get_verts(poly)[:, facet], p, atol = atol) == 1
-                numIntersections = numIntersections + 1
-            end
-        end
+#             if inpolygon3d(get_verts(poly)[:, facet], p, atol = atol) == -1
+#                 error("Ray intersects the boundary of a facet.")
+#                 break
+#             elseif inpolygon3d(get_verts(poly)[:, facet], p, atol = atol) == 1
+#                 numIntersections = numIntersections + 1
+#             end
+#         end
 
-        # println(numIntersections)
-        if mod(numIntersections, 2) == 0
-            return 0
-        else
-            return 1
-        end
-    end
-end
+#         # println(numIntersections)
+#         if mod(numIntersections, 2) == 0
+#             return 0
+#         else
+#             return 1
+#         end
+#     end
+# end
 
 
 """

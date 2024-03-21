@@ -244,25 +244,25 @@ function normalvec(points::AbstractMatrix{<:Real})
     return normalvec(Plane(points))
 end
 
-"""
-returns the intersection between a ray and a plane if it exists.
-"""
-function intersect(ray::Ray, plane::Plane; atol::Real = 1e-8)
-    vr = ray.point
-    vp = plane.point
+# """
+# returns the intersection between a ray and a plane if it exists.
+# """
+# function intersect(ray::Ray, plane::Plane; atol::Real = 1e-8)
+#     vr = ray.point
+#     vp = plane.point
 
-    A = hcat(plane.vectors, -ray.vector)
-    if rank(A) < 3
-        throw(ErrorException("ray and plane are parallel."))
-    end
+#     A = hcat(plane.vectors, -ray.vector)
+#     if rank(A) < 3
+#         throw(ErrorException("ray and plane are parallel."))
+#     end
     
-    coeffs = A\(vr - vp)
-    if coeffs[3] < 0
-        throw(ErrorException("ray and plane don't intersect"))
-    end
+#     coeffs = A\(vr - vp)
+#     if coeffs[3] < 0
+#         throw(ErrorException("ray and plane don't intersect"))
+#     end
 
-    return vr + coeffs[3] * ray.vector
-end
+#     return vr + coeffs[3] * ray.vector
+# end
 
 function dist(v::Vector{<:Real}, w::Vector{<:Real})
     return norm(v-w)
