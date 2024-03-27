@@ -16,7 +16,7 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
     facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
     # TODO: Neuen constructor mit optionalen Argumenten (wenn nur coordinates gegeben werden, ist Ergebnis die konvexe Hülle der Punkte + check der Dimension
     # wenn nur Facets gegeben sind, werden Edges automatisch gesetzt und es wird gecheckt, dass Vertizes auf einer Facet koplanar aber nicht kollinear sind)
-    function Polyhedron(verts::AbstractMatrix{<:Real}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8, check_consistency::Bool = true)
+    function Polyhedron(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real = 1e-8, check_consistency::Bool = true)
         for f in facets
             if length(f) < 3
                 error("Facets need to consist of at least 3 vertices.")
@@ -56,7 +56,7 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
         return orient_facets(poly)
     end
 
-    function Polyhedron(verts::Vector{<:Vector{<:Real}}, edges::Vector{<:Vector{<:Integer}}, facets::Vector{<:Vector{<:Integer}}; atol::Real = 1e-8)
+    function Polyhedron(verts::AbstractVector{<:AbstractVector{<:Real}}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real = 1e-8)
         return Polyhedron(hcat(verts...), edges, facets; atol = atol)
     end
 
