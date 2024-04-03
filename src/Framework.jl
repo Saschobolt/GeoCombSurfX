@@ -23,7 +23,7 @@ using StaticArrays
 #         T = typeof(verts[1])
 #         return new{T}(sort(verts), edges)
 #     end
-    
+
 #     function Graph(;verts = nothing, edges = nothing)
 #         if isnothing(edges)
 #             edges = Vector{Int64}[]
@@ -35,7 +35,7 @@ using StaticArrays
 #                 verts = collect(1:max(vcat(edges...)...))
 #             end
 #         end
-    
+
 #         return Graph(verts, edges)
 #     end
 # end
@@ -109,11 +109,11 @@ using StaticArrays
 
 ################## Embedded Graphs
 
-abstract type AbstractEmbeddedGraph{S<:Real, T<:Integer} end
+abstract type AbstractEmbeddedGraph{S<:Real,T<:Integer} end
 
-mutable struct Framework{S<:Real, T<:Integer} <:AbstractEmbeddedGraph{S,T}
+mutable struct Framework{S<:Real,T<:Integer} <: AbstractEmbeddedGraph{S,T}
     verts::Matrix{S}
-    edges::Vector{SVector{2, T}}
+    edges::Vector{SVector{2,T}}
 
     """
     Framework(verts::Matrix{<:Real}, edges::Vector{<:Vector{<:Integer}})
@@ -129,12 +129,12 @@ mutable struct Framework{S<:Real, T<:Integer} <:AbstractEmbeddedGraph{S,T}
             error("Not every vertex of an edge has a coordinate assigned to it.")
         end
 
-        S = typeof(promote(verts[1,1], 1.0)[1])
+        S = typeof(promote(verts[1, 1], 1.0)[1])
         T = typeof(edges[1][1])
         return new{S,T}(verts, edges)
     end
 
-    function Framework(; verts::Union{AbstractMatrix{<:Real}, Nothing}, edges::Union{AbstractVector{AbstractVector{<:Integer}}, Nothing})
+    function Framework(; verts::Union{AbstractMatrix{<:Real},Nothing}, edges::Union{AbstractVector{AbstractVector{<:Integer}},Nothing})
         if isnothing(edges)
             edges = Vector{Int64}[]
         end
@@ -144,20 +144,12 @@ mutable struct Framework{S<:Real, T<:Integer} <:AbstractEmbeddedGraph{S,T}
 
         return Framework(verts, edges)
     end
-    
-    function Framework(g::Graphs.AbstractSimpleGraph)
-        verts = rand(Float64, (3, max(get_verts(g)...)))
-        return Framework(verts, [[e.src, e.dst] for e in Graphs.edges(g)])
-    end
 end
 
-function get_verts(f::AbstractEmbeddedGraph)
-    return deepcopy(f.verts)
-end
+get_verts(f::AbstractEmbeddedGraph) = deepcopy(f.verts)
 
-function get_edges(f::AbstractEmbeddedGraph)
-    return deepcopy(f.edges)
-end
+
+get_edges(f::AbstractEmbeddedGraph) = deepcopy(f.edges)
 
 function adjacency_matrix(f::AbstractEmbeddedGraph)
     m = zeros(Int, size(get_verts(f))[2], size(get_verts(f))[2])
@@ -170,8 +162,16 @@ end
 
 SimpleGraph(g::AbstractEmbeddedGraph) = Graphs.SimpleGraph(adjacency_matrix(g))
 
-convert(::Type{T}, f::AbstractEmbeddedGraph) where {T<:Graphs.AbstractGraph} = T(adjacency_matrix(f))
+convert(::Type{T}, f::AbstractEmbeddedGraph) where {T<:Graphs.AbstractSimpleGraph} = T(adjacency_matrix(f))
 
+get_edges(g::Graphs.AbstractSimpleGraph) = [[e.src, e.dst] for e in Graphs.edges(g)]
+
+get_verts(g::Graphs.AbstractSimpleGraph) = collect(1:size(Graphs.adjacency_matrix(g))[1])
+
+function Framework(g::Graphs.AbstractSimpleGraph, d::Integer=3)
+    verts = rand(Float64, (d, size(Graphs.adjacency_matrix(g))[1]))
+    return Framework(verts, get_edges(g))
+end
 
 """
     set_verts!(g::AbstractEmbeddedGraph, verts::Matrix{<:Real})
@@ -192,7 +192,7 @@ dimension(g::AbstractEmbeddedGraph) = size(get_verts(g))[1]
 
 function display(g::Framework)
     print(
-        """$(typeof(g)) in $(dimension(g))-space with $(length(get_verts(g))) vertices and $(length(get_edges(g))) edges.
+        """$(typeof(g)) in $(dimension(g))-space with $(size(get_verts(g))[2]) vertices and $(length(get_edges(g))) edges.
         Edges: $(get_edges(g))
         """
     )
