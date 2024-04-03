@@ -1,3 +1,4 @@
+import Graphs
 include("../Framework.jl")
 include("../affine_geometry.jl")
 
@@ -48,7 +49,21 @@ end
 
 Calculate the index of the embedded graph f.
 """
-function index(f::AbstractEmbeddedGraph)
+function index(f::Union{AbstractEmbeddedGraph, Graphs.AbstractSimpleGraph})
     d, n = size(get_verts(f))
     return length(get_edges(f)) - d*n + binomial(d+1, 2)
 end
+
+function index(g::Graphs.AbstractSimpleGraph, d::Integer)
+    n = length(get_verts(g))
+    return length(get_edges(g)) - d*n + binomial(d+1, 2)
+end
+
+"""
+    is_genrigid(g::Graphs.AbstractSimpleGraph, d::Integer = 2)
+
+Return whether the graph g is generically rigid in d-space.
+"""
+is_genrigid(g::Graphs.AbstractSimpleGraph, d::Integer = 2) = d == 2 ? index(g, d) >= 0 : (index(g, d) >= 0 ? is_infrigid(Framework(g, d)) : false)
+
+is_genrigid(f::AbstractEmbeddedGraph, d::Integer = 2) = is_genrigid(SimpleGraph(f), d)
