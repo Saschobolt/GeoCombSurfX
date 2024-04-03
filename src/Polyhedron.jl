@@ -90,9 +90,7 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
 end
 
 
-function get_verts(poly::AbstractEmbOrCombPolyhedron)
-    return deepcopy(poly.verts)
-end
+get_verts(poly::AbstractEmbOrCombPolyhedron) = deepcopy(poly.verts)
 
 function set_verts!(poly::AbstractPolyhedron, verts::Matrix{<:Real})
     d = size(verts)[1]
@@ -104,6 +102,7 @@ function set_verts!(poly::AbstractPolyhedron, verts::Vector{<:Vector{<:Real}})
     set_verts!(poly, hcat(verts...))
 end
 
+get_edges(poly::AbstractEmbOrCombPolyhedron) = deepcopy(poly.edges)
 
 function set_edges!(poly::AbstractEmbOrCombPolyhedron, edges::Vector{<:Vector{<:Int}})
     @assert all(length(e) == 2 for e in edges) "Edges need to consist of vectors of length 2."
@@ -111,7 +110,6 @@ function set_edges!(poly::AbstractEmbOrCombPolyhedron, edges::Vector{<:Vector{<:
     # TODO: Assert, dass die Kanten auch tatsächlich auf Rand von Facets liegen?
     poly.edges = edges
 end
-
 
 function get_facets(poly::AbstractEmbOrCombPolyhedron)
     return deepcopy(poly.facets)
