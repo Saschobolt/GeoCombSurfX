@@ -4,10 +4,12 @@ using StaticArrays
 include("Framework.jl")
 include("Polyhedron.jl")
 include("decomposition.jl")
-############################################################################
-#       Combinatorial Simplicial Surfaces
-############################################################################
-abstract type AbstractCombSimplicialSurface{T<:Integer} end
+
+abstract type AbstractCombSimplicialSurface{T<:Integer} <: AbstractCombPolyhedron{T} end
+abstract type AbstractSimplicialSurface{S<:Real, T<:Integer} <: AbstractPolyhedron{S,T} end
+
+AbstractEmbOrCombSimplicialSurface{S<:Real, T<:Integer} = Union{AbstractSimplicialSurface{S,T}, AbstractCombSimplicialSurface{T}}
+
 
 mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurface{T}
     verts::Vector{T}
@@ -43,19 +45,13 @@ mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurfac
         end
 
         if isnothing(verts)
-            n = max(vcat(edges...)...)
+            n = max(vcat(Vector.(edges)...)...)
             verts = collect(1:n)
         end
 
         return CombSimplicialSurface(verts, edges, facets)
     end
 end
-
-get_verts(surf::AbstractCombSimplicialSurface) = deepcopy(surf.verts)
-
-get_edges(surf::AbstractCombSimplicialSurface) = deepcopy(surf.edges)
-
-get_facets(surf::AbstractCombSimplicialSurface) = deepcopy(surf.facets)
 
 function set_facets!(surf::AbstractCombSimplicialSurface, facets::AbstractVector{<:AbstractVector{<:Integer}})
     if any([length(f) != 3 for f in facets])
@@ -66,42 +62,86 @@ function set_facets!(surf::AbstractCombSimplicialSurface, facets::AbstractVector
     surf.facets = facets
 end
 
-function orient_facets!(surf::AbstractCombSimplicialSurface)
-    new_surf = CombSimplicialSurface(get_verts(surf), get_edges(surf), get_facets(surf)) # in construction of CombSimplicialSurface the facets are oriented
-    set_facets!(surf, get_facets(new_surf))
+function remove_vertex!(surf::AbstractCombSimplicialSurface, v::Integer)
+    vertexmap = w -> w > v ? w - 1 : w
+    setdiff!(surf.verts, [v])
+    surf.verts = vertexmap.(surf.verts)
+    setdiff!(surf.facets, incfacets(surf, v))
+    surf.facets = [vertexmap.(f) for f in surf.facets]
+    filter!(e -> !(v in e), surf.edges)
+    surf.edges = [vertexmap.(e) for e in surf.edges]
+
+    return surf
 end
 
-function orient_facets(surf::AbstractCombSimplicialSurface)
-    surf_copy = deepcopy(surf)
-    
-    orient_facets!(surf_copy)
-    return surf_copy
-end
+mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurface{S,T}
+    verts::Matrix{S} # vertex array. Every vertex is an array of 3 spatial coordinates
+    edges::Vector{Vector{T}} # edge array. Every edge is an array of the indices of the adjacent vertices
+    facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
+    function SimplicialSurface(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}) # constructor
+        comb_surf = CombSimplicialSurface(edges = edges, facets = facets)
 
-function boundary(surf::AbstractCombSimplicialSurface)
-    return filter(e -> length(filter(f -> issubset(e, f), get_facets(surf))) == 1, surf.edges)
-end
-
-function incedges(surf::AbstractCombSimplicialSurface, f::AbstractVector{<:Integer})
-    if !(f in surf.facets) && !(reverse(f) in surf.facets)
-        error("f has to be a facet of surf, but got $(f).")
+        S = typeof(verts[1,1])
+        T = typeof(edges[1][1])
+        return new{S,T}(verts, edges, get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
     end
-    return filter(e -> issubset(e, f), surf.edges)
+
+    function SimplicialSurface(verts::AbstractVector{<:AbstractVector{<:Real}}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}})
+        vertsmat = hcat(verts...)
+        return SimplicialSurface(vertsmat, edges, facets)
+    end
+    
+    function SimplicialSurface(;verts = nothing, edges = nothing, facets = nothing)    
+        comb_surf = CombSimplicialSurface(edges = edges, facets = facets)
+
+        if isnothing(verts)
+            n = length(get_verts(comb_surf))
+            verts = rand(Float64, 3, n)
+        end
+        S = typeof(verts[1,1])
+        T = typeof(get_edges(comb_surf)[1][1])
+        return SimplicialSurface(verts, get_edges(comb_surf), get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
+    end
 end
 
-function incedges(surf::AbstractCombSimplicialSurface, v::Int)
-    return filter(e -> v in e, surf.edges)
+function SimplicialSurface(poly::AbstractPolyhedron)
+    poly_triang = triangulate(poly)
+    return SimplicialSurface(get_verts(poly_triang), get_edges(poly_triang), get_facets(poly_triang))
 end
 
-function incfacets(surf::AbstractCombSimplicialSurface, vertexarray::AbstractVector{<:Integer})
-    return filter(f -> issubset(vertexarray, f), surf.facets)  
+function SimplicialSurface(comb_surf::AbstractCombSimplicialSurface)
+    return SimplicialSurface(edges = get_edges(comb_surf), facets = get_facets(comb_surf))
 end
 
-function incfacets(surf::AbstractCombSimplicialSurface, v::Integer)
-    return incfacets(surf, [v])
+function Polyhedron(surf::AbstractSimplicialSurface)
+    return Polyhedron(surf.verts, surf.edges, surf.facets)
 end
 
-function edgeturn!(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Integer})
+function CombSimplicialSurface(surf::AbstractSimplicialSurface)
+    return CombSimplicialSurface(edges = get_edges(surf), facets = get_facets(surf))
+end
+
+function remove_vertex!(surf::AbstractSimplicialSurface, v::Integer)
+    vertexmap = w -> w > v ? w - 1 : w
+    surf.verts = surf.verts[:, setdiff(1:end, v)]
+    setdiff!(surf.facets, incfacets(surf, v))
+    surf.facets = [vertexmap.(f) for f in surf.facets]
+    filter!(e -> !(v in e), surf.edges)
+    surf.edges = [vertexmap.(e) for e in surf.edges]
+
+    return surf
+end
+
+function isadjacent(surf::AbstractEmbOrCombSimplicialSurface, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool = true)
+    if check
+        @assert facetoredge in union(get_edges(surf), get_facets(surf)) || reverse(facetoredge) in union(get_edges(surf), get_facets(surf)) "facetoredge has to be an edge or facet of the surface, but got $(facetoredge)."
+        @assert facet in get_facets(surf) || reverse(facet) in get_facets(surf) "facet has to be a facet of the surface, but got $(facet)."
+    end
+
+    return length(Base.intersect(facetoredge, facet)) == 2
+end
+
+function edgeturn!(surf::AbstractEmbOrCombSimplicialSurface, e::AbstractVector{<:Integer})
     if !(e in get_edges(surf) || reverse(e) in get_edges(surf))
         error("e has to be an edge of surf, but got $(e).")
     end
@@ -123,37 +163,25 @@ function edgeturn!(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Inte
     return surf
 end
 
-function edgeturn(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Integer})
+function edgeturn(surf::AbstractEmbOrCombSimplicialSurface, e::AbstractVector{<:Integer})
     surf_copy = deepcopy(surf)
     edgeturn!(surf_copy, e)
 
     return surf_copy
 end
 
-function remove_vertex!(surf::AbstractCombSimplicialSurface, v::Integer)
-    vertexmap = w -> w > v ? w - 1 : w
-    setdiff!(surf.verts, [v])
-    surf.verts = vertexmap.(surf.verts)
-    setdiff!(surf.facets, incfacets(surf, v))
-    surf.facets = [vertexmap.(f) for f in surf.facets]
-    filter!(e -> !(v in e), surf.edges)
-    surf.edges = [vertexmap.(e) for e in surf.edges]
-
-    return surf
-end
-
-function vertex_degree(surf::AbstractCombSimplicialSurface, v::Integer)
+function vertex_degree(surf::AbstractEmbOrCombSimplicialSurface, v::Integer)
     return length(incfacets(surf, v))
 end
 
-characteristic(surf::AbstractCombSimplicialSurface) = length(surf.verts) - length(surf.edges) + length(surf.facets)
+characteristic(surf::AbstractEmbOrCombSimplicialSurface) = length(surf.verts) - length(surf.edges) + length(surf.facets)
 
 """
     remove_tetrahedron(surf::AbstractCombSimplicialSurface, v::Integer)
 
 Remove vertex v of vertex degree 3 from the simplicial surface. Add the base of the correspnding tetrahedron as a facet of the surface.
 """
-function remove_tetrahedron!(surf::AbstractCombSimplicialSurface, v::Integer)
+function remove_tetrahedron!(surf::AbstractEmbOrCombSimplicialSurface, v::Integer)
     tetrahedron = incfacets(surf, v)
     base = unique(setdiff(vcat(tetrahedron...), [v]))
     if length(base) > 3
@@ -229,87 +257,16 @@ function cactus_distance_greedy(surf::AbstractCombSimplicialSurface)
     
 end
 
-
-############################################################################
-#       Embedded Simplicial Surfaces
-############################################################################
-abstract type AbstractSimplicialSurface{S<:Real, T<:Integer} <: AbstractPolyhedron{S,T} end
-
-mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurface{S,T}
-    verts::Matrix{S} # vertex array. Every vertex is an array of 3 spatial coordinates
-    edges::Vector{Vector{T}} # edge array. Every edge is an array of the indices of the adjacent vertices
-    facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
-    function SimplicialSurface(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}) # constructor
-        comb_surf = CombSimplicialSurface(edges = edges, facets = facets)
-
-        S = typeof(verts[1,1])
-        T = typeof(edges[1][1])
-        return new{S,T}(verts, edges, get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
-    end
-
-    function SimplicialSurface(verts::AbstractVector{<:AbstractVector{<:Real}}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}})
-        vertsmat = hcat(verts...)
-        return SimplicialSurface(vertsmat, edges, facets)
-    end
-    
-    function SimplicialSurface(;verts = nothing, edges = nothing, facets = nothing)    
-        comb_surf = CombSimplicialSurface(edges = edges, facets = facets)
-
-        if isnothing(verts)
-            n = length(get_verts(comb_surf))
-            verts = rand(Float64, 3, n)
-        end
-        S = typeof(verts[1,1])
-        T = typeof(get_edges(comb_surf)[1][1])
-        return SimplicialSurface(verts, get_edges(comb_surf), get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
-    end
-end
-
-function SimplicialSurface(poly::AbstractPolyhedron)
-    poly_triang = triangulate(poly)
-    return SimplicialSurface(get_verts(poly_triang), get_edges(poly_triang), get_facets(poly_triang))
-end
-
-function SimplicialSurface(comb_surf::AbstractCombSimplicialSurface)
-    return SimplicialSurface(edges = get_edges(comb_surf), facets = get_facets(comb_surf))
-end
-
-function Polyhedron(surf::AbstractSimplicialSurface)
-    return Polyhedron(surf.verts, surf.edges, surf.facets)
-end
-
-function CombSimplicialSurface(surf::AbstractSimplicialSurface)
-    return CombSimplicialSurface(edges = get_edges(surf), facets = get_facets(surf))
-end
-
 """
     is_SimplicialSurface(poly::AbstractPolyhedron)
 
 Determine wheter the Polyhedron poly is a Simplicial Surface.
 """
-function is_SimplicialSurface(poly::AbstractPolyhedron)
+function is_SimplicialSurface(poly::AbstractEmbOrCombPolyhedron)
     try
         surf = CombSimplicialSurface(edges = get_edges(poly), facets = get_facets(poly))
     catch
         return false
     end
     return true
-end
-
-function boundary(surf::AbstractSimplicialSurface)
-    return boundary(CombSimplicialSurface(surf))
-end
-
-function edgeturn!(surf::AbstractSimplicialSurface, e::AbstractVector{<:Integer})
-    comb_surf = CombSimplicialSurface(surf)
-    edgeturn!(comb_surf, e)
-
-    set_edges!(surf, get_edges(comb_surf))
-    set_facets!(surf, get_facets(comb_surf))
-end
-
-function edgeturn(surf::AbstractSimplicialSurface, e::AbstractVector{<:Integer})
-    surf_copy = deepcopy(surf)
-    edgeturn!(surf_copy, e)
-    return surf_copy
 end

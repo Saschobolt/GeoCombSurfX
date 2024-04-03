@@ -9,6 +9,9 @@ include("affine_geometry.jl")
 include("polygonal_geometry.jl")
 
 abstract type AbstractPolyhedron{S<:Real,T<:Integer} <: AbstractEmbeddedGraph{S, T} end
+abstract type AbstractCombPolyhedron{T<:Integer} end
+
+AbstractEmbOrCombPolyhedron = Union{AbstractPolyhedron, AbstractCombPolyhedron}
 
 mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
     verts::Matrix{S} # matrix of coordinates of the vertices. Columns correspond to vertices.
@@ -87,7 +90,7 @@ mutable struct Polyhedron{S<:Real, T<:Integer} <:AbstractPolyhedron{S, T}
 end
 
 
-function get_verts(poly::AbstractPolyhedron)
+function get_verts(poly::AbstractEmbOrCombPolyhedron)
     return deepcopy(poly.verts)
 end
 
@@ -102,7 +105,7 @@ function set_verts!(poly::AbstractPolyhedron, verts::Vector{<:Vector{<:Real}})
 end
 
 
-function set_edges!(poly::AbstractPolyhedron, edges::Vector{<:Vector{<:Int}})
+function set_edges!(poly::AbstractEmbOrCombPolyhedron, edges::Vector{<:Vector{<:Int}})
     @assert all(length(e) == 2 for e in edges) "Edges need to consist of vectors of length 2."
     # @assert sort(union(edges...)) == [1:max(union(edges...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(edges...))))."
     # TODO: Assert, dass die Kanten auch tatsächlich auf Rand von Facets liegen?
@@ -110,11 +113,11 @@ function set_edges!(poly::AbstractPolyhedron, edges::Vector{<:Vector{<:Int}})
 end
 
 
-function get_facets(poly::AbstractPolyhedron)
+function get_facets(poly::AbstractEmbOrCombPolyhedron)
     return deepcopy(poly.facets)
 end
 
-function set_facets!(poly::AbstractPolyhedron, facets::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
+function set_facets!(poly::AbstractEmbOrCombPolyhedron, facets::Vector{<:Vector{<:Int}}; atol::Real = 1e-8)
     # @assert sort(union(facets...)) == [1:max(union(facets...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
     if any([affinedim(get_verts(poly)[:, f]; atol = atol) != 2 for f in facets])
         error("Facets have to span affine spaces of dimension $(2).")
@@ -200,14 +203,20 @@ function display(poly::AbstractPolyhedron)
     Facets: $(get_facets(poly)) \n""")
 end
 
+function display(poly::AbstractCombPolyhedron)
+    print("""$(typeof(poly)) with $(length(get_verts(poly))) vertices, $(length(get_edges(poly))) edges and $(length(get_facets(poly))) facets.\n 
+    Edges:  $(get_edges(poly))
+    Facets: $(get_facets(poly)) \n""")
+end
+
 
 """
-    isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool = true)
+    isadjacent(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool = true)
 
 Calculate whether the facet or edge facetoredge and the facet facet of the polyhedron poly are adjacent, i.e. share a common edge. 
 If check is set to false, the function will not check whether facetoredge and facet are actually facets or edges of poly.
 """
-function isadjacent(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool = true)
+function isadjacent(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool = true)
     if check
         @assert Set(facetoredge) in Set.(get_edges(poly)) || Set(facetoredge) in Set.(get_facets(poly)) "facetoredge is not an edge or facet of poly."
         @assert Set(facet) in Set.(get_facets(poly)) "facet is not a facet of poly."
@@ -226,12 +235,12 @@ end
 
 
 """
-    adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}; check::Bool = true)
+    adjfacets(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVector{<:Integer}; check::Bool = true)
 
 Calculate the adjacent facets of the facet or edge facetoredge in the Polyhedron poly, i.e. the facets sharing at least one edge with facet.
 If check is set to false, the function will not check whether facetoredge is actually a facet or edge of poly.
 """
-function adjfacets(poly::AbstractPolyhedron, facetoredge::AbstractVector{<:Integer}; check::Bool = true)
+function adjfacets(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVector{<:Integer}; check::Bool = true)
     if check
         @assert Set(facetoredge) in Set.(get_edges(poly)) || Set(facetoredge) in Set.(get_facets(poly)) "facetoredge is not an edge or facet of poly."
     end
@@ -255,7 +264,7 @@ end
 
 Return the facets of the polyhedron poly, that are incident to all vertices in vertexarray, i.e. that contain all vertices in vertexarray.
 """
-function incfacets(poly::AbstractPolyhedron, vertexarray::AbstractVector{<:Integer})
+function incfacets(poly::AbstractEmbOrCombPolyhedron, vertexarray::AbstractVector{<:Integer})
     return filter(f -> all([isincident(v, f) for v in vertexarray]), get_facets(poly))
 end
 
@@ -265,7 +274,7 @@ end
 
 Return the facets of the polyhedron poly, that are incident to the vertex v, i.e. that contain v.
 """
-function incfacets(poly::AbstractPolyhedron, v::Integer)
+function incfacets(poly::AbstractEmbOrCombPolyhedron, v::Integer)
     return filter(f -> isincident(v, f), get_facets(poly))
 end
 
@@ -275,7 +284,7 @@ end
 
 Return the edges of the polyhedron poly, that are incident to the vertex v, i.e. that contain v.
 """
-function incedges(poly::AbstractPolyhedron, v::Integer)
+function incedges(poly::AbstractEmbOrCombPolyhedron, v::Integer)
     return filter(e -> isincident(v, e), get_edges(poly))
 end
 
@@ -284,7 +293,7 @@ end
 
 Return the edges of the polyhedron poly, that are incident to the facet f, i.e. that are a subset of f. If check is set to true, it is checked, whether f is a facet of poly.
 """
-function incedges(poly::AbstractPolyhedron, f::AbstractVector{<:Integer}; check::Bool = true)
+function incedges(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer}; check::Bool = true)
     if check
         @assert Set(f) in Set.(get_facets(poly)) "f is not a facet of poly."
     end
@@ -297,11 +306,11 @@ end
 
 Compute the boundary of the polyhedron poly, i.e. the set of facets that are incident to exactly one edge.
 """
-function boundary(poly::AbstractPolyhedron)
+function boundary(poly::AbstractEmbOrCombPolyhedron)
     return filter(f -> length(incedges(poly, f)) == 1, get_facets(poly))
 end
 
-function removefacet!(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
+function removefacet!(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer})
     @assert Set(f) in Set.(get_facets(poly)) "Facet f not in poly."
     fac = filter(facet -> Base.intersect(f, facet) == f, get_facets(poly))[1]
     relevantedges = incedges(poly, fac)
@@ -309,13 +318,13 @@ function removefacet!(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
     setdiff!(poly.edges, Base.intersect(relevantedges, boundary(poly)))
 end
 
-function removefacet(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
+function removefacet(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer})
     p = deepcopy(poly)
     removefacet!(p, f)
     return p
 end
 
-function removeedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer})
+function removeedge!(poly::AbstractEmbOrCombPolyhedron, e::AbstractVector{<:Integer})
     @assert Set(e) in Set.(get_edges(poly)) "Edge e not in poly."
     ed = filter(edge -> Base.intersect(e, edge) == e, get_edges(poly))[1]
     relevantfacets = incfacets(poly, ed)
@@ -325,7 +334,7 @@ function removeedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer})
     setdiff!(poly.edges, [ed])
 end
 
-function removeedge(poly::AbstractPolyhedron, e::AbstractVector{<:Integer})
+function removeedge(poly::AbstractEmbOrCombPolyhedron, e::AbstractVector{<:Integer})
     p = deepcopy(poly)
     removeedge!(p, e)
     return p
@@ -387,7 +396,7 @@ end
 
 Sort the vector vertexindices such that the corresponding vertices of the Polyhedron poly form a vertex edges path.
 """
-function formpath!(vertexindices::Vector{<:Int}, poly::AbstractPolyhedron)
+function formpath!(vertexindices::Vector{<:Int}, poly::AbstractEmbOrCombPolyhedron)
     edges = get_edges(poly)
     formpath!(vertexindices, edges)
 end
@@ -397,7 +406,7 @@ end
 
 Sort the vector vertexindices such that the corresponding vertices of the Polyhedron poly form a vertex edges path.
 """
-function formpath(vertexindices::AbstractVector{<:Integer}, poly::AbstractPolyhedron)
+function formpath(vertexindices::AbstractVector{<:Integer}, poly::AbstractEmbOrCombPolyhedron)
     vertexindicescopy = deepcopy(vertexindices)
     formpath!(vertexindicescopy, poly)
     return vertexindicescopy
@@ -460,7 +469,7 @@ end
 
 Orient the facets of the polyhedron poly in line with the first facet. 
 """
-function orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
+function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real = 1e-8)
     # https://stackoverflow.com/questions/48093451/calculating-outward-normal-of-a-non-convex-polyhedral#comment83177517_48093451
     adj = facet_adjacency(poly)
 
@@ -498,7 +507,7 @@ function orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
                 # inter is oriented "forwards" in f -> reverse f
                 reverse!(poly.facets[f_ind])
             else
-                error("Something went wrong. Either facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
+                error("Something went wrong. Facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
             end
         elseif indin_g[2] == length(g) && indin_g[1] == 1 || indin_g[2] == indin_g[1] - 1
             # inter is oriented "backwards" in g
@@ -508,80 +517,23 @@ function orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
                 # inter is oriented "backwards" in f -> reverse f
                 reverse!(poly.facets[f_ind])
             else
-                error("Something went wrong. Either facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
+                error("Something went wrong. Facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
             end
         else
-            error("Something went wrong. Either facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
+            error("Something went wrong. Facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
         end
     end
 
     return poly
 end
 
-# """
-#     orient_facets!(poly::AbstractPolyhedron)
-
-# Orient the facets of the polyhedron poly.
-# """
-# function orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
-#     # https://stackoverflow.com/questions/48093451/calculating-outward-normal-of-a-non-convex-polyhedral#comment83177517_48093451
-#     newfacets = Vector{Int}[]
-
-#     f = get_facets(poly)[1]
-#     adj = adjfacets(poly, f)
-#     push!(newfacets, f)
-
-#     # exterior facets that have been oriented
-#     extfacets = Vector{Int}[]
-
-#     function direction(facet, edge)
-#         # function that determines if edge is oriented forwards (1) or backwards (-1) in facet. 
-#         inds = indexin(edge, facet)
-#         if mod1(inds[2] - inds[1], length(facet)) == 1 return 1 end
-#         return -1
-#     end
-
-#     while length(newfacets) < length(get_facets(poly))
-#         setdiff!(extfacets, [f])
-
-#         for g in adj
-#             if g in newfacets || reverse(g) in newfacets 
-#                 continue
-#             end
-
-#             inter = Base.intersect(f,g)
-#             e = [inter[1], inter[2]]
-
-#             if direction(f, [inter[1], inter[2]]) == direction(g, [inter[1], inter[2]])
-#                 reverse!(g)
-#             end
-
-#             # g is now oriented and a newfacet and an exteriorfacet in this step
-#             push!(newfacets, g)
-#             push!(extfacets, g)
-#         end
-
-#         for g in extfacets
-#             adj_new = adjfacets(poly, g)
-#             if length(setdiff(Set.(adj_new), Set.(newfacets))) > 0
-#                 f = g
-#                 adj = adj_new
-#                 break
-#             end
-#             # there are no adjacent facets of g that are not oriented already -> g is not exterior.
-#             setdiff!(extfacets, [g])
-#         end
-#     end
-
-#     set_facets!(poly, newfacets; atol = atol)
-# end
 
 """
     orient_facets(poly::AbstractPolyhedron)
 
 Orient the facets of the polyhedron poly.
 """
-function orient_facets(poly::AbstractPolyhedron; atol::Real = 1e-8)
+function orient_facets(poly::AbstractEmbOrCombPolyhedron; atol::Real = 1e-8)
     polycopy = deepcopy(poly)
     orient_facets!(polycopy; atol = atol)
     return polycopy
@@ -670,7 +622,7 @@ end
 
 Adjacency matrix for the facets of the polyhedron poly. Two facets are adjacent if they share an edge.
 """
-function facet_adjacency(poly::AbstractPolyhedron)
+function facet_adjacency(poly::AbstractEmbOrCombPolyhedron)
     facets = get_facets(poly)
     adj = zeros(Bool, length(facets), length(facets))
     for i in 1:length(facets)
