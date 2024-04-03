@@ -1,29 +1,46 @@
 include("affine_geometry.jl")
 
 """
-    to_xyplane(poly::AbstractMatrix{<:Real})
+    to_xyplane_map(polygon::AbstractMatrix{T}; atol::Real = 1e-8) where T<:Real
 
-Transform the polygon so that it lies in the xy plane (triangles will lie in the first quadrant).
+Map that transforms the polygon so that it lies in the xy plane.
 """
-function to_xyplane(polygon::AbstractMatrix{<:Real}; atol::Real = 1e-8)
-    # transform polygon so that it lies in the xy plane
+function to_xyplane_map(polygon::AbstractMatrix{T}; atol::Real=1e-8) where {T<:Real}
     # https://math.stackexchange.com/questions/856666/how-can-i-transform-a-3d-triangle-to-xy-plane
+    n = size(polygon)[2]
+
     if size(polygon)[1] == 2
-        return vcat(polygon, repeat([0], 1, size(polygon)[2]))
+        return vcat(polygon, repeat([0], 1, n))
     end
 
-    @assert affinedim(polygon, atol = atol) == 2 "Polygon doesn't span a plane."
+    @assert affinedim(polygon, atol=atol) == 2 "Polygon doesn't span a plane."
     @assert size(polygon)[1] == 3 "only implemented for 3d polygons."
 
-    n = size(polygon)[2]
-    j = findfirst(i -> affinedim(polygon[:, [mod1(i-1, n), i, mod1(i+1, n)]], atol = atol) == 2, collect(1:n))
-    polygon_trafo = copy(polygon) - repeat(polygon[:, j], 1, n)
-    triang = polygon_trafo[:, [mod1(j-1, n), j, mod1(j+1, n)]]
-    u = normalize(triang[:, 1])
-    w = normalize(cross(u, triang[:,3]))
+    # random translation vector to apply to the polygon so that no vertex lies at the origin
+    r = rand(promote_type(Float64, T), size(polygon)[1])
+    polygon_trafo = copy(polygon) + repeat(r, 1, n)
+
+    j = findfirst(i -> affinedim(polygon_trafo[:, [i, mod1(i + 1, n), mod1(i + 2, n)]], atol=atol) == 2, collect(1:n))
+    s = -polygon_trafo[:, j]
+    polygon_trafo = copy(polygon_trafo) + repeat(s, 1, n)
+    triang = polygon_trafo[:, [j, mod1(j + 1, n), mod1(j + 2, n)]]
+    u = normalize(triang[:, 2])
+    w = normalize(cross(u, triang[:, 3]))
     v = cross(u, w)
-    M = transpose(hcat(u,v,w))
-    return M * polygon_trafo # lies in xy plane    
+    M = transpose(hcat(u, v, w))
+    M = det(M) * M
+
+    return x::AbstractVecOrMat -> typeof(x) <: AbstractVector ? M * (x + r + s) : M * (x + repeat(r, 1, n) + repeat(s, 1, n))
+end
+
+"""
+    to_xyplane(poly::AbstractMatrix{<:Real})
+
+Transform the polygon so that it lies in the xy plane.
+"""
+function to_xyplane(polygon::AbstractMatrix{<:Real}; atol::Real=1e-8)
+    # transform polygon so that it lies in the xy plane
+    return to_xyplane_map(polygon, atol=atol)(polygon)
 end
 
 """
@@ -31,8 +48,8 @@ end
 
 Determine whether the point p lies inside the triangle triang.
 """
-function intriang(triang::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-8)
-    if affinedim(triang; atol = atol) < 2
+function intriang(triang::AbstractMatrix{<:Real}, p::AbstractVector{<:Real}; atol=1e-8)
+    if affinedim(triang; atol=atol) < 2
         display(triang)
         display(affinedim(triang))
         error("triang is degenerate.")
@@ -40,40 +57,41 @@ function intriang(triang::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-8
 
     if size(triang)[1] == 3
         # if point and triangle don't lie in the same plane, p is not inside triang
-        if affinedim(hcat(triang, p); atol = atol) > 2
+        if affinedim(hcat(triang, p); atol=atol) > 2
             return 0
         end
 
         # transform triang and p so that triang lies in the xy plane
-        p_trafo = copy(p) - triang[:, 1]
-        u = normalize(triang[:, 3])
-        w = normalize(cross(u, triang[:,2]))
-        v = cross(u,w)
-        M = transpose(hcat(u,v,w))
-        triang_trafo = (M * (triang - repeat(triang[:,1], 1, 3)))[1:2,:]
-        p_trafo = (M * p_trafo)[1:2]
-        return intriang(triang_trafo, p_trafo; atol = atol)
+        f = to_xyplane_map(triang, atol=atol)
+        triang_trafo = f(triang)[1:2, :]
+        p_trafo = f(p)[1:2]
+        return intriang(triang_trafo, p_trafo; atol=atol)
     end
 
+    display(triang)
+    display(p)
+
     # determine baricentric coordinates of p with respect to the triangle
-    leg1 = triang[:,2] - triang[:,1]
-    leg2 = triang[:,3] - triang[:,1]
+    leg1 = triang[:, 2] - triang[:, 1]
+    leg2 = triang[:, 3] - triang[:, 1]
 
     A = hcat(leg1, leg2)
-    b = p - triang[:,1]
+    b = p - triang[:, 1]
     s = A \ b
 
-    if all(s .>= 0) && sum(s) < 1
+    display(s)
+
+    if all(s .> atol) && abs(sum(s) - 1) > atol
         return 1
-    elseif all(s .>= 0) && sum(s) == 1
+    elseif any(abs.(s) .< atol) || (all(s .> atol) && abs(sum(s) - 1) < atol)
         return -1
     else
         return 0
     end
 end
 
-function intriang(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real}; atol = 1e-8)
-    return intriang(hcat(triang...), p; atol = atol)
+function intriang(triang::Vector{<:Vector{<:Real}}, p::Vector{<:Real}; atol=1e-8)
+    return intriang(hcat(triang...), p; atol=atol)
 end
 
 
@@ -82,21 +100,21 @@ end
 
 Determine whether the orientation of the polygon is counterclockwise. Clockwise means, that the vertices follow a negative rotation around the normal vector n.
 """
-function is_ccw(polygon::AbstractMatrix{<:Real}, n::Vector{<:Real}; atol = 1e-12)
+function is_ccw(polygon::AbstractMatrix{<:Real}, n::Vector{<:Real}; atol=1e-12)
     # https://math.stackexchange.com/questions/2152623/determine-the-order-of-a-3d-polygon
-    if polygon[:,1] == polygon[:,end]
-        coords = polygon[:,1:end-1]
+    if polygon[:, 1] == polygon[:, end]
+        coords = polygon[:, 1:end-1]
     else
         coords = polygon
     end
 
     m = size(coords)[2]
 
-    @assert all([dot(n, coords[:, mod1(i+1, m)] - coords[:, mod1(i, m)]) == 0 for i in 1:m]) "n is not normal to the polygon."
+    @assert all([dot(n, coords[:, mod1(i + 1, m)] - coords[:, mod1(i, m)]) == 0 for i in 1:m]) "n is not normal to the polygon."
 
-    s = sum([cross(coords[:, mod1(i,m)], coords[:, mod1(i+1, m)]) for i in 1:m])
+    s = sum([cross(coords[:, mod1(i, m)], coords[:, mod1(i + 1, m)]) for i in 1:m])
 
-    if dot(s,n) > 0
+    if dot(s, n) > 0
         return true
     else
         return false
@@ -124,13 +142,13 @@ end
 
 #     # @info "remaining_verts: $(remaining_verts)"
 
-    # # return the neighbors of vertex v in the polygon indexed by subfacet
-    # function neighbors(v::Int)
-    #     i = indexin(v, remaining_verts)[1]
-    #     neighbor1 = remaining_verts[mod1(i-1, length(remaining_verts))]
-    #     neighbor2 = remaining_verts[mod1(i+1, length(remaining_verts))]
-    #     return neighbor1, neighbor2
-    # end
+# # return the neighbors of vertex v in the polygon indexed by subfacet
+# function neighbors(v::Int)
+#     i = indexin(v, remaining_verts)[1]
+#     neighbor1 = remaining_verts[mod1(i-1, length(remaining_verts))]
+#     neighbor2 = remaining_verts[mod1(i+1, length(remaining_verts))]
+#     return neighbor1, neighbor2
+# end
 
 #     # normal vector of polygon Plane
 #     n = normalvec(coords[:,remaining_verts])
@@ -269,23 +287,23 @@ end
 #     return sol
 # end
 
-function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
+function earcut3d(polygon::AbstractMatrix{<:Real}; atol=1e-8)
     # transform polygon so that it lies in the xy plane
     # https://math.stackexchange.com/questions/856666/how-can-i-transform-a-3d-triangle-to-xy-plane
-    polygon_trafo = to_xyplane(polygon, atol = atol)[1:2, :]
+    polygon_trafo = to_xyplane(polygon, atol=atol)[1:2, :]
     if polygon_trafo[:, end] == polygon_trafo[:, 1]
         polygon_trafo = polygon_trafo[:, 1:end-1]
     end
-    
+
     # return the neighbors of vertex v in the polygon indexed by subfacet
     # TODO: Use a graph structure to store the polygon. Graphs.jl has efficient implementation for neighbor calculations.
     function neighbors(v::Int)
         i = indexin(v, remaining)[1]
-        neighbor1 = remaining[mod1(i-1, length(remaining))]
-        neighbor2 = remaining[mod1(i+1, length(remaining))]
+        neighbor1 = remaining[mod1(i - 1, length(remaining))]
+        neighbor2 = remaining[mod1(i + 1, length(remaining))]
         return neighbor1, neighbor2
     end
-    
+
     n = size(polygon_trafo)[2]
     remaining = collect(1:n)
     angles = [signedangle2d(polygon_trafo[:, i] - polygon_trafo[:, neighbors(i)[1]], polygon_trafo[:, neighbors(i)[2]] - polygon_trafo[:, i]) for i in remaining]
@@ -317,7 +335,7 @@ function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
         # v is an ear, if no reflex vertex lies in the triangle spanned by v and its neighbors in the subfacet
         n1, n2 = neighbors(v)
 
-        return all([intriang(polygon_trafo[:, [n1,v,n2]], polygon_trafo[:, w]; atol = atol) == 0 for w in setdiff(reflex, [n1, n2])])
+        return all([intriang(polygon_trafo[:, [n1, v, n2]], polygon_trafo[:, w]; atol=atol) == 0 for w in setdiff(reflex, [n1, n2])])
     end
 
     ears = filter(v -> isear(v), convex)
@@ -327,11 +345,11 @@ function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
         n1, n2 = neighbors(v)
         area = det(hcat(polygon_trafo[:, n1] - polygon_trafo[:, v], polygon_trafo[:, n2] - polygon_trafo[:, v])) / 2
         circ = sum([dist(polygon_trafo[:, n1], polygon_trafo[:, v]), dist(polygon_trafo[:, n2], polygon_trafo[:, v]), dist(polygon_trafo[:, n1], polygon_trafo[:, n2])])
-        return area/circ
+        return area / circ
     end
 
     # sort ears by acratio so that the first entry in ears is the ear with biggest acratio
-    sort!(ears, by = acratio)
+    sort!(ears, by=acratio)
 
     sol = Vector{Int}[]
 
@@ -367,7 +385,7 @@ function earcut3d(polygon::AbstractMatrix{<:Real}; atol = 1e-8)
                     isear(w) ? continue : setdiff!(ears, w)
                 else
                     isear(w) ? push!(ears, w) : continue
-                    sort!(ears, by = acratio)
+                    sort!(ears, by=acratio)
                 end
             end
         end
@@ -388,27 +406,27 @@ Determine whether the point p lies inside the polygon poly.
 0: p is outside polygon
 -1: p lies on the boundary of polygon
 """
-function inpolygon3d(poly::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol = 1e-8)
+function inpolygon3d(poly::AbstractMatrix{<:Real}, p::Vector{<:Real}; atol=1e-8)
     @assert size(poly)[1] == 3 "poly has to be a 3×n-matrix, but is of size $(size(poly))."
     if poly[:, end] == poly[:, 1]
         coords = poly[:, 1:end-1]
-    else 
+    else
         coords = poly
     end
     n = size(coords)[2]
 
     for i in 1:size(poly)[2]
-        if affinedim([coords[:, mod1(i,n)], coords[:, mod1(i+1,n)], p]) == 1 && dot(coords[:, mod1(i,n)] - p, coords[:, mod1(i+1,n)] - p) <= 0
+        if (max(abs.(p - coords[:, i])...) < atol) || (affinedim([coords[:, i], coords[:, mod1(i + 1, n)], p]; atol=atol) == 1 && dot(coords[:, i] - p, coords[:, mod1(i + 1, n)] - p) <= 0)
             return -1
         end
     end
 
-    poly_triang = [poly[:, triangle] for triangle in earcut3d(poly, atol = atol)]
+    poly_triang = [poly[:, triangle] for triangle in earcut3d(poly, atol=atol)]
     for triang in poly_triang
-        if intriang(triang, p) != 0
+        if intriang(triang, p; atol=atol) != 0
             return 1
         end
     end
-    
+
     return 0
 end
