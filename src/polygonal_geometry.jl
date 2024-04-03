@@ -68,9 +68,6 @@ function intriang(triang::AbstractMatrix{<:Real}, p::AbstractVector{<:Real}; ato
         return intriang(triang_trafo, p_trafo; atol=atol)
     end
 
-    display(triang)
-    display(p)
-
     # determine baricentric coordinates of p with respect to the triangle
     leg1 = triang[:, 2] - triang[:, 1]
     leg2 = triang[:, 3] - triang[:, 1]
@@ -78,8 +75,6 @@ function intriang(triang::AbstractMatrix{<:Real}, p::AbstractVector{<:Real}; ato
     A = hcat(leg1, leg2)
     b = p - triang[:, 1]
     s = A \ b
-
-    display(s)
 
     if all(s .> atol) && abs(sum(s) - 1) > atol
         return 1
