@@ -319,38 +319,38 @@ function flattenfacets(poly::AbstractPolyhedron; atol = 1e-5)
     return polycopy
 end
 
-"""
-    isturnable(e::Vector{<:Integer}, polyhedron::AbstractPolyhedron; atol::Real=1e-5)::Bool
+# """
+#     isturnable(e::Vector{<:Integer}, polyhedron::AbstractPolyhedron; atol::Real=1e-5)::Bool
 
-Checks whether the edge e is turnable edge of poly. I.e. poly is 
-    - a spherical simplicial surface and 
-    - the line connecting the wingtips of the butterfly with inner edge e is contained in poly.
-Floats with abs value <atol are considered zeros
-"""
-# TODO: Reihenfolge der Argumente überall glattziehen: immer zuerst AbstractPolyhedron übergeben, oder das, worauf sich Methode bezieht?
-function isturnable(e::Vector{<:Integer}, polyhedron::AbstractPolyhedron; atol::Real=1e-5)::Bool
-    @assert all(length.(get_facets(polyhedron)).==3) "poly may only have triangle facets"
-    @assert in(e, get_edges(polyhedron)) || in(reverse(e), get_edges(polyhedron)) "e has to be an edge of poly"
+# Checks whether the edge e is turnable edge of poly. I.e. poly is 
+#     - a spherical simplicial surface and 
+#     - the line connecting the wingtips of the butterfly with inner edge e is contained in poly.
+# Floats with abs value <atol are considered zeros
+# """
+# # TODO: Reihenfolge der Argumente überall glattziehen: immer zuerst AbstractPolyhedron übergeben, oder das, worauf sich Methode bezieht?
+# function isturnable(e::Vector{<:Integer}, polyhedron::AbstractPolyhedron; atol::Real=1e-5)::Bool
+#     @assert all(length.(get_facets(polyhedron)).==3) "poly may only have triangle facets"
+#     @assert in(e, get_edges(polyhedron)) || in(reverse(e), get_edges(polyhedron)) "e has to be an edge of poly"
     
-    # adjacent facets to e
-    butterfly = adjfacets(polyhedron, e)
-    # turned edge
-    butterflytips = setdiff(union(butterfly...), e)
+#     # adjacent facets to e
+#     butterfly = adjfacets(polyhedron, e)
+#     # turned edge
+#     butterflytips = setdiff(union(butterfly...), e)
 
-    # if there is already an edge connecting the butterflytips, e can't be turned.
-    if butterflytips in get_edges(polyhedron) || reverse(butterflytips) in get_edges(polyhedron)
-        return 0
-    end
+#     # if there is already an edge connecting the butterflytips, e can't be turned.
+#     if butterflytips in get_edges(polyhedron) || reverse(butterflytips) in get_edges(polyhedron)
+#         return 0
+#     end
 
-    mid = (get_verts(polyhedron)[:,butterflytips[1]] + get_verts(polyhedron)[:,butterflytips[2]]) / 2
+#     mid = (get_verts(polyhedron)[:,butterflytips[1]] + get_verts(polyhedron)[:,butterflytips[2]]) / 2
 
-    # if midpoint of turned edge is inside the polyhedron the edge is turnable
-    if inpolyhedron(mid, polyhedron, atol = atol) == 0 # TODO: Testen: macht hier flattenfacets(polyhedron) die Methode wirklich robuster? Wie kann flattenfacets optimiert werden -> sie ist jetzt seeeeehr langsam.
-        return 0
-    end
+#     # if midpoint of turned edge is inside the polyhedron the edge is turnable
+#     if inpolyhedron(mid, polyhedron, atol = atol) == 0 # TODO: Testen: macht hier flattenfacets(polyhedron) die Methode wirklich robuster? Wie kann flattenfacets optimiert werden -> sie ist jetzt seeeeehr langsam.
+#         return 0
+#     end
 
-    return 1
-end
+#     return 1
+# end
 
 
 """

@@ -1,4 +1,5 @@
 import Graphs.connected_components, Graphs.SimpleGraph
+using StaticArrays
 
 include("Framework.jl")
 include("Polyhedron.jl")
@@ -10,20 +11,20 @@ abstract type AbstractCombSimplicialSurface{T<:Integer} end
 
 mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurface{T}
     verts::Vector{T}
-    edges::Vector{Vector{T}}
-    facets::Vector{Vector{T}}
+    edges::Vector{SVector{2, T}}
+    facets::Vector{SVector{3, T}}
 
     function CombSimplicialSurface(verts::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}})
-        @assert all([length(f) == 3 for f in facets]) "Facets of simplicial Surfaces are triangles."
+        # @assert all([length(f) == 3 for f in facets]) "Facets of simplicial Surfaces are triangles."
         @assert all([length(filter(f -> issubset(e, f), facets)) in [1,2] for e in edges]) "Edge of Simplicial Surface has to be edge of at least 1 and at most 2 facets."
 
-        graph = Graphs.SimpleGraph(Edge.(Tuple.(edges)))
-        @assert length(connected_components(graph)) "1-Skeleton of Simplicial Surface has to be a connected graph."
+        graph = Graphs.SimpleGraph(Graphs.Edge.(Tuple.(edges)))
+        @assert length(connected_components(graph)) == 1 "1-Skeleton of Simplicial Surface has to be a connected graph."
         T = typeof(verts[1])
 
         poly = Polyhedron(rand(Float64, 3, length(verts)), edges, facets)
         orient_facets!(poly)
-        return new{T}(verts, edges, get_facets(poly))
+        return new{T}(verts, SVector{2}.(edges), SVector{3}.(get_facets(poly)))
     end
 
     function CombSimplicialSurface(; verts = nothing, edges = nothing, facets = nothing)
@@ -41,11 +42,18 @@ mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurfac
             error("not implemented yet.")
         end
 
-        graph = Graph(verts = verts, edges = edges)
-        return CombSimplicialSurface(get_verts(graph), get_edges(graph), facets)
+        if isnothing(verts)
+            n = max(vcat(edges...)...)
+            verts = collect(1:n)
+        end
+
+        return CombSimplicialSurface(verts, edges, facets)
     end
 end
 
+get_verts(surf::AbstractCombSimplicialSurface) = deepcopy(surf.verts)
+
+get_edges(surf::AbstractCombSimplicialSurface) = deepcopy(surf.edges)
 
 get_facets(surf::AbstractCombSimplicialSurface) = deepcopy(surf.facets)
 
@@ -71,23 +79,26 @@ function orient_facets(surf::AbstractCombSimplicialSurface)
 end
 
 function boundary(surf::AbstractCombSimplicialSurface)
-    return filter(e -> length(filter(f -> issubset(e, f), get_facets(surf))) == 1, get_edges(surf))
+    return filter(e -> length(filter(f -> issubset(e, f), get_facets(surf))) == 1, surf.edges)
 end
 
 function incedges(surf::AbstractCombSimplicialSurface, f::AbstractVector{<:Integer})
-    return incedges(SimplicialSurface(surf), f)
+    if !(f in surf.facets) && !(reverse(f) in surf.facets)
+        error("f has to be a facet of surf, but got $(f).")
+    end
+    return filter(e -> issubset(e, f), surf.edges)
 end
 
 function incedges(surf::AbstractCombSimplicialSurface, v::Int)
-    return incedges(SimplicialSurface(surf), v)
+    return filter(e -> v in e, surf.edges)
 end
 
 function incfacets(surf::AbstractCombSimplicialSurface, vertexarray::AbstractVector{<:Integer})
-    return incfacets(SimplicialSurface(surf), vertexarray)    
+    return filter(f -> issubset(vertexarray, f), surf.facets)  
 end
 
 function incfacets(surf::AbstractCombSimplicialSurface, v::Integer)
-    return incfacets(SimplicialSurface(surf), v)    
+    return incfacets(surf, [v])
 end
 
 function edgeturn!(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Integer})
@@ -98,24 +109,18 @@ function edgeturn!(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Inte
     tips = symdiff(butterfly...)
 
     # delete e from edges and add tips as new edge
-    edges = get_edges(surf)
-    if tips in edges
+    if tips in surf.edges || reverse(tips) in surf.edges
         error("The tips of the butterfly $(butterfly) having $(e) as an interior edge is itself an edge of the Surface ($(tips)). Thus the edge is not turnable.")
     end
-    edges = setdiff(edges, [e, reverse(e)])
-    push!(edges, tips)
-
-    set_edges!(surf, edges)
-
+    setdiff!(surf.edges, [e, reverse(e)])
+    push!(surf.edges, tips)
+    
     # delete old facets and append new ones
-    facets = get_facets(surf)
-    facets = setdiff(facets, butterfly)
+    setdiff!(surf.facets, butterfly)
 
-    newfacets = [[tips[1], tips[2], e[1]], [tips[1], tips[2], e[2]]]
-    append!(facets, newfacets)
-    set_facets!(surf, facets)
+    append!(surf.facets, [[e[1], tips[1], tips[2]], [e[2], tips[2], tips[1]]])
 
-    orient_facets!(surf)
+    return surf
 end
 
 function edgeturn(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Integer})
@@ -125,6 +130,104 @@ function edgeturn(surf::AbstractCombSimplicialSurface, e::AbstractVector{<:Integ
     return surf_copy
 end
 
+function remove_vertex!(surf::AbstractCombSimplicialSurface, v::Integer)
+    vertexmap = w -> w > v ? w - 1 : w
+    setdiff!(surf.verts, [v])
+    surf.verts = vertexmap.(surf.verts)
+    setdiff!(surf.facets, incfacets(surf, v))
+    surf.facets = [vertexmap.(f) for f in surf.facets]
+    filter!(e -> !(v in e), surf.edges)
+    surf.edges = [vertexmap.(e) for e in surf.edges]
+
+    return surf
+end
+
+function vertex_degree(surf::AbstractCombSimplicialSurface, v::Integer)
+    return length(incfacets(surf, v))
+end
+
+characteristic(surf::AbstractCombSimplicialSurface) = length(surf.verts) - length(surf.edges) + length(surf.facets)
+
+"""
+    remove_tetrahedron(surf::AbstractCombSimplicialSurface, v::Integer)
+
+Remove vertex v of vertex degree 3 from the simplicial surface. Add the base of the correspnding tetrahedron as a facet of the surface.
+"""
+function remove_tetrahedron!(surf::AbstractCombSimplicialSurface, v::Integer)
+    tetrahedron = incfacets(surf, v)
+    base = unique(setdiff(vcat(tetrahedron...), [v]))
+    if length(base) > 3
+        error("v ($v) is expected to be of vertex degree 3, but got incident facets $tetrahedron")
+    end
+    push!(surf.facets, base)
+    remove_vertex!(surf, v)
+
+    return surf
+end
+
+
+"""
+    append_tetrahedron!(surf::AbstractCombSimplicialSurface, f::AbstractVector{<:Integer})
+
+Append a tetrahedron to surf by removing facet f and adding a tetrahedron in its place. If check is set to true, it is checked that f is a facet of surf.
+"""
+function append_tetrahedron!(surf::AbstractCombSimplicialSurface, f::AbstractVector{<:Integer}; check::Bool = true)
+    if check
+        i = findfirst(x -> Base.intersect(x, f) == x, surf.facets)
+        if isnothing(i)
+            error("f needs to be a facet of surf, but got $(f)")
+        end
+        facet = deepcopy(surf.facets[i])
+    else
+        facet = f
+    end
+
+    n = length(surf.verts)
+    append!(surf.facets, [push(e, n+1) for e in incedges(surf, facet)])
+    setdiff!(surf.facets, [facet])
+    append!(surf.edges, [SVector{2}([x, n+1]) for x in facet])
+    push!(surf.verts, n+1)
+
+    return surf
+end
+
+function random_cactus(n::Integer)
+    cactus = CombSimplicialSurface(facets = [[1,2,3], [1,2,4], [2,3,4], [1,3,4]])
+    for _ in 1:n-1
+        i = rand(1:length(cactus.facets))
+        append_tetrahedron!(cactus, cactus.facets[i], check = false)
+    end
+
+    return cactus
+end
+
+function iscactus(surf::AbstractCombSimplicialSurface)
+    # Cacti have genus 0
+    if characteristic(surf) != 2
+        return false
+    end
+
+    cactus = deepcopy(surf)
+    while length(cactus.verts) > 4
+        v = get_verts(cactus)[findfirst(x -> vertex_degree(cactus, x) == 3, cactus.verts)]
+        if isnothing(v)
+            return false
+        end
+        remove_tetrahedron!(cactus, v)
+    end
+
+    return true
+end
+
+"""
+    cactus_distance_greedy(surf::AbstractCombSimplicialSurface)
+
+TBW
+"""
+function cactus_distance_greedy(surf::AbstractCombSimplicialSurface)
+    edgeturns = SVector{2, Int}[]
+    
+end
 
 
 ############################################################################
