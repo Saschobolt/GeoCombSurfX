@@ -1,5 +1,6 @@
 import Graphs
 import Base.Multimedia.display
+using StaticArrays
 
 # ################## Simple combinatorial Graphs
 # abstract type AbstractSimpleGraph{T<:Integer} end
@@ -112,19 +113,19 @@ abstract type AbstractEmbeddedGraph{S<:Real, T<:Integer} end
 
 mutable struct Framework{S<:Real, T<:Integer} <:AbstractEmbeddedGraph{S,T}
     verts::Matrix{S}
-    edges::Vector{Vector{T}}
+    edges::Vector{SVector{2, T}}
 
     """
     Framework(verts::Matrix{<:Real}, edges::Vector{<:Vector{<:Integer}})
 
     TBW
     """
-    function Framework(verts::AbstractMatrix{<:Real}, edges::Vector{<:Vector{<:Integer}})
+    function Framework(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}})
         # combgraph = Graph(edges=edges)
         # if no_concomponents(combgraph) != 1
         #     error("Graph is not connected.")
         # end
-        if size(verts)[2] < max(vcat(edges...)...)
+        if size(verts)[2] < max(vcat(Vector.(edges)...)...)
             error("Not every vertex of an edge has a coordinate assigned to it.")
         end
 
@@ -132,11 +133,22 @@ mutable struct Framework{S<:Real, T<:Integer} <:AbstractEmbeddedGraph{S,T}
         T = typeof(edges[1][1])
         return new{S,T}(verts, edges)
     end
+
+    function Framework(; verts::Union{AbstractMatrix{<:Real}, Nothing}, edges::Union{AbstractVector{AbstractVector{<:Integer}}, Nothing})
+        if isnothing(edges)
+            edges = Vector{Int64}[]
+        end
+        if isnothing(verts)
+            verts = rand(Float64, (3, max(vcat(Vector.(edges)...)...)))
+        end
+
+        return Framework(verts, edges)
+    end
     
-    # function Framework(g::Graphs.AbstractSimpleGraph)
-    #     verts = rand(Float64, (3, max(get_verts(g)...)))
-    #     return Framework(verts, get_edges(g))
-    # end
+    function Framework(g::Graphs.AbstractSimpleGraph)
+        verts = rand(Float64, (3, max(get_verts(g)...)))
+        return Framework(verts, [[e.src, e.dst] for e in Graphs.edges(g)])
+    end
 end
 
 function get_verts(f::AbstractEmbeddedGraph)
