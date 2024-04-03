@@ -117,6 +117,10 @@ function Polyhedron(surf::AbstractSimplicialSurface)
     return Polyhedron(surf.verts, surf.edges, surf.facets)
 end
 
+function Framework(surf::AbstractSimplicialSurface)
+    return Framework(surf.verts, surf.edges)
+end
+
 function CombSimplicialSurface(surf::AbstractSimplicialSurface)
     return CombSimplicialSurface(edges = get_edges(surf), facets = get_facets(surf))
 end
@@ -174,7 +178,8 @@ function vertex_degree(surf::AbstractEmbOrCombSimplicialSurface, v::Integer)
     return length(incfacets(surf, v))
 end
 
-characteristic(surf::AbstractEmbOrCombSimplicialSurface) = length(surf.verts) - length(surf.edges) + length(surf.facets)
+characteristic(surf::AbstractCombSimplicialSurface) = length(surf.verts) - length(surf.edges) + length(surf.facets)
+characteristic(surf::AbstractSimplicialSurface) = size(surf.verts)[2] - length(surf.edges) + length(surf.facets)
 
 """
     remove_tetrahedron(surf::AbstractCombSimplicialSurface, v::Integer)
