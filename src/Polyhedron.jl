@@ -302,10 +302,10 @@ end
 """
     boundary(poly::AbstractPolyhedron)
 
-Compute the boundary of the polyhedron poly, i.e. the set of facets that are incident to exactly one edge.
+Compute the boundary of the polyhedron poly, i.e. the set of edges that are incident to exactly one facet.
 """
 function boundary(poly::AbstractEmbOrCombPolyhedron)
-    return filter(f -> length(incedges(poly, f)) == 1, get_facets(poly))
+    return filter(e -> length(adjfacets(poly, e)) == 1, get_edges(poly))
 end
 
 function removefacet!(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer})
