@@ -3,7 +3,8 @@ include("affine_geometry.jl")
 """
     to_xyplane_map(polygon::AbstractMatrix{T}; atol::Real = 1e-8) where T<:Real
 
-Map that transforms the polygon so that it lies in the xy plane.
+Map that transforms the polygon so that it lies in the xy plane. Triangles will be transformed to the upper halfspace. 
+Linear part of map has determinant 1 and thus retains orientation. 
 """
 function to_xyplane_map(polygon::AbstractMatrix{T}; atol::Real=1e-8) where {T<:Real}
     # https://math.stackexchange.com/questions/856666/how-can-i-transform-a-3d-triangle-to-xy-plane
@@ -30,13 +31,28 @@ function to_xyplane_map(polygon::AbstractMatrix{T}; atol::Real=1e-8) where {T<:R
     M = transpose(hcat(u, v, w))
     M = det(M) * M
 
-    return x::AbstractVecOrMat -> typeof(x) <: AbstractVector ? M * (x + r + s) : M * (x + repeat(r, 1, n) + repeat(s, 1, n))
+    f = x::AbstractVecOrMat -> typeof(x) <: AbstractVector ? M * (x + r + s) : M * (x + repeat(r, 1, n) + repeat(s, 1, n))
+    poly_trafo = f(polygon)
+
+    # want that triangle lies in first or second quadrant (first vertex at [0,0,0], second at [d,0,0], third at [e,f,0]). Calculate rotation matrix that achieves that.
+    rot = [1 0 0; 0 1 0; 0 0 1]
+    if poly_trafo[:, 2][1] < 0
+        rot = [-1 0 0; 0 -1 0; 0 0 1]
+        poly_trafo = rot * poly_trafo
+    end
+    if poly_trafo[:, 3][2] < 0
+        rot = [1 0 0; 0 -1 0; 0 0 -1] * rot
+    end
+
+    f = x::AbstractVecOrMat -> typeof(x) <: AbstractVector ? rot * M * (x + r + s) : rot * M * (x + repeat(r, 1, n) + repeat(s, 1, n))
+
+    return f
 end
 
 """
     to_xyplane(poly::AbstractMatrix{<:Real})
 
-Transform the polygon so that it lies in the xy plane.
+Transform the polygon so that it lies in the xy plane. Triangles will be transformed to upper halfspace. Orientation is retained.
 """
 function to_xyplane(polygon::AbstractMatrix{<:Real}; atol::Real=1e-8)
     # transform polygon so that it lies in the xy plane
