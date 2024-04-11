@@ -299,6 +299,21 @@ function incedges(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer
 end
 
 
+function edge_direction(e::AbstractVector{<:Integer}, f::AbstractVector{<:Integer})
+    @assert length(e) == 2 "e has to be a vector of length 2, but got $e."
+    @assert issubset(e, f) "e ($e) is not an edge of f ($f)"
+    ind = indexin(e, f)
+    n = length(f)
+    if ind == [n,1] || ind[1] + 1 == ind[2]
+        return 1
+    elseif ind == [1,n] || ind[1] - 1 == ind[2]
+        return -1
+    end
+
+    error("e ($e) is not an edge of f ($f)")
+end
+
+
 """
     boundary(poly::AbstractPolyhedron)
 
@@ -472,7 +487,7 @@ function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real = 1e-8)
     adj = facet_adjacency(poly)
 
     oriented = [1]
-    ext_facets = Dict{Int, Int}() # exterior facets that have to be oriented
+    ext_facets = Dict{Int, Int}() # exterior facets that have to be oriented. key is facet index to be oriented, value is facet wrt which the key has to be oriented.
     for i in findall(adj[:, 1])
         ext_facets[i] = 1
     end
@@ -484,8 +499,8 @@ function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real = 1e-8)
         g = get_facets(poly)[ext_facets[f_ind]]
         
         inter = Base.intersect(f,g)
-        indin_f = indexin(inter, f)
-        indin_g = indexin(inter, g)
+        # indin_f = indexin(inter, f)
+        # indin_g = indexin(inter, g)
         
         # delete f_ind from ext_facets and add all adjacent facets of f to ext_facets
         delete!(ext_facets, f_ind)
@@ -497,28 +512,8 @@ function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real = 1e-8)
         oriented = [oriented; f_ind]
         
         # orient f with regard to g
-        if indin_g[1] == length(g) && indin_g[2] == 1 || indin_g[1] == indin_g[2] - 1
-            # inter is oriented "forwards" in g
-            if indin_f[2] == length(f) && indin_f[1] == 1 || indin_f[2] == indin_f[1] - 1
-                # inter is oriented "backwards" in f -> don't need to change orientation of f
-            elseif indin_f[1] == length(f) && indin_f[2] == 1 || indin_f[1] == indin_f[2] - 1
-                # inter is oriented "forwards" in f -> reverse f
-                reverse!(poly.facets[f_ind])
-            else
-                error("Something went wrong. Facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
-            end
-        elseif indin_g[2] == length(g) && indin_g[1] == 1 || indin_g[2] == indin_g[1] - 1
-            # inter is oriented "backwards" in g
-            if indin_f[1] == length(f) && indin_f[2] == 1 || indin_f[1] == indin_f[2] - 1
-                # inter is oriented "forwards" in f -> don't need to change orientation of f
-            elseif indin_f[2] == length(f) && indin_f[1] == 1 || indin_f[2] == indin_f[1] - 1
-                # inter is oriented "backwards" in f -> reverse f
-                reverse!(poly.facets[f_ind])
-            else
-                error("Something went wrong. Facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
-            end
-        else
-            error("Something went wrong. Facet $(f_ind) or $(g_ind) is not in the proper format: Following entries in the facet vector need to correspond to edges of the polyhedron.")
+        if edge_direction(inter, f) == edge_direction(inter, g)
+            poly.facets[f_ind] = reverse(poly.facets[f_ind])
         end
     end
 
