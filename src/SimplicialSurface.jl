@@ -166,6 +166,37 @@ function insert_butterfly!(surf::AbstractCombSimplicialSurface, edge1::AbstractV
     return surf
 end
 
+function insert_butterfly!(surf::AbstractSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}, p::Union{AbstractVector, Nothing} = nothing; is_oriented::Bool = false)
+    comb_surf = CombSimplicialSurface(edges = get_edges(surf), facets = get_facets(surf))
+    insert_butterfly!(comb_surf, edge1, edge2, is_oriented = is_oriented)
+
+    if isnothing(p)
+        surf.verts = hcat(surf.verts, rand(Float64, 3, 1))
+    else
+        surf.verts = hcat(surf.verts, p)
+    end
+    surf.edges = get_edges(comb_surf)
+    surf.facets = get_facets(comb_surf)
+
+    return surf
+end
+
+"""
+    insert_butterfly!(surf::AbstractEmbOrCombSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}, p::Union{AbstractVector, Nothing} = nothing; is_oriented::Bool = false)
+
+Insert a butterfly along the vertex edge path described by edge1 and edge2. If is_oriented = true, the surface is assumed to be oriented. 
+If surf is an embedded simplicial surface, the new vertex is placed at p. If p is nothing, a random point is chosen. 
+If surf is a combinatorial simplicial surface, p has to be nothing.
+"""
+function insert_butterfly!(surf::AbstractEmbOrCombSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}, p::Union{AbstractVector, Nothing} = nothing; is_oriented::Bool = false)
+    if isnothing(p)
+        return insert_butterfly!(surf, edge1, edge2, is_oriented = is_oriented)
+    else
+        @assert typeof(surf) <: AbstractSimplicialSurface "p has to be nothing if surf is a combinatorial simplicial surface, but got $p."
+        return insert_butterfly!(surf, edge1, edge2, p, is_oriented = is_oriented)
+    end
+end
+
 """
     insert_butterfly(surf::AbstractCombSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}; is_oriented:Bool = false)
 
@@ -195,9 +226,11 @@ function random_simplsphere(n::Integer)
     return sphere
 end
 
+random_emb_simplsphere(n::Integer) = SimplicialSurface(random_simplsphere(n))
+
 mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurface{S,T}
     verts::Matrix{S} # vertex array. Every vertex is an array of 3 spatial coordinates
-    edges::Vector{MVector{3, T}} # edge array. Every edge is an array of the indices of the adjacent vertices
+    edges::Vector{MVector{2, T}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{MVector{3, T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
     function SimplicialSurface(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}) # constructor
         comb_surf = CombSimplicialSurface(edges = edges, facets = facets)
@@ -219,8 +252,7 @@ mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurfa
             n = length(get_verts(comb_surf))
             verts = rand(Float64, 3, n)
         end
-        S = typeof(verts[1,1])
-        T = typeof(get_edges(comb_surf)[1][1])
+
         return SimplicialSurface(verts, get_edges(comb_surf), get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
     end
 end
@@ -319,12 +351,6 @@ function remove_tetrahedron!(surf::AbstractEmbOrCombSimplicialSurface, v::Intege
     return surf
 end
 
-
-"""
-    append_tetrahedron!(surf::AbstractCombSimplicialSurface, f::AbstractVector{<:Integer})
-
-Append a tetrahedron to surf by removing facet f and adding a tetrahedron in its place. If check is set to true, it is checked that f is a facet of surf.
-"""
 function append_tetrahedron!(surf::AbstractCombSimplicialSurface, f::AbstractVector{<:Integer}; check::Bool = true)
     if check
         i = findfirst(x -> Base.intersect(x, f) == x, surf.facets)
@@ -345,6 +371,38 @@ function append_tetrahedron!(surf::AbstractCombSimplicialSurface, f::AbstractVec
     return surf
 end
 
+function append_tetrahedron!(surf::AbstractSimplicialSurface, f::AbstractVector{<:Integer}, p::Union{Nothing, AbstractVector{<:Real}} = nothing; check::Bool = true)
+    comb_surf = CombSimplicialSurface(edges = get_edges(surf), facets = get_facets(surf))
+    append_tetrahedron!(comb_surf, f, check = check)
+
+    if isnothing(p)
+        surf.verts = hcat(surf.verts, rand(Float64, 3, 1))
+    else
+        surf.verts = hcat(surf.verts, p)
+    end
+
+    surf.edges = get_edges(comb_surf)
+    surf.facets = get_facets(comb_surf)
+
+    return surf
+end
+
+"""
+    append_tetrahedron!(surf::AbstractEmbOrCombSimplicialSurface, f::AbstractVector{<:Integer}, p::Union{Nothing, AbstractVector{<:Real}} = nothing; check::Bool = true)
+
+Append a tetrahedron to surf by removing facet f and adding a tetrahedron in its place. 
+In case surf is an embedded surface, the new vertex is placed at p. If p is nothing, a random point is chosen. If surf is a combinatorial simplicial surface, p has to be nothing.
+If check is set to true, it is checked that f is a facet of surf.
+"""
+function append_tetrahedron!(surf::AbstractEmbOrCombSimplicialSurface, f::AbstractVector{<:Integer}, p::Union{Nothing, AbstractVector{<:Real}} = nothing; check::Bool = true)
+    if isnothing(p)
+        return append_tetrahedron!(surf, f, check = check)
+    else
+        @assert typeof(surf) <: AbstractSimplicialSurface "p has to be nothing if surf is a combinatorial simplicial surface, but got $p."
+        return append_tetrahedron!(surf, f, p, check = check)
+    end
+end
+
 function random_cactus(n::Integer)
     cactus = CombSimplicialSurface(facets = [[1,2,3], [1,2,4], [2,3,4], [1,3,4]])
     for _ in 1:n-1
@@ -353,6 +411,12 @@ function random_cactus(n::Integer)
     end
 
     return cactus
+end
+
+function random_emb_cactus(n::Integer)
+    cactus = random_cactus(n)
+
+    return SimplicialSurface(cactus)
 end
 
 function iscactus(surf::AbstractCombSimplicialSurface)
@@ -371,6 +435,10 @@ function iscactus(surf::AbstractCombSimplicialSurface)
     end
 
     return true
+end
+
+function iscactus(surf::AbstractSimplicialSurface)
+    return iscactus(CombSimplicialSurface(surf))
 end
 
 """
