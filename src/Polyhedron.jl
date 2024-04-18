@@ -278,7 +278,7 @@ end
 
 
 """
-    incedges(poly::AbstractPolyhedron, v::Integer)
+    incedges(poly::AbstractEmbOrCombPolyhedron, v::Integer)
 
 Return the edges of the polyhedron poly, that are incident to the vertex v, i.e. that contain v.
 """
@@ -287,7 +287,7 @@ function incedges(poly::AbstractEmbOrCombPolyhedron, v::Integer)
 end
 
 """
-    incedges(poly::AbstractPolyhedron, f::AbstractVector{<:Integer})
+    incedges(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer}; check::Bool=true)
 
 Return the edges of the polyhedron poly, that are incident to the facet f, i.e. that are a subset of f. If check is set to true, it is checked, whether f is a facet of poly.
 """
@@ -299,6 +299,11 @@ function incedges(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer
 end
 
 
+"""
+    edge_direction(e::AbstractVector{<:Integer}, f::AbstractVector{<:Integer})
+
+Return the direction of the edge e in the facet f. If e is directed forwards (e.g. f = [..., e[1], e[2], ...]) return 1. If e is directed backwards (e.g. f = [..., e[2], e[1],...]) return -1
+"""
 function edge_direction(e::AbstractVector{<:Integer}, f::AbstractVector{<:Integer})
     @assert length(e) == 2 "e has to be a vector of length 2, but got $e."
     @assert issubset(e, f) "e ($e) is not an edge of f ($f)"
@@ -513,7 +518,7 @@ function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real=1e-8)
 
         # orient f with regard to g
         if edge_direction(inter, f) == edge_direction(inter, g)
-            poly.facets[f_ind] = reverse(poly.facets[f_ind])
+            reverse!(poly.facets[f_ind])
         end
     end
 
