@@ -13,8 +13,8 @@ AbstractEmbOrCombSimplicialSurface{S<:Real, T<:Integer} = Union{AbstractSimplici
 
 mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurface{T}
     verts::Vector{T}
-    edges::Vector{SVector{2, T}}
-    facets::Vector{SVector{3, T}}
+    edges::Vector{MVector{2, T}}
+    facets::Vector{MVector{3, T}}
 
     function CombSimplicialSurface(verts::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}})
         # @assert all([length(f) == 3 for f in facets]) "Facets of simplicial Surfaces are triangles."
@@ -26,7 +26,7 @@ mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurfac
 
         poly = Polyhedron(rand(Float64, 3, length(verts)), edges, facets)
         orient_facets!(poly)
-        return new{T}(verts, SVector{2}.(edges), SVector{3}.(get_facets(poly)))
+        return new{T}(verts, MVector{2}.(edges), MVector{3}.(get_facets(poly)))
     end
 
     function CombSimplicialSurface(; verts = nothing, edges = nothing, facets = nothing)
@@ -74,10 +74,131 @@ function remove_vertex!(surf::AbstractCombSimplicialSurface, v::Integer)
     return surf
 end
 
+"""
+    insert_butterfly!(surf::AbstractCombSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}; is_oriented:Bool = false)
+
+
+    Insert a butterfly along the vertex edge path described by edge1 and edge2. If is_oriented = true, the surface is assumed to be oriented.
+"""
+function insert_butterfly!(surf::AbstractCombSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}; is_oriented::Bool = false)    
+    if !is_oriented
+        orient_facets!(surf)
+    end
+
+    n = max(get_verts(surf)...)
+
+    # vertex that is split by butterfly insertion
+    split_vertex = Base.intersect(edge1, edge2)
+    @assert length(split_vertex) == 1 "edge1 ($edge1) and edge2 ($edge2) have to have exactly one vertex in common, but intersection is $split_vertex"
+    split_vertex = split_vertex[1]
+
+    # edges should form a vertex edge path, so e1 = [v1, split_vertex], e2 = [split_vertex, v2]
+    if indexin([split_vertex], edge1)[1] == 1
+        e1 = reverse(edge1)
+    else
+        e1 = copy(edge1)
+    end
+
+    if indexin([split_vertex], edge2)[1] == 2
+        e2 = reverse(edge2)
+    else 
+        e2 = copy(edge2)
+    end
+
+    adj1 = adjfacets(surf, e1)
+    @assert length(adj1) == 2 "edge1 ($edge1) has to have two adjacent facets, but has $(length(adj1)) ($adj1)."
+    adj2 = adjfacets(surf, e2)
+    @assert length(adj2) == 2 "edge2 ($edge2) has to have two adjacent facets, but has $(length(adj2)) ($adj2)."
+
+    if length(Base.intersect(adj1, adj2)) == 1
+        # first case: there are 3 adjacent facets in total -> wlog substitute split_vertex with n+1 in the adjacent facet, that contains both edges.
+        f1 = Base.intersect(adj1, adj2)[1]
+        surf.facets[indexin([f1], surf.facets)[1]][indexin([split_vertex], f1)[1]] = n+1
+
+        # add new oriented facets to surf.
+        if edge_direction(e1, f1) == 1
+            push!(surf.facets, MVector{3}([split_vertex, n+1, e1[1]]))
+            push!(surf.facets, MVector{3}([split_vertex, e2[2], n+1]))
+        else
+            push!(surf.facets, MVector{3}([split_vertex, e1[1], n+1]))
+            push!(surf.facets, MVector{3}([split_vertex, n+1, e2[2]]))
+        end
+    else
+        # second case: there are 4 adjacent facets in total -> wlog substitute split_vertex with n+1 in the adjacent facet of e1, where e1 is facing forwards, and in the adjacent facet of e2, where e2 is facing forwards.
+        f1 = filter(f -> edge_direction(e1, f) == 1, adj1)[1]
+        f2 = filter(f -> edge_direction(e2, f) == 1, adj2)[1]
+
+        # get gallery connecting f1 to f2, which has to be updated.
+        gal_facets = [f1]
+        gal_edges = filter(e -> !(e in [e1, reverse(e1)]) && split_vertex in e, incedges(surf, f1))
+        while gal_facets[end] != f2
+            next = filter(f -> (split_vertex in f) && !issubset(e1, f), setdiff(adjfacets(surf, gal_facets[end]), gal_facets))[1]
+            append!(gal_edges, filter(e -> !(e in [e2, reverse(e2)]) && split_vertex in e , setdiff(incedges(surf, next), gal_edges)))
+            push!(gal_facets, next)
+        end
+
+        # set split_vertex to n+1 in all facets in gal_facets and all edges in gal_edges
+        setdiff!(surf.facets, gal_facets)
+        setdiff!(surf.edges, gal_edges)
+        
+        map!(f -> setindex!(f, n+1, indexin([split_vertex], f)[1]), gal_facets, gal_facets)
+        map!(e -> setindex!(e, n+1, indexin([split_vertex], e)[1]), gal_edges, gal_edges)
+        
+        append!(surf.facets, gal_facets)
+        append!(surf.edges, gal_edges)
+        
+        # surf.facets[indexin([f1], surf.facets)[1]][indexin([split_vertex], f1)[1]] = n+1
+        # surf.facets[indexin([f2], surf.facets)[1]][indexin([split_vertex], f2)[1]] = n+1
+    
+        # add new oriented facets to surf.
+        push!(surf.facets, MVector{3}([split_vertex, n+1, e1[1]]))
+        push!(surf.facets, MVector{3}([split_vertex, e2[2], n+1]))
+    end
+
+    # add new edges to surf.
+    push!(surf.edges, MVector{2}([split_vertex, n+1]))
+    push!(surf.edges, MVector{2}([e1[1], n+1]))
+    push!(surf.edges, MVector{2}([n+1, e2[2]]))
+
+    # add new vertex to surf
+    push!(surf.verts, n+1)
+
+    return surf
+end
+
+"""
+    insert_butterfly(surf::AbstractCombSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}; is_oriented:Bool = false)
+
+Insert a butterfly along the vertex edge path described by edge1 and edge2. If is_oriented = true, the surface is assumed to be oriented.
+"""
+function insert_butterfly(surf::AbstractCombSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}; is_oriented::Bool = false)
+    surf_copy = deepcopy(surf)
+    insert_butterfly!(surf_copy, edge1, edge2, is_oriented = is_oriented)
+
+    return surf_copy
+end
+
+"""
+    random_simplsphere(n::Integer)
+
+Construct a random simplicial sphere with n vertices. The sphere is constructed by starting with a tetrahedron and applying random butterfly insertions.
+"""
+function random_simplsphere(n::Integer)
+    sphere = CombSimplicialSurface(verts = [1,2,3,4], edges = [[1,2], [2,3], [3,1], [1,4], [2,4], [3,4]], facets = [[1, 2, 3], [4, 2, 1], [4, 3, 2], [1, 3, 4]])
+    for _ in 1:n-4
+        v = rand(1:length(sphere.verts))
+        e1 = rand(incedges(sphere, v))
+        e2 = rand(setdiff(incedges(sphere, v), [e1]))
+        insert_butterfly!(sphere, e1, e2; is_oriented = true)
+    end
+
+    return sphere
+end
+
 mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurface{S,T}
     verts::Matrix{S} # vertex array. Every vertex is an array of 3 spatial coordinates
-    edges::Vector{Vector{T}} # edge array. Every edge is an array of the indices of the adjacent vertices
-    facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
+    edges::Vector{MVector{3, T}} # edge array. Every edge is an array of the indices of the adjacent vertices
+    facets::Vector{MVector{3, T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
     function SimplicialSurface(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}) # constructor
         comb_surf = CombSimplicialSurface(edges = edges, facets = facets)
 
