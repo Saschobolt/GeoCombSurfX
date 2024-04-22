@@ -113,7 +113,7 @@ abstract type AbstractEmbeddedGraph{S<:Real,T<:Integer} end
 
 mutable struct Framework{S<:Real,T<:Integer} <: AbstractEmbeddedGraph{S,T}
     verts::Matrix{S}
-    edges::Vector{SVector{2,T}}
+    edges::Vector{MVector{2,T}}
 
     """
     Framework(verts::Matrix{<:Real}, edges::Vector{<:Vector{<:Integer}})
@@ -166,7 +166,7 @@ convert(::Type{T}, f::AbstractEmbeddedGraph) where {T<:Graphs.AbstractSimpleGrap
 
 get_edges(g::Graphs.AbstractSimpleGraph) = [[e.src, e.dst] for e in Graphs.edges(g)]
 
-get_verts(g::Graphs.AbstractSimpleGraph) = collect(1:size(Graphs.adjacency_matrix(g))[1])
+get_verts(g::Graphs.AbstractSimpleGraph) = collect(1:Graphs.nv(g))
 
 function Framework(g::Graphs.AbstractSimpleGraph, d::Integer=3)
     verts = rand(Float64, (d, size(Graphs.adjacency_matrix(g))[1]))
@@ -200,4 +200,51 @@ end
 
 function edge_lengths(f::Framework)
     [sqrt(sqdist(get_verts(f)[:, e[1]], get_verts(f)[:, e[2]])) for e in get_edges(f)]
+end
+
+function henneberg_extension!(g::Graphs.AbstractSimpleGraph, verts::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}}; check::Bool=true)
+    if check
+        @assert all([length(e) == 2 for e in edges]) "Edges need to be of length 2."
+        @assert issubset(Set.(edges), Set.(get_edges(g))) "edges need to consist of edges of g."
+        @assert issubset(verts, get_verts(g)) "verts need to consist of vertices of g."
+    end
+
+    @assert all([v in verts for v in vcat(edges...)]) "edges need to connect vertices in verts."
+
+    for e in edges
+        Graphs.rem_edge!(g, e[1], e[2])
+    end
+
+    Graphs.add_vertex!(g)
+
+    for v in verts
+        Graphs.add_edge!(g, v, Graphs.nv(g))
+    end
+
+    return g
+end
+
+"""
+    henneberg_extension!(f::Framework, verts::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}}, p::Union{AbstractVector{<:Real},Nothing}=nothing; check::Bool=true)
+
+Perform a Henneberg extension on the framework f by adding a new vertex with coordinates p, connecting it to the vertices verts and removing the edges in edges.
+"""
+function henneberg_extension!(f::Framework, verts::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}}, p::Union{AbstractVector{<:Real},Nothing}=nothing; check::Bool=true)
+    g = SimpleGraph(f)
+    henneberg_extension!(g, verts, edges, check=check)
+
+    if isnothing(p)
+        f.verts = hcat(f.verts, rand(Float64, size(f.verts)[1]))
+    else
+        f.verts = hcat(f.verts, p)
+    end
+
+
+    f.edges = get_edges(Framework(g))
+
+    return f
+end
+
+function henneberg_extension(f::Framework, verts::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}}, p::Union{AbstractVector{<:Real},Nothing}=nothing; check::Bool=true)
+    return henneberg_extension!(deepcopy(f), verts, edges, p, check=check)
 end
