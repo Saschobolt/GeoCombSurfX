@@ -433,7 +433,7 @@ function adjfacets(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVecto
 
     # facetoredge is an edge. Thus adjacency can be checked by looking at the corresponding half edge.
     if length(facetoredge) == 2
-        h = halfedge(poly, facetoredge)
+        facetoredge in keys(poly.halfedges) ? (h = halfedge(poly, facetoredge)) : (h = halfedge(poly, reverse(facetoredge)))
         if isnothing(h.twin)
             return [h.face]
         else
@@ -441,11 +441,12 @@ function adjfacets(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVecto
         end
     end
 
-    # facetoredge is a facet. Get all adjacent facets by looking at 
-    adj = typeof(facetoredge)[]
-    n = length(facetoredge)
-    for i in eachindex(facetoredge)
-        e = facetoredge[[i, mod1(i + 1, n)]]
+    # facetoredge is a facet. Get all adjacent facets by looking at
+    f = get_facets(poly)[findfirst(f -> Set(f) == Set(facetoredge), poly.facets)]
+    adj = typeof(f)[]
+    n = length(f)
+    for i in eachindex(f)
+        e = f[[i, mod1(i + 1, n)]]
         if e in keys(poly.halfedges)
             h = halfedge(poly, e)
             if !isnothing(h.twin)
@@ -555,7 +556,7 @@ end
 Compute the boundary of the polyhedron poly, i.e. the set of edges that are incident to exactly one facet.
 """
 function boundary(poly::AbstractEmbOrCombPolyhedron)
-    return filter(e -> length(adjfacets(poly, e)) == 1, get_edges(poly))
+    return filter(e -> isnothing(halfedge(poly, e).twin), get_edges(poly))
 end
 
 """
