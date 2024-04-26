@@ -17,10 +17,10 @@ abstract type AbstractCombPolyhedron{T<:Integer} end
 AbstractEmbOrCombPolyhedron = Union{AbstractPolyhedron,AbstractCombPolyhedron}
 
 # Half edge data type: https://www.wikiwand.com/de/Half-Edge-Datenstruktur
-mutable struct HalfEdge
+mutable struct HalfEdge{T<:AbstractVector{<:Integer}}
     origin::Int
     twin::Union{HalfEdge,Nothing}
-    face::Vector{Int}
+    face::T
     next::Union{HalfEdge,Nothing}
     prev::Union{HalfEdge,Nothing}
 end
@@ -28,9 +28,10 @@ mutable struct Polyhedron{S<:Real,T<:Integer} <: AbstractPolyhedron{S,T}
     verts::Matrix{S} # matrix of coordinates of the vertices. Columns correspond to vertices.
     edges::Vector{MVector{2,T}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
-    halfedges::Dict{MVector{2,T},HalfEdge}
+    halfedges::Dict{MVector{2,T},HalfEdge{Vector{T}}}
     # TODO: Neuen constructor mit optionalen Argumenten (wenn nur coordinates gegeben werden, ist Ergebnis die konvexe Hülle der Punkte + check der Dimension
     # wenn nur Facets gegeben sind, werden Edges automatisch gesetzt und es wird gecheckt, dass Vertizes auf einer Facet koplanar aber nicht kollinear sind)
+
     function Polyhedron(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real=1e-8, check_consistency::Bool=true)
         for f in facets
             if length(f) < 3

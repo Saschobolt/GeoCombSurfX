@@ -15,6 +15,7 @@ mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurfac
     verts::Vector{T}
     edges::Vector{MVector{2, T}}
     facets::Vector{MVector{3, T}}
+    halfedges::Dict{MVector{2,T},HalfEdge{MVector{3, T}}}
 
     function CombSimplicialSurface(verts::AbstractVector{<:Integer}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}})
         # @assert all([length(f) == 3 for f in facets]) "Facets of simplicial Surfaces are triangles."
@@ -23,10 +24,12 @@ mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurfac
         graph = Graphs.SimpleGraph(Graphs.Edge.(Tuple.(edges)))
         @assert length(connected_components(graph)) == 1 "1-Skeleton of Simplicial Surface has to be a connected graph."
         T = typeof(verts[1])
+        surf = new{T}(verts, edges, facets)
 
-        poly = Polyhedron(rand(Float64, 3, length(verts)), edges, facets)
-        orient_facets!(poly)
-        return new{T}(verts, MVector{2}.(edges), MVector{3}.(get_facets(poly)))
+        orient_facets!(surf)
+        set_halfedges!(surf)
+
+        return surf
     end
 
     function CombSimplicialSurface(; verts = nothing, edges = nothing, facets = nothing)
@@ -232,12 +235,14 @@ mutable struct SimplicialSurface{S<:Real, T<:Integer} <: AbstractSimplicialSurfa
     verts::Matrix{S} # vertex array. Every vertex is an array of 3 spatial coordinates
     edges::Vector{MVector{2, T}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{MVector{3, T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
+    halfedges::Dict{MVector{2,T},HalfEdge{MVector{3, T}}}
+
     function SimplicialSurface(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}) # constructor
         comb_surf = CombSimplicialSurface(edges = edges, facets = facets)
 
         S = typeof(verts[1,1])
         T = typeof(edges[1][1])
-        return new{S,T}(verts, edges, get_facets(comb_surf)) # in construction of comb_surf, the facets are oriented already
+        return new{S,T}(verts, edges, get_facets(comb_surf), deepcopy(comb_surf.halfedges)) # in construction of comb_surf, the facets are oriented already
     end
 
     function SimplicialSurface(verts::AbstractVector{<:AbstractVector{<:Real}}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}})
@@ -263,11 +268,11 @@ function SimplicialSurface(poly::AbstractPolyhedron)
 end
 
 function SimplicialSurface(comb_surf::AbstractCombSimplicialSurface)
-    return SimplicialSurface(edges = get_edges(comb_surf), facets = get_facets(comb_surf))
+    return SimplicialSurface(rand(Float64, 3, length(comb_surf.verts)), get_edges(comb_surf), get_facets(comb_surf))
 end
 
-function Polyhedron(surf::AbstractSimplicialSurface)
-    return Polyhedron(surf.verts, surf.edges, surf.facets)
+function Polyhedron(surf::AbstractSimplicialSurface; atol::Real = 1e-8, check_consistency::Bool = true)
+    return Polyhedron(surf.verts, surf.edges, surf.facets; atol = atol, check_consistency = check_consistency)
 end
 
 function Framework(surf::AbstractSimplicialSurface)
