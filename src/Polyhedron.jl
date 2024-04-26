@@ -8,15 +8,27 @@ include("Framework.jl")
 include("affine_geometry.jl")
 include("polygonal_geometry.jl")
 
+################################################################################################################################################
+###################################################### Type decalarations and constructors ######################################################
+################################################################################################################################################
 abstract type AbstractPolyhedron{S<:Real,T<:Integer} <: AbstractEmbeddedGraph{S,T} end
 abstract type AbstractCombPolyhedron{T<:Integer} end
 
 AbstractEmbOrCombPolyhedron = Union{AbstractPolyhedron,AbstractCombPolyhedron}
 
+# Half edge data type: https://www.wikiwand.com/de/Half-Edge-Datenstruktur
+mutable struct HalfEdge
+    origin::Int
+    twin::Union{HalfEdge,Nothing}
+    face::Vector{Int}
+    next::Union{HalfEdge,Nothing}
+    prev::Union{HalfEdge,Nothing}
+end
 mutable struct Polyhedron{S<:Real,T<:Integer} <: AbstractPolyhedron{S,T}
     verts::Matrix{S} # matrix of coordinates of the vertices. Columns correspond to vertices.
-    edges::Vector{Vector{T}} # edge array. Every edge is an array of the indices of the adjacent vertices
+    edges::Vector{MVector{2,T}} # edge array. Every edge is an array of the indices of the adjacent vertices
     facets::Vector{Vector{T}} # facet array. Every facet is an array of the indices on its boundary. The last vertex is adjacent to the first.
+    halfedges::Dict{MVector{2,T},HalfEdge}
     # TODO: Neuen constructor mit optionalen Argumenten (wenn nur coordinates gegeben werden, ist Ergebnis die konvexe Hülle der Punkte + check der Dimension
     # wenn nur Facets gegeben sind, werden Edges automatisch gesetzt und es wird gecheckt, dass Vertizes auf einer Facet koplanar aber nicht kollinear sind)
     function Polyhedron(verts::AbstractMatrix{<:Real}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real=1e-8, check_consistency::Bool=true)
@@ -49,6 +61,9 @@ mutable struct Polyhedron{S<:Real,T<:Integer} <: AbstractPolyhedron{S,T}
             error("Skeleton of polyhedron is not connected.")
         end
 
+        orient_facets!(poly)
+        set_halfedges!(poly, is_oriented=true)
+
         if check_consistency
             for e in edges
                 if length(adjfacets(poly, e)) > 2
@@ -56,39 +71,100 @@ mutable struct Polyhedron{S<:Real,T<:Integer} <: AbstractPolyhedron{S,T}
                 end
             end
         end
-        return orient_facets(poly)
-    end
 
-    function Polyhedron(verts::AbstractVector{<:AbstractVector{<:Real}}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real=1e-8)
-        return Polyhedron(hcat(verts...), edges, facets; atol=atol)
-    end
-
-    function Polyhedron(; verts=nothing, edges=nothing, facets=nothing)
-        if isnothing(facets)
-            facets = Vector{Int64}[]
-        end
-
-        if isnothing(edges)
-            if facets == []
-                edges = Vector{Int64}[]
-            else
-                edges = Vector{typeof(facets[1][1])}[]
-                for f in facets
-                    n = length(f)
-                    append!(edges, [f[[mod1(i, n), mod1(i + 1, n)]] for i in 1:n])
-                end
-                edges = collect.(unique(Set.(edges)))
-            end
-        end
-
-        if isnothing(verts)
-            error("verts is nothing. Case not implemented yet.")
-        end
-
-        return Polyhedron(verts, edges, facets)
+        return poly
     end
 end
 
+function Polyhedron(verts::AbstractVector{<:AbstractVector{<:Real}}, edges::AbstractVector{<:AbstractVector{<:Integer}}, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real=1e-8)
+    return Polyhedron(hcat(verts...), edges, facets; atol=atol)
+end
+
+function Polyhedron(; verts=nothing, edges=nothing, facets=nothing)
+    if isnothing(facets)
+        facets = Vector{Int64}[]
+    end
+
+    if isnothing(edges)
+        if facets == []
+            edges = Vector{Int64}[]
+        else
+            edges = Vector{typeof(facets[1][1])}[]
+            for f in facets
+                n = length(f)
+                append!(edges, [f[[mod1(i, n), mod1(i + 1, n)]] for i in 1:n])
+            end
+            edges = collect.(unique(Set.(edges)))
+        end
+    end
+
+    if isnothing(verts)
+        verts = rand(Float64, 3, length(unique(vcat(edges...))))
+    end
+
+    return Polyhedron(verts, edges, facets)
+end
+
+################################################################################################################################################
+###################################################### Half edge functions ######################################################
+################################################################################################################################################
+function halfedge(poly::AbstractEmbOrCombPolyhedron, e::AbstractVector{<:Integer}; check::Bool=true)
+    if check == true
+        @assert e in poly.edges || reverse(e) in poly.edges "Edge e ($e) not in poly."
+    end
+
+    return poly.halfedges[e]
+end
+
+function halfedges(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer}; check::Bool=true)
+    if check == true
+        @assert f in poly.facets "Facet f ($f) not in poly."
+    end
+
+    n = length(f)
+    return [halfedge(poly, f[[i, mod1(i + 1, n)]]) for i in eachindex(f)]
+end
+
+function set_halfedges!(poly::AbstractEmbOrCombPolyhedron; is_oriented::Bool=false)
+    if is_oriented == false
+        orient_facets!(poly)
+    end
+
+    dict = Dict{MVector{2,Int},HalfEdge}()
+    for f in poly.facets
+        n = length(f)
+        for i in eachindex(f)
+            e_prev = f[[mod1(i - 1, n), i]]
+            e = f[[i, mod1(i + 1, n)]]
+            e_next = f[[mod1(i + 1, n), mod1(i + 2, n)]]
+
+            dict[e] = HalfEdge(e[1], nothing, f, nothing, nothing)
+
+            if reverse(e) in keys(dict)
+                dict[e].twin = dict[reverse(e)]
+                dict[reverse(e)].twin = dict[e]
+            end
+
+            if e_prev in keys(dict)
+                dict[e_prev].next = dict[e]
+                dict[e].prev = dict[e_prev]
+            end
+
+            if e_next in keys(dict)
+                dict[e_next].prev = dict[e]
+                dict[e].next = dict[e_next]
+            end
+        end
+    end
+
+    poly.halfedges = dict
+    return poly
+end
+
+
+##################################################################################################################################################################
+###################################################### Basic Polyhedron querying and manipulation ######################################################
+##################################################################################################################################################################
 
 get_verts(poly::AbstractEmbOrCombPolyhedron) = deepcopy(poly.verts)
 
@@ -209,6 +285,95 @@ end
 
 
 """
+    orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
+
+Orient the facets of the polyhedron poly in line with the first facet. 
+"""
+function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real=1e-8)
+    # https://stackoverflow.com/questions/48093451/calculating-outward-normal-of-a-non-convex-polyhedral#comment83177517_48093451
+    function isadjacent(f1, f2)
+        intersection = Base.intersect(f1, f2)
+        if length(intersection) == 2 && (length(f1) == 3 || length(f2) == 3)
+            return true
+        end
+
+        if length(intersection) < 2 || length(intersection) == length(f2) || length(intersection) == length(f1)
+            return false
+        end
+
+        ind_1 = indexin(intersection, f1)
+        ind_2 = indexin(intersection, f2)
+
+        return (abs(ind_1[1] - ind_1[2]) == 1 || Set(f1[ind_1]) == Set(f1[[1, end]])) && (abs(ind_2[1] - ind_2[2]) == 1 || Set(f2[ind_2]) == Set(f2[[1, end]]))
+    end
+
+    # facet adjacency matrix
+    function facet_adjacency(poly::AbstractEmbOrCombPolyhedron)
+        facets = get_facets(poly)
+        adj = zeros(Bool, length(facets), length(facets))
+        for i in 1:length(facets)
+            for j in i+1:length(facets)
+                if isadjacent(facets[i], facets[j])
+                    adj[i, j] = true
+                    adj[j, i] = true
+                end
+            end
+        end
+        return adj
+    end
+
+    adj = facet_adjacency(poly)
+
+    oriented = [1]
+    ext_facets = Dict{Int,Int}() # exterior facets that have to be oriented. key is facet index to be oriented, value is facet wrt which the key has to be oriented.
+    for i in findall(adj[:, 1])
+        ext_facets[i] = 1
+    end
+
+    while length(oriented) < length(get_facets(poly))
+        f_ind = collect(keys(ext_facets))[1]
+        f = get_facets(poly)[f_ind]
+        g_ind = ext_facets[f_ind]
+        g = get_facets(poly)[ext_facets[f_ind]]
+
+        inter = Base.intersect(f, g)
+        # indin_f = indexin(inter, f)
+        # indin_g = indexin(inter, g)
+
+        # delete f_ind from ext_facets and add all adjacent facets of f to ext_facets
+        delete!(ext_facets, f_ind)
+        for i in Base.intersect(findall(adj[:, f_ind]), setdiff(collect(1:length(get_facets(poly))), oriented))
+            ext_facets[i] = f_ind
+        end
+
+        # add f_ind to oriented
+        oriented = [oriented; f_ind]
+
+        # orient f with regard to g
+        if edge_direction(inter, f) == edge_direction(inter, g)
+            reverse!(poly.facets[f_ind])
+        end
+    end
+
+    return poly
+end
+
+
+"""
+    orient_facets(poly::AbstractPolyhedron)
+
+Orient the facets of the polyhedron poly.
+"""
+function orient_facets(poly::AbstractEmbOrCombPolyhedron; atol::Real=1e-8)
+    polycopy = deepcopy(poly)
+    orient_facets!(polycopy; atol=atol)
+    return polycopy
+end
+
+################################################################################################################################################
+###################################################### Adjacency and incidence ######################################################
+################################################################################################################################################
+"""
     isadjacent(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool = true)
 
 Calculate whether the facet or edge facetoredge and the facet facet of the polyhedron poly are adjacent, i.e. share a common edge. 
@@ -220,15 +385,37 @@ function isadjacent(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVect
         @assert Set(facet) in Set.(get_facets(poly)) "facet is not a facet of poly."
     end
 
-    intersection = Base.intersect(facetoredge, facet)
-    if length(intersection) < 2 || length(intersection) == length(facet)
+    # facetoredge is an edge. Thus adjacency can be checked by looking at the corresponding half edge.
+    if length(facetoredge) == 2
+        if facetoredge in keys(poly.halfedges)
+            e = facetoredge
+            h = halfedge(poly, e)
+            if Set(h.twin.face) == Set(facet)
+                return true
+            end
+        end
+        if reverse(facetoredge) in keys(poly.halfedges)
+            e = reverse(facetoredge)
+            h = halfedge(poly, e)
+            if Set(h.twin.face) == Set(facet)
+                return true
+            end
+        end
         return false
     end
 
-    ind_1 = indexin(intersection, facetoredge)
-    ind_2 = indexin(intersection, facet)
+    # facetoredge is a facet. Check whether facetoredge and facet share an edge using the halfedges 
+    intersection = Base.intersect(facetoredge, facet)
+    n = length(intersection)
+    for i in eachindex(intersection)
+        e = intersection[[i, mod1(i + 1, n)]]
+        if e in keys(poly.halfedges)
+            h = halfedge(poly, e)
+            !isnothing(h.twin) ? (return Set(h.face) == Set(facetoredge) && Set(h.twin.face) == Set(facet)) : continue
+        end
+    end
 
-    return (abs(ind_1[1] - ind_1[2]) == 1 || Set(facetoredge[ind_1]) == Set(facetoredge[[1, end]])) && (abs(ind_2[1] - ind_2[2]) == 1 || Set(facet[ind_2]) == Set(facet[[1, end]]))
+    return false
 end
 
 
@@ -243,7 +430,30 @@ function adjfacets(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVecto
         @assert Set(facetoredge) in Set.(get_edges(poly)) || Set(facetoredge) in Set.(get_facets(poly)) "facetoredge is not an edge or facet of poly."
     end
 
-    return filter(f -> isadjacent(poly, facetoredge, f, check=false), get_facets(poly))
+    # facetoredge is an edge. Thus adjacency can be checked by looking at the corresponding half edge.
+    if length(facetoredge) == 2
+        h = halfedge(poly, facetoredge)
+        if isnothing(h.twin)
+            return [h.face]
+        else
+            return [h.face, h.twin.face]
+        end
+    end
+
+    # facetoredge is a facet. Get all adjacent facets by looking at 
+    adj = typeof(facetoredge)[]
+    n = length(facetoredge)
+    for i in eachindex(facetoredge)
+        e = facetoredge[[i, mod1(i + 1, n)]]
+        if e in keys(poly.halfedges)
+            h = halfedge(poly, e)
+            if !isnothing(h.twin)
+                push!(adj, h.twin.face)
+            end
+        end
+    end
+
+    return adj
 end
 
 
@@ -298,6 +508,25 @@ function incedges(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer
     return filter(e -> isadjacent(poly, e, f, check=false), get_edges(poly))
 end
 
+"""
+    facet_adjacency(poly::AbstractPolyhedron)
+
+Adjacency matrix for the facets of the polyhedron poly. Two facets are adjacent if they share an edge.
+"""
+function facet_adjacency(poly::AbstractEmbOrCombPolyhedron)
+    facets = get_facets(poly)
+    adj = zeros(Bool, length(facets), length(facets))
+    for i in 1:length(facets)
+        for j in i+1:length(facets)
+            if isadjacent(poly, facets[i], facets[j], check=false)
+                adj[i, j] = true
+                adj[j, i] = true
+            end
+        end
+    end
+    return adj
+end
+
 
 """
     edge_direction(e::AbstractVector{<:Integer}, f::AbstractVector{<:Integer})
@@ -328,12 +557,25 @@ function boundary(poly::AbstractEmbOrCombPolyhedron)
     return filter(e -> length(adjfacets(poly, e)) == 1, get_edges(poly))
 end
 
-function removefacet!(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer})
-    @assert Set(f) in Set.(get_facets(poly)) "Facet f not in poly."
+"""
+    removefacet!(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer}; update_he::Bool = true)
+
+Remove the facet f from the polyhedron poly. If check is set to true, it is checked that f is indeed a facet of poly. If update_he is set to true, the halfedges are updated.
+"""
+function removefacet!(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer}; check::Bool=true, update_he::Bool=true)
+    if check
+        @assert Set(f) in Set.(get_facets(poly)) "Facet f not in poly."
+    end
     fac = filter(facet -> Base.intersect(f, facet) == f, get_facets(poly))[1]
     relevantedges = incedges(poly, fac)
     setdiff!(poly.facets, [fac])
     setdiff!(poly.edges, Base.intersect(relevantedges, boundary(poly)))
+
+    if update_he
+        set_halfedges!(poly)
+    end
+
+    return poly
 end
 
 function removefacet(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Integer})
@@ -342,14 +584,27 @@ function removefacet(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Inte
     return p
 end
 
-function removeedge!(poly::AbstractEmbOrCombPolyhedron, e::AbstractVector{<:Integer})
-    @assert Set(e) in Set.(get_edges(poly)) "Edge e not in poly."
+"""
+    removeedge!(poly::AbstractEmbOrCombPolyhedron, e::AbstractVector{<:Integer}; check::Bool = true, update_he::Bool = true)
+
+Remove the edge e from the polyhedron poly. If check is set to true, it is checked that e is indeed an edge of poly. If update_he is set to true, the halfedges are updated.
+"""
+function removeedge!(poly::AbstractEmbOrCombPolyhedron, e::AbstractVector{<:Integer}; check::Bool=true, update_he::Bool=true)
+    if check
+        @assert Set(e) in Set.(get_edges(poly)) "Edge e not in poly."
+    end
     ed = filter(edge -> Base.intersect(e, edge) == e, get_edges(poly))[1]
     relevantfacets = incfacets(poly, ed)
     for f in relevantfacets
         removefacet!(poly, f)
     end
     setdiff!(poly.edges, [ed])
+
+    if update_he
+        set_halfedges!(poly)
+    end
+
+    return poly
 end
 
 function removeedge(poly::AbstractEmbOrCombPolyhedron, e::AbstractVector{<:Integer})
@@ -483,61 +738,6 @@ end
 
 
 """
-    orient_facets!(poly::AbstractPolyhedron; atol::Real = 1e-8)
-
-Orient the facets of the polyhedron poly in line with the first facet. 
-"""
-function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real=1e-8)
-    # https://stackoverflow.com/questions/48093451/calculating-outward-normal-of-a-non-convex-polyhedral#comment83177517_48093451
-    adj = facet_adjacency(poly)
-
-    oriented = [1]
-    ext_facets = Dict{Int,Int}() # exterior facets that have to be oriented. key is facet index to be oriented, value is facet wrt which the key has to be oriented.
-    for i in findall(adj[:, 1])
-        ext_facets[i] = 1
-    end
-
-    while length(oriented) < length(get_facets(poly))
-        f_ind = collect(keys(ext_facets))[1]
-        f = get_facets(poly)[f_ind]
-        g_ind = ext_facets[f_ind]
-        g = get_facets(poly)[ext_facets[f_ind]]
-
-        inter = Base.intersect(f, g)
-        # indin_f = indexin(inter, f)
-        # indin_g = indexin(inter, g)
-
-        # delete f_ind from ext_facets and add all adjacent facets of f to ext_facets
-        delete!(ext_facets, f_ind)
-        for i in Base.intersect(findall(adj[:, f_ind]), setdiff(collect(1:length(get_facets(poly))), oriented))
-            ext_facets[i] = f_ind
-        end
-
-        # add f_ind to oriented
-        oriented = [oriented; f_ind]
-
-        # orient f with regard to g
-        if edge_direction(inter, f) == edge_direction(inter, g)
-            reverse!(poly.facets[f_ind])
-        end
-    end
-
-    return poly
-end
-
-
-"""
-    orient_facets(poly::AbstractPolyhedron)
-
-Orient the facets of the polyhedron poly.
-"""
-function orient_facets(poly::AbstractEmbOrCombPolyhedron; atol::Real=1e-8)
-    polycopy = deepcopy(poly)
-    orient_facets!(polycopy; atol=atol)
-    return polycopy
-end
-
-"""
     signed_vol(poly::AbstractPolyhedron; atol::Real = 1e-8, is_oriented = false)
 
 Calculate the signed volume of the polyhedron according to the orientation of the facets.
@@ -613,23 +813,4 @@ If is_oriented == true, poly is expected to be oriented.
 """
 function vol(poly::AbstractPolyhedron; atol::Real=1e-8, is_oriented::Bool=false)
     return abs(vol_signed(poly, atol=atol, is_oriented=is_oriented))
-end
-
-"""
-    facet_adjacency(poly::AbstractPolyhedron)
-
-Adjacency matrix for the facets of the polyhedron poly. Two facets are adjacent if they share an edge.
-"""
-function facet_adjacency(poly::AbstractEmbOrCombPolyhedron)
-    facets = get_facets(poly)
-    adj = zeros(Bool, length(facets), length(facets))
-    for i in 1:length(facets)
-        for j in i+1:length(facets)
-            if isadjacent(poly, facets[i], facets[j], check=false)
-                adj[i, j] = true
-                adj[j, i] = true
-            end
-        end
-    end
-    return adj
 end
