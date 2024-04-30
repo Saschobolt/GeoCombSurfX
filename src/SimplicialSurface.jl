@@ -1,4 +1,5 @@
 import Graphs.connected_components, Graphs.SimpleGraph
+import Base.Multimedia.display
 using StaticArrays
 
 include("Framework.jl")
@@ -427,7 +428,7 @@ function append_tetrahedron!(surf::AbstractCombSimplicialSurface, f::AbstractVec
     n = length(surf.verts)
     append!(surf.facets, [[facet[2], facet[1], n + 1], [facet[3], facet[2], n + 1], [facet[1], facet[3], n + 1]])
     setdiff!(surf.facets, [facet])
-    append!(surf.edges, [SVector{2}([x, n + 1]) for x in facet])
+    append!(surf.edges, [MVector{2}([x, n + 1]) for x in facet])
     push!(surf.verts, n + 1)
 
     if update_he
@@ -469,8 +470,13 @@ function append_tetrahedron!(surf::AbstractEmbOrCombSimplicialSurface, f::Abstra
     end
 end
 
-function random_cactus(n::Integer)
-    cactus = CombSimplicialSurface(facets=[[1, 2, 3], [1, 2, 4], [2, 3, 4], [1, 3, 4]])
+function random_cactus(n::Integer; colored::Bool=false)
+    cactus = CombSimplicialSurface(verts=[1, 2, 3, 4], edges=[[1, 2], [2, 3], [3, 1], [1, 4], [2, 4], [3, 4]], facets=[[1, 2, 3], [4, 2, 1], [4, 3, 2], [1, 3, 4]])
+    if colored
+        color_dict = Dict([1, 2] => 1, [2, 3] => 2, [3, 1] => 3, [1, 4] => 2, [2, 4] => 3, [3, 4] => 1)
+        cactus = ColoredSimplicialSurface(cactus, color_dict)
+    end
+
     for _ in 1:n-1
         i = rand(1:length(cactus.facets))
         append_tetrahedron!(cactus, cactus.facets[i], check=false)
@@ -485,4 +491,88 @@ function random_emb_cactus(n::Integer)
     return SimplicialSurface(cactus)
 end
 
+################################################################################################################################################
+###################################################### Coloured Simplicial Surfaces ############################################################
+################################################################################################################################################
+abstract type AbstractColoredSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurface{T} end
 
+mutable struct ColoredSimplicialSurface{T<:Integer} <: AbstractColoredSimplicialSurface{T}
+    verts::Vector{T}
+    edges::Vector{MVector{2,T}}
+    facets::Vector{MVector{3,T}}
+    halfedges::Dict{MVector{2,T},HalfEdge{MVector{3,T}}}
+    color_dict::Dict{MVector{2,T},Int} # Dictionary containing edge colors
+
+    function ColoredSimplicialSurface(surf::AbstractCombSimplicialSurface{T}, color_dict::Dict{<:AbstractVector{<:Integer},<:Integer}) where {T<:Integer}
+        @assert issubset(surf.edges, keys(color_dict)) "color_dict has to have edges of surf as keys."
+
+        return new{T}(surf.verts, surf.edges, surf.facets, surf.halfedges, color_dict)
+    end
+end
+
+function ColoredSimplicialSurface(verts, edges, facets, color_dict)
+    surf = CombSimplicialSurface(verts, edges, facets)
+    return ColoredSimplicialSurface(surf, color_dict)
+end
+
+function ColoredSimplicialSurface(; verts, edges, facets, color_dict)
+    surf = CombSimplicialSurface(verts=verts, edges=edges, facets=facets)
+    return ColoredSimplicialSurface(surf, color_dict)
+end
+
+function display(surf::AbstractColoredSimplicialSurface)
+    print("""$(typeof(surf)) with $(length(get_verts(surf))) vertices, $(length(get_edges(surf))) edges, $(length(get_facets(surf))) facets, $(length(unique(collect(values(surf.color_dict))))) colors.\n 
+    Edges:  $(get_edges(surf))
+    Facets: $(get_facets(surf))
+    Colors: $(colors(surf)) \n""")
+end
+
+function colors(surf::AbstractColoredSimplicialSurface)
+    return sort(unique(collect(values(surf.color_dict))))
+end
+
+function color(surf::AbstractColoredSimplicialSurface, e::AbstractVector{<:Integer})
+    if e in keys(surf.color_dict)
+        return surf.color_dict[e]
+    elseif reverse(e) in keys(surf.color_dict)
+        return surf.color_dict[reverse(e)]
+    end
+
+    error("Either e ($e) is not an edge of the surface surf, or it is not colored.")
+end
+
+function colortype(surf::AbstractColoredSimplicialSurface, f::AbstractVector{<:Integer}; check::Bool=true)
+    if check
+        @assert Set(f) in Set.(surf.facets)
+    end
+
+    return [color(surf, MVector{2}([f[1], f[2]])), color(surf, MVector{2}([f[2], f[3]])), color(surf, MVector{2}([f[3], f[1]]))]
+end
+
+function congruencetypes(surf::AbstractColoredSimplicialSurface)
+    return unique(sort.([colortype(surf, f) for f in surf.facets]))
+end
+
+"""
+    is_congcolored(surf::AbstractColoredSimplicialSurface)
+
+Return whether the colored simplicial surface surf corresponds to a simplicial surface with congruent triangles, i.e. every facet has the same colors on the edges.
+"""
+function is_congcolored(surf::AbstractColoredSimplicialSurface)
+    return length(congruencetypes(surf)) == 1
+end
+
+function append_tetrahedron!(surf::AbstractColoredSimplicialSurface, f::AbstractVector{<:Integer}; check::Bool=true, update_he::Bool=true, color_new_edges::Bool=true)
+    invoke(append_tetrahedron!, Tuple{AbstractCombSimplicialSurface,AbstractVector{<:Integer}}, surf, f, check=check, update_he=update_he)
+
+
+    if color_new_edges
+        for i in 1:3
+            e1 = f[[i, mod1(i + 1, 3)]]
+            e2 = f[[i, mod1(i + 2, 3)]]
+            col = setdiff(colors(surf), [color(surf, e1), color(surf, e2)])[1]
+            surf.color_dict[[f[i], surf.verts[end]]] = col
+        end
+    end
+    return surf
+end
