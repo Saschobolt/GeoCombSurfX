@@ -570,13 +570,10 @@ function removefacet!(poly::AbstractEmbOrCombPolyhedron, f::AbstractVector{<:Int
     end
     fac = filter(facet -> Base.intersect(f, facet) == f, get_facets(poly))[1]
     relevantedges = incedges(poly, fac)
-    setdiff!(poly.facets, [fac])
     setdiff!(poly.edges, Base.intersect(relevantedges, boundary(poly)))
+    setdiff!(poly.facets, [fac])
 
-    if update_he
-        set_halfedges!(poly)
-    end
-
+    set_halfedges!(poly)
     return poly
 end
 
