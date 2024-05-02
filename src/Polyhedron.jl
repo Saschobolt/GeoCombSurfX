@@ -556,7 +556,7 @@ end
 Compute the boundary of the polyhedron poly, i.e. the set of edges that are incident to exactly one facet.
 """
 function boundary(poly::AbstractEmbOrCombPolyhedron)
-    return filter(e -> isnothing(halfedge(poly, e).twin), get_edges(poly))
+    return filter(e -> e in keys(poly.halfedges) ? isnothing(halfedge(poly, e).twin) : (reverse(e) in keys(poly.halfedges) ? isnothing(halfedge(poly, reverse(e)).twin) : false), get_edges(poly))
 end
 
 """
