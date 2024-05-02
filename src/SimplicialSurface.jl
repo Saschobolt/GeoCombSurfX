@@ -411,6 +411,8 @@ function remove_tetrahedron!(surf::AbstractEmbOrCombSimplicialSurface, v::Intege
     push!(surf.facets, base)
     remove_vertex!(surf, v)
 
+    set_halfedges!(surf)
+
     return surf
 end
 
@@ -426,7 +428,7 @@ function append_tetrahedron!(surf::AbstractCombSimplicialSurface, f::AbstractVec
     end
 
     n = length(surf.verts)
-    append!(surf.facets, [[facet[2], facet[1], n + 1], [facet[3], facet[2], n + 1], [facet[1], facet[3], n + 1]])
+    append!(surf.facets, [[facet[1], facet[2], n + 1], [facet[2], facet[3], n + 1], [facet[3], facet[1], n + 1]])
     setdiff!(surf.facets, [facet])
     append!(surf.edges, [MVector{2}([x, n + 1]) for x in facet])
     push!(surf.verts, n + 1)
@@ -575,4 +577,61 @@ function append_tetrahedron!(surf::AbstractColoredSimplicialSurface, f::Abstract
         end
     end
     return surf
+end
+
+"""
+    edge_type(surf::AbstractColoredSimplicialSurface, e::AbstractVector{<:Integer})
+
+Return the edge type of an edge of a colored simplicial surface. Returns "r" for a rotation edge, "m" for a mirror edge, "mr" for a simultaneous mirror and reflection edge. 
+Returns "b" if edge is a boundary edge and 0, if edge is an interior edge but neither "r" nor "m".
+"""
+function edge_type(surf::AbstractColoredSimplicialSurface, e::AbstractVector{<:Integer})
+    he = surf.halfedges[e]
+
+    # if e is a boundary edge, return 0
+    if isnothing(he.twin)
+        return "b"
+    end
+
+    # if adjacent facets of e are not congruent, return 0
+    if sort(colortype(surf, he.face)) != sort(colortype(surf, he.twin.face))
+        return "0"
+    end
+
+    # if adjacent facets of e are equilateral, return "mr", as 
+    if length(unique(colortype(surf, he.face))) == 1
+        return "mr"
+    end
+
+    e1 = [e[1], setdiff(he.face, e)[1]]
+    e2 = [e[1], setdiff(he.twin.face, e)[1]]
+
+    if color(surf, e1) == color(surf, e2)
+        return "m"
+    end
+
+    return "r"
+end
+
+function is_tamecolored(surf::AbstractColoredSimplicialSurface)
+    edge_types = Dict{Int,String}()
+
+    for e in surf.edges
+        type = edge_type(surf, e)
+        if type == "0"
+            return false
+        end
+
+        if type == "b"
+            continue
+        end
+
+        col = color(surf, e)
+        ref = get!(edge_types, col, type)
+        if ref != type
+            return false
+        end
+    end
+
+    return true
 end
