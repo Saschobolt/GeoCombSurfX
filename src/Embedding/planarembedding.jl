@@ -57,5 +57,14 @@ function planar_embedding_angles(surf::AbstractColoredSimplicialSurface, boundan
 
     optimize!(model)
 
+    if !is_solved_and_feasible(model)
+        @info "There exist no feasible triangulations as corresponding LP doesn't have a feasible solution. Check solution_summary to recieve more details."
+    else
+        @info "There exist a feasible planar triangulation with similarity classes defined by the edge coloring. The angles between colors are:\n
+        $(value.(angle_between_cols))\n
+        The angle sums at the vertices are \n
+        $(value.(anglesum_at_vertex))."
+    end
+
     return model
 end
