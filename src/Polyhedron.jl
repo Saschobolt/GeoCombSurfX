@@ -391,14 +391,14 @@ function isadjacent(poly::AbstractEmbOrCombPolyhedron, facetoredge::AbstractVect
         if facetoredge in keys(poly.halfedges)
             e = facetoredge
             h = halfedge(poly, e)
-            if Set(h.twin.face) == Set(facet)
+            if Set(h.face) == Set(facet)
                 return true
             end
         end
         if reverse(facetoredge) in keys(poly.halfedges)
             e = reverse(facetoredge)
             h = halfedge(poly, e)
-            if Set(h.twin.face) == Set(facet)
+            if Set(h.face) == Set(facet)
                 return true
             end
         end
