@@ -142,12 +142,16 @@ function edgetype(poly::AbstractPolyhedron, edge::AbstractVector{<:Integer}; is_
 end
 
 """
-    remove_flatedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer}; atol::Real=1e-8, check::Bool=true)
+    remove_flatedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer}; atol::Real=1e-8, check::Bool=true, is_oriented::Bool = true, update_halfedges::Bool=true)
 
 Aux function to remove a flat edge from the AbstractPolyhedron poly. The edge e is removed by removing the adjacent facet if there is only one. If there are two adjacent facets, the edge is removed if the two facets are coplanar. 
 In this case the two facets are combined to one facet. If the two facets are not coplanar, an error is thrown. If check is set to true, the function checks, whether e really is a flat edge of poly. The function returns the modified polyhedron.
+If is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
 """
-function remove_flatedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer}; atol::Real=1e-8, check::Bool=true, update_halfedges::Bool=true)
+function remove_flatedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer}; atol::Real=1e-8, check::Bool=true, is_oriented::Bool=true, update_halfedges::Bool=true)
+    if !is_oriented
+        orient_facets!(poly)
+    end
     if e in get_edges(poly)
         edge = e
     elseif reverse(e) in get_edges(poly)
@@ -173,10 +177,6 @@ function remove_flatedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer}
             error("Edge can only be removed if neighboring facets are coplanar.")
         end
 
-        # @info "neighbors: $(neighbors)"
-        # @info "incedges neighbors[1]: $(incedges(poly, neighbors[1]))"
-        # @info "incedges neighbors[2]: $(incedges(poly, neighbors[2]))"
-
         # if one edge between neighbors is removed, all edges between neighbors are removed
         border_edges = Base.intersect(incedges(poly, neighbors[1], check=false), incedges(poly, neighbors[2], check=false))
 
@@ -188,23 +188,30 @@ function remove_flatedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer}
 
         # remove the vertices to be removed from neighbors. Combine them together so that the new facet is the union of the two old facets withouth the removed vertices.
         setdiff!(poly.facets, neighbors) # remove neighbors from facets to add them combined later
-        neighbors = [setdiff(neighbors[1], remove_verts), setdiff(neighbors[2], remove_verts)]
-        # rearrange neighbors so that in neighbors[1] the start vertex is the first and the finish vertex is the last and in neighbors[2] it's the other way around.
-        start_index1 = findfirst(x -> x == start, neighbors[1])
-        finish_index2 = findfirst(x -> x == finish, neighbors[2])
 
-        neighbors[1] = neighbors[1][[mod1(i + start_index1 - 1, length(neighbors[1])) for i in eachindex(neighbors[1])]] # now first entry of neighbors[1] is start
-        if neighbors[1][end] != finish # if last entry of neighbors[1] is not finish, then finish is the second entry of neighbors[1]. Reverse neighbors[1] and shift by one to the right so that first entry is start and last one is finish.
-            neighbors[1] = reverse(neighbors[1])[[mod1(i - 1, length(neighbors[1])) for i in eachindex(neighbors[1])]]
+        start_ind_1 = findfirst(x -> x == start, neighbors[1])
+        start_ind_2 = findfirst(x -> x == start, neighbors[2])
+        finish_ind_1 = findfirst(x -> x == finish, neighbors[1])
+        finish_ind_2 = findfirst(x -> x == finish, neighbors[2])
+
+        # As poly is oriented, the edge path between the neighbors is oriented forwards in one and backwards in the other.
+        # Determine neighbor, in which path described by border edges is oriented forwards. This is the neighbor, where the vertex after the start is a remove vertex or the finish vertex.
+        if neighbors[1][mod1(start_ind_1 + 1, length(neighbors[1]))] in union(remove_verts, [finish])
+            forward_neighbor = neighbors[1]
+            backward_neighbor = neighbors[2]
+        else
+            forward_neighbor = neighbors[2]
+            backward_neighbor = neighbors[1]
         end
 
-        neighbors[2] = neighbors[2][[mod1(i + finish_index2 - 1, length(neighbors[2])) for i in eachindex(neighbors[2])]] # now first entry of neighbors[2] is finish
-        if neighbors[2][end] != start # if last entry of neighbors[2] is not start, then start is the second entry of neighbors[2]. Reverse neighbors[2] and shift by one to the right so that first entry is finish and last one is start.
-            neighbors[2] = reverse(neighbors[2])[[mod1(i - 1, length(neighbors[2])) for i in eachindex(neighbors[2])]]
-        end
+        # shift indices of forward neighbor so that finish is the last entry
+        forward_neighbor = forward_neighbor[[mod1(i + finish_ind_1, length(forward_neighbor)) for i in eachindex(forward_neighbor)]]
 
-        # now the vertex orders of neighbors[1] and neighbors[2] are consistent with the vertex order of the new facet.
-        newfacet = unique(vcat(neighbors[1], neighbors[2]))
+        # shift indices of backward neighbor so that start is the first entry
+        backward_neighbor = backward_neighbor[[mod1(i + start_ind_2 - 1, length(backward_neighbor)) for i in eachindex(backward_neighbor)]]
+
+        # get new oriented facet by combining the forward and backward neighbor without the removed vertices
+        newfacet = setdiff(vcat(forward_neighbor[1:end-1], backward_neighbor[2:end]), remove_verts)
 
         # add new facet to poly
         push!(poly.facets, newfacet)
@@ -222,7 +229,7 @@ function remove_flatedge!(poly::AbstractPolyhedron, e::AbstractVector{<:Integer}
     poly.verts = poly.verts[:, setdiff(1:size(poly.verts)[2], remove_verts)]
 
     if update_halfedges
-        set_halfedges!(poly)
+        set_halfedges!(poly, is_oriented=true)
     end
 
     return poly
@@ -259,66 +266,6 @@ function flattenfacets!(poly::AbstractPolyhedron; atol=1e-8)
     end
     return poly
 end
-
-# """
-#     flattenfacets!(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-8)
-
-# Remove flat edges of the AbstractPolyhedron poly. If the option is_oriented is set to true, the polyhedron is assumed to be oriented. Otherwise an orientation is computed.
-# """
-# function flattenfacets!(poly::AbstractPolyhedron; is_oriented::Bool = false, atol = 1e-8)
-#     flat_edges = filter(e -> isflatedge(poly, e), get_edges(poly))
-#     set_edges!(poly, setdiff(get_edges(poly), flat_edges))
-
-#     # facets of poly that have a flat edge
-#     flat_facets = filter(f -> any(map(e -> issubset(e, f), flat_edges)), get_facets(poly))
-
-#     # vertices of poly that lie in the inside of a flat facet
-#     flat_verts = filter(v -> !any([v in e for e in get_edges(poly)]), union(get_facets(poly)...))
-
-#     # boolean matrix: (i,j) = true if flat_facet[i] and flat_facet[j] share a flat edge.
-#     shareflatedge = [any(map(e -> issubset(e, Base.intersect(flat_facets[i], flat_facets[j])), flat_edges)) for i in eachindex(flat_facets), j in eachindex(flat_facets)]
-
-#     # array that keeps track of which flat facets to merge
-#     merges = Vector{Int}[]
-
-#     # recursive function to find all indices of flat facets (with greater index than i) that are subsets of the new facet that the flat facet i is a subset of
-#     function findmergesrec(i) # Performance verbesserung durch dynamic programming?
-#         if filter(j -> j > i, findall(shareflatedge[i,:])) == [] 
-#             return [i]
-#         end
-
-#         return union([i], [findmergesrec(j) for j in filter(j -> j > i, findall(shareflatedge[i,:]))]...)
-#     end
-
-#     for i in 1:length(flat_facets)
-#         if any([i in a for a in merges]) continue end
-
-#         push!(merges, findmergesrec(i))
-#     end
-
-#     newfacets = [union(flat_facets[a]...) for a in merges]
-#     newfacets = [filter(v -> !(v in flat_verts), f) for f in newfacets]
-#     # edge facet adjacency matrix for the new facets
-#     edgefacetadj = [issubset(get_edges(poly)[i], newfacets[j]) for i in eachindex(get_edges(poly)), j in eachindex(newfacets)]
-#     newfacets = [formpath(newfacets[j], get_edges(poly)[findall(edgefacetadj[:,j])]) for j in eachindex(newfacets)]
-
-#     facets = get_facets(poly)
-#     setdiff!(facets, flat_facets)
-#     append!(facets, newfacets)
-#     set_facets!(poly, facets; atol = atol)
-
-#     # if a vertex lies inside a polygon forming a facet, it can be ignored. 
-#     # Thus the entries of sol_edges have to be transformed in order to be labeled 1,...,n
-#     function indexmap(i::Integer)
-#         return indexin(i, sort(union(get_edges(poly)...)))[1]
-#     end
-
-#     # if a vertex lies inside a polygon forming a facet, it can be ignored
-#     set_verts!(poly, get_verts(poly)[:, sort(union(get_edges(poly)...))])    
-
-#     set_edges!(poly, [indexmap.(e) for e in get_edges(poly)])
-#     set_facets!(poly, [indexmap.(f) for f in get_facets(poly)]; atol = atol)
-# end
 
 
 function flattenfacets(poly::AbstractPolyhedron; atol=1e-5)
