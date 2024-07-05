@@ -181,7 +181,7 @@ end
 
 get_edges(poly::AbstractEmbOrCombPolyhedron) = deepcopy(poly.edges)
 
-function set_edges!(poly::AbstractEmbOrCombPolyhedron, edges::Vector{<:Vector{<:Int}})
+function set_edges!(poly::AbstractEmbOrCombPolyhedron, edges::AbstractVector{<:AbstractVector{<:Integer}})
     @assert all(length(e) == 2 for e in edges) "Edges need to consist of vectors of length 2."
     # @assert sort(union(edges...)) == [1:max(union(edges...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(edges...))))."
     # TODO: Assert, dass die Kanten auch tatsächlich auf Rand von Facets liegen?
@@ -192,7 +192,7 @@ function get_facets(poly::AbstractEmbOrCombPolyhedron)
     return deepcopy(poly.facets)
 end
 
-function set_facets!(poly::AbstractEmbOrCombPolyhedron, facets::Vector{<:Vector{<:Int}}; atol::Real=1e-8)
+function set_facets!(poly::AbstractEmbOrCombPolyhedron, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real=1e-8)
     # @assert sort(union(facets...)) == [1:max(union(facets...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
     if any([affinedim(get_verts(poly)[:, f]; atol=atol) != 2 for f in facets])
         error("Facets have to span affine spaces of dimension $(2).")
