@@ -181,34 +181,48 @@ end
 
 get_edges(poly::AbstractEmbOrCombPolyhedron) = deepcopy(poly.edges)
 
-function set_edges!(poly::AbstractEmbOrCombPolyhedron, edges::Vector{<:Vector{<:Int}})
+function set_edges!(poly::AbstractEmbOrCombPolyhedron, edges::AbstractVector{<:AbstractVector{<:Integer}})
     @assert all(length(e) == 2 for e in edges) "Edges need to consist of vectors of length 2."
     # @assert sort(union(edges...)) == [1:max(union(edges...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(edges...))))."
     # TODO: Assert, dass die Kanten auch tatsächlich auf Rand von Facets liegen?
-    poly.edges = edges
+    poly.edges = unique(sort.(edges))
 end
 
 function get_facets(poly::AbstractEmbOrCombPolyhedron)
     return deepcopy(poly.facets)
 end
 
-function set_facets!(poly::AbstractEmbOrCombPolyhedron, facets::Vector{<:Vector{<:Int}}; atol::Real=1e-8)
+"""
+    set_facets!(poly::AbstractEmbOrCombPolyhedron, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real=1e-8, check::Bool=true, is_oriented::Bool=false)
+
+Set the facets of the polyhedron poly and update the edges accordingly. The facets have to span affine spaces of dimension 2. If check = false, this is not checked.
+If is_oriented = true, the facets are assumed to be oriented.
+"""
+function set_facets!(poly::AbstractEmbOrCombPolyhedron, facets::AbstractVector{<:AbstractVector{<:Integer}}; atol::Real=1e-8, check::Bool=true, is_oriented::Bool=false)
     # @assert sort(union(facets...)) == [1:max(union(facets...)...)...] "Vertex indices need to be 1, ..., $(length(unique(vcat(facets...))))."
-    if any([affinedim(get_verts(poly)[:, f]; atol=atol) != 2 for f in facets])
-        error("Facets have to span affine spaces of dimension $(2).")
-    end
-    for j = 1:length(facets)
-        facet1 = facets[j]
-        edges1 = Set.(union([[facet1[i], facet1[i+1]] for i in 1:length(facet1)-1], [[facet1[end], facet1[1]]]))
-        for k = j+1:length(facets)
-            facet2 = facets[k]
-            edges2 = Set.(union([[facet2[i], facet2[i+1]] for i in 1:length(facet2)-1], [[facet2[end], facet2[1]]]))
-            if setdiff(edges1, edges2) == [] && setdiff(edges2, edges1) == []
-                error("One of facets $(facet1) and $(facet2) is contained in the other.")
-            end
+    if check
+        if any([affinedim(get_verts(poly)[:, f]; atol=atol) != 2 for f in facets])
+            error("Facets have to span affine spaces of dimension $(2).")
         end
     end
+    # for j = 1:length(facets)
+    #     facet1 = facets[j]
+    #     edges1 = Set.(union([[facet1[i], facet1[i+1]] for i in 1:length(facet1)-1], [[facet1[end], facet1[1]]]))
+    #     for k = j+1:length(facets)
+    #         facet2 = facets[k]
+    #         edges2 = Set.(union([[facet2[i], facet2[i+1]] for i in 1:length(facet2)-1], [[facet2[end], facet2[1]]]))
+    #         if setdiff(edges1, edges2) == [] && setdiff(edges2, edges1) == []
+    #             error("One of facets $(facet1) and $(facet2) is contained in the other.")
+    #         end
+    #     end
+    # end
+
+    edges = unique(sort.(union([[f[[i, mod1(i + 1, length(f))]] for i in 1:length(f)] for f in facets]...)))
+    poly.edges = edges
+
     poly.facets = facets
+
+    set_halfedges!(poly, is_oriented=is_oriented)
 end
 
 function ==(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol=1e-12)
@@ -337,6 +351,13 @@ function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real=1e-8)
         g_ind = ext_facets[f_ind]
         g = get_facets(poly)[ext_facets[f_ind]]
 
+        # display(poly)
+        # println(f)
+        # println(incedges(poly, f))
+        # println(incedges(poly, g))
+        # inter = incedges(poly, g)[findfirst(e -> e in incedges(poly, f), incedges(poly, g))]
+        # println(inter)
+
         inter = Base.intersect(f, g)
         # indin_f = indexin(inter, f)
         # indin_g = indexin(inter, g)
@@ -351,7 +372,7 @@ function orient_facets!(poly::AbstractEmbOrCombPolyhedron; atol::Real=1e-8)
         oriented = [oriented; f_ind]
 
         # orient f with regard to g
-        if edge_direction(inter, f) == edge_direction(inter, g)
+        if edge_direction(inter[[1, 2]], f) == edge_direction(inter[[1, 2]], g)
             reverse!(poly.facets[f_ind])
         end
     end
