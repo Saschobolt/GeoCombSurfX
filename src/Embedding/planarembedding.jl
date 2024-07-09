@@ -68,3 +68,74 @@ function planar_embedding_angles(surf::AbstractColoredSimplicialSurface, boundan
 
     return model
 end
+
+# Domino partitions
+import Base.display
+# import Base.isequal
+# import Base.==
+# import Base.sum
+mutable struct Piece
+    n::Int # Integer representing the number of the piece
+    in::Int # Integer representing the color of the left side
+    out::Int # Integer representing the color of the right side
+    twin::Union{Piece,Nothing}
+
+    function Piece(n, in, out)
+        self = new(n, in, out, nothing)
+        twin = new(n, out, in, self)
+        self.twin = twin
+        return self
+    end
+end
+
+function isequal(p1::Piece, p2::Piece)
+    return p1.n == p2.n && p1.in == p2.in && p1.out == p2.out
+end
+
+function ==(p1::Piece, p2::Piece)
+    return isequal(p1, p2)
+end
+
+function display(p::Piece)
+    println("$(p.in)    $(p.out)\n $(p.n)")
+end
+
+mutable struct domino_partition
+    pieces::Vector{Piece}
+
+    function domino_partition(pieces::Vector{Piece})
+        partition = new(pieces)
+        for i in 1:length(pieces)-1
+            if pieces[i].out != pieces[i+1].in
+                error("In a domino partition, the out of a piece should be the in of the next piece, but out of the piece $(i) is $(pieces[i].out) and in of the piece $(i+1) is $(pieces[i+1].in).")
+            end
+        end
+
+        return partition
+    end
+end
+
+function sum(p::domino_partition)
+    return Base.sum(piece.n for piece in p.pieces)
+end
+
+function in(p::domino_partition)
+    return p.pieces[1].in
+end
+
+function out(p::domino_partition)
+    return p.pieces[end].out
+end
+
+function isequal(p1::domino_partition, p2::domino_partition)
+    return p1.pieces == p2.pieces
+end
+
+function ==(p1::domino_partition, p2::domino_partition)
+    return isequal(p1, p2)
+end
+
+function domino_partition(n::Int, in::Int, out::Int, pieces::Vector{Piece})
+    # calculate a domino partition of n consisting of the pieces in pieces, such that the first piece has in as its in and the last piece has out as its out. 
+    
+end
