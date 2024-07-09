@@ -7,67 +7,67 @@ include("affine_geometry.jl")
 ##################################################################################
 ################# waterbomb
 ##################################################################################
-function waterbomb_cells(eta::Real, zeta::Real, gamma::Real, del_beta::Real = 0, base_length::Real = 1)
+function waterbomb_cells(eta::Real, zeta::Real, gamma::Real, del_beta::Real=0, base_length::Real=1)
   # translate the following code from Python to Julia
   a = base_length
   b = eta * a
   c = zeta * a
   beta_sym = acos((a * (1 - 2 * sin(gamma))) / sqrt(a^2 + b^2))
   beta = beta_sym + del_beta
-  
+
 
   # Koordinaten siehe Maple Sheet
-  O = [0,0,0]
-  LOparam_simpl = [(-a * sin(gamma) * sin(2 * gamma) - cos(gamma) * cos(2 * gamma) * a + cos(gamma) * sqrt(a ^ 2 + b ^ 2) * cos(beta)) / sin(2 * gamma),
-                    sqrt(2 * a * sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma) + (-a ^ 2 - b ^ 2) * cos(2 * gamma) ^ 2 + (-a ^ 2 - b ^ 2) * cos(beta) ^ 2 + b ^ 2) / sin(2 * gamma),
-                    (a * cos(gamma) * sin(2 * gamma) - sin(gamma) * cos(2 * gamma) * a + sin(gamma) * sqrt(a ^ 2 + b ^ 2) * cos(beta)) / sin(2 * gamma)]
-  ROparam_simpl = [(sqrt((-2 * a ^ 3 + 2 * a * b ^ 2) * cos(beta) * sqrt(a ^ 2 + b ^ 2) - (a ^ 2 + b ^ 2) ^ 2 * cos(beta) ^ 2 - a ^ 4 + 3 * a ^ 2 * b ^ 2) * sqrt(2 * a * sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma) + (-a ^ 2 - b ^ 2) * cos(2 * gamma) ^ 2 + (-a ^ 2 - b ^ 2) * cos(beta) ^ 2 + b ^ 2) * cos(gamma) - cos(gamma) * cos(beta) * ((a ^ 2 - b ^ 2) * cos(2 * gamma) - a ^ 2) * sqrt(a ^ 2 + b ^ 2) - (sin(gamma) * (cos(beta) - 1) * (cos(beta) + 1) * (a ^ 2 + b ^ 2) * sin(2 * gamma) + (cos(beta) ^ 2 * (a ^ 2 + b ^ 2) * cos(2 * gamma) - a ^ 2 + b ^ 2) * cos(gamma)) * a) / (a ^ 2 + b ^ 2) / sin(beta) ^ 2 / sin(2 * gamma),
-                    ((b ^ 2 - a ^ 2 - a * sqrt(a ^ 2 + b ^ 2) * cos(beta)) * sqrt(2 * a * sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma) + (-a ^ 2 - b ^ 2) * cos(2 * gamma) ^ 2 + (-a ^ 2 - b ^ 2) * cos(beta) ^ 2 + b ^ 2) + sqrt((-2 * a ^ 3 + 2 * a * b ^ 2) * cos(beta) * sqrt(a ^ 2 + b ^ 2) - (a ^ 2 + b ^ 2) ^ 2 * cos(beta) ^ 2 - a ^ 4 + 3 * a ^ 2 * b ^ 2) * (a - sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma))) / (a ^ 2 + b ^ 2) / sin(beta) ^ 2 / sin(2 * gamma),
-                    (-sqrt((-2 * a ^ 3 + 2 * a * b ^ 2) * cos(beta) * sqrt(a ^ 2 + b ^ 2) - (a ^ 2 + b ^ 2) ^ 2 * cos(beta) ^ 2 - a ^ 4 + 3 * a ^ 2 * b ^ 2) * sqrt(2 * a * sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma) + (-a ^ 2 - b ^ 2) * cos(2 * gamma) ^ 2 + (-a ^ 2 - b ^ 2) * cos(beta) ^ 2 + b ^ 2) * sin(gamma) + cos(beta) * ((a ^ 2 - b ^ 2) * cos(2 * gamma) - a ^ 2) * sin(gamma) * sqrt(a ^ 2 + b ^ 2) - (cos(gamma) * (cos(beta) - 1) * (cos(beta) + 1) * (a ^ 2 + b ^ 2) * sin(2 * gamma) - (cos(beta) ^ 2 * (a ^ 2 + b ^ 2) * cos(2 * gamma) - a ^ 2 + b ^ 2) * sin(gamma)) * a) / (a ^ 2 + b ^ 2) / sin(beta) ^ 2 / sin(2 * gamma)]
-  MR_simpl = [c * sin(gamma),0,c * cos(gamma)]
-  RUparam_simpl = [(a * sin(gamma) * sin(2 * gamma) + cos(gamma) * cos(2 * gamma) * a - cos(gamma) * sqrt(a ^ 2 + b ^ 2) * cos(beta)) / sin(2 * gamma),
-                    -sqrt(2 * a * sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma) + (-a ^ 2 - b ^ 2) * cos(2 * gamma) ^ 2 + (-a ^ 2 - b ^ 2) * cos(beta) ^ 2 + b ^ 2) / sin(2 * gamma),
-                    (a * cos(gamma) * sin(2 * gamma) - sin(gamma) * cos(2 * gamma) * a + sin(gamma) * sqrt(a ^ 2 + b ^ 2) * cos(beta)) / sin(2 * gamma)]
-  LUparam_simpl = [(-sqrt((-2 * a ^ 3 + 2 * a * b ^ 2) * cos(beta) * sqrt(a ^ 2 + b ^ 2) - (a ^ 2 + b ^ 2) ^ 2 * cos(beta) ^ 2 - a ^ 4 + 3 * a ^ 2 * b ^ 2) * sqrt(2 * a * sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma) + (-a ^ 2 - b ^ 2) * cos(2 * gamma) ^ 2 + (-a ^ 2 - b ^ 2) * cos(beta) ^ 2 + b ^ 2) * cos(gamma) + cos(gamma) * cos(beta) * ((a ^ 2 - b ^ 2) * cos(2 * gamma) - a ^ 2) * sqrt(a ^ 2 + b ^ 2) + (sin(gamma) * (cos(beta) - 1) * (cos(beta) + 1) * (a ^ 2 + b ^ 2) * sin(2 * gamma) + (cos(beta) ^ 2 * (a ^ 2 + b ^ 2) * cos(2 * gamma) - a ^ 2 + b ^ 2) * cos(gamma)) * a) / (a ^ 2 + b ^ 2) / sin(beta) ^ 2 / sin(2 * gamma),
-                    ((a * sqrt(a ^ 2 + b ^ 2) * cos(beta) + a ^ 2 - b ^ 2) * sqrt(2 * a * sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma) + (-a ^ 2 - b ^ 2) * cos(2 * gamma) ^ 2 + (-a ^ 2 - b ^ 2) * cos(beta) ^ 2 + b ^ 2) - sqrt((-2 * a ^ 3 + 2 * a * b ^ 2) * cos(beta) * sqrt(a ^ 2 + b ^ 2) - (a ^ 2 + b ^ 2) ^ 2 * cos(beta) ^ 2 - a ^ 4 + 3 * a ^ 2 * b ^ 2) * (a - sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma))) / (a ^ 2 + b ^ 2) / sin(beta) ^ 2 / sin(2 * gamma),
-                    (-sqrt((-2 * a ^ 3 + 2 * a * b ^ 2) * cos(beta) * sqrt(a ^ 2 + b ^ 2) - (a ^ 2 + b ^ 2) ^ 2 * cos(beta) ^ 2 - a ^ 4 + 3 * a ^ 2 * b ^ 2) * sqrt(2 * a * sqrt(a ^ 2 + b ^ 2) * cos(beta) * cos(2 * gamma) + (-a ^ 2 - b ^ 2) * cos(2 * gamma) ^ 2 + (-a ^ 2 - b ^ 2) * cos(beta) ^ 2 + b ^ 2) * sin(gamma) + cos(beta) * ((a ^ 2 - b ^ 2) * cos(2 * gamma) - a ^ 2) * sin(gamma) * sqrt(a ^ 2 + b ^ 2) - (cos(gamma) * (cos(beta) - 1) * (cos(beta) + 1) * (a ^ 2 + b ^ 2) * sin(2 * gamma) - (cos(beta) ^ 2 * (a ^ 2 + b ^ 2) * cos(2 * gamma) - a ^ 2 + b ^ 2) * sin(gamma)) * a) / (a ^ 2 + b ^ 2) / sin(beta) ^ 2 / sin(2 * gamma)]
-  ML_simpl = [-c * sin(gamma),0,c * cos(gamma)]
+  O = [0, 0, 0]
+  LOparam_simpl = [(-a * sin(gamma) * sin(2 * gamma) - cos(gamma) * cos(2 * gamma) * a + cos(gamma) * sqrt(a^2 + b^2) * cos(beta)) / sin(2 * gamma),
+    sqrt(2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) + (-a^2 - b^2) * cos(2 * gamma)^2 + (-a^2 - b^2) * cos(beta)^2 + b^2) / sin(2 * gamma),
+    (a * cos(gamma) * sin(2 * gamma) - sin(gamma) * cos(2 * gamma) * a + sin(gamma) * sqrt(a^2 + b^2) * cos(beta)) / sin(2 * gamma)]
+  ROparam_simpl = [(sqrt((-2 * a^3 + 2 * a * b^2) * cos(beta) * sqrt(a^2 + b^2) - (a^2 + b^2)^2 * cos(beta)^2 - a^4 + 3 * a^2 * b^2) * sqrt(2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) + (-a^2 - b^2) * cos(2 * gamma)^2 + (-a^2 - b^2) * cos(beta)^2 + b^2) * cos(gamma) - cos(gamma) * cos(beta) * ((a^2 - b^2) * cos(2 * gamma) - a^2) * sqrt(a^2 + b^2) - (sin(gamma) * (cos(beta) - 1) * (cos(beta) + 1) * (a^2 + b^2) * sin(2 * gamma) + (cos(beta)^2 * (a^2 + b^2) * cos(2 * gamma) - a^2 + b^2) * cos(gamma)) * a) / (a^2 + b^2) / sin(beta)^2 / sin(2 * gamma),
+    ((b^2 - a^2 - a * sqrt(a^2 + b^2) * cos(beta)) * sqrt(2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) + (-a^2 - b^2) * cos(2 * gamma)^2 + (-a^2 - b^2) * cos(beta)^2 + b^2) + sqrt((-2 * a^3 + 2 * a * b^2) * cos(beta) * sqrt(a^2 + b^2) - (a^2 + b^2)^2 * cos(beta)^2 - a^4 + 3 * a^2 * b^2) * (a - sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma))) / (a^2 + b^2) / sin(beta)^2 / sin(2 * gamma),
+    (-sqrt((-2 * a^3 + 2 * a * b^2) * cos(beta) * sqrt(a^2 + b^2) - (a^2 + b^2)^2 * cos(beta)^2 - a^4 + 3 * a^2 * b^2) * sqrt(2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) + (-a^2 - b^2) * cos(2 * gamma)^2 + (-a^2 - b^2) * cos(beta)^2 + b^2) * sin(gamma) + cos(beta) * ((a^2 - b^2) * cos(2 * gamma) - a^2) * sin(gamma) * sqrt(a^2 + b^2) - (cos(gamma) * (cos(beta) - 1) * (cos(beta) + 1) * (a^2 + b^2) * sin(2 * gamma) - (cos(beta)^2 * (a^2 + b^2) * cos(2 * gamma) - a^2 + b^2) * sin(gamma)) * a) / (a^2 + b^2) / sin(beta)^2 / sin(2 * gamma)]
+  MR_simpl = [c * sin(gamma), 0, c * cos(gamma)]
+  RUparam_simpl = [(a * sin(gamma) * sin(2 * gamma) + cos(gamma) * cos(2 * gamma) * a - cos(gamma) * sqrt(a^2 + b^2) * cos(beta)) / sin(2 * gamma),
+    -sqrt(2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) + (-a^2 - b^2) * cos(2 * gamma)^2 + (-a^2 - b^2) * cos(beta)^2 + b^2) / sin(2 * gamma),
+    (a * cos(gamma) * sin(2 * gamma) - sin(gamma) * cos(2 * gamma) * a + sin(gamma) * sqrt(a^2 + b^2) * cos(beta)) / sin(2 * gamma)]
+  LUparam_simpl = [(-sqrt((-2 * a^3 + 2 * a * b^2) * cos(beta) * sqrt(a^2 + b^2) - (a^2 + b^2)^2 * cos(beta)^2 - a^4 + 3 * a^2 * b^2) * sqrt(2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) + (-a^2 - b^2) * cos(2 * gamma)^2 + (-a^2 - b^2) * cos(beta)^2 + b^2) * cos(gamma) + cos(gamma) * cos(beta) * ((a^2 - b^2) * cos(2 * gamma) - a^2) * sqrt(a^2 + b^2) + (sin(gamma) * (cos(beta) - 1) * (cos(beta) + 1) * (a^2 + b^2) * sin(2 * gamma) + (cos(beta)^2 * (a^2 + b^2) * cos(2 * gamma) - a^2 + b^2) * cos(gamma)) * a) / (a^2 + b^2) / sin(beta)^2 / sin(2 * gamma),
+    ((a * sqrt(a^2 + b^2) * cos(beta) + a^2 - b^2) * sqrt(2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) + (-a^2 - b^2) * cos(2 * gamma)^2 + (-a^2 - b^2) * cos(beta)^2 + b^2) - sqrt((-2 * a^3 + 2 * a * b^2) * cos(beta) * sqrt(a^2 + b^2) - (a^2 + b^2)^2 * cos(beta)^2 - a^4 + 3 * a^2 * b^2) * (a - sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma))) / (a^2 + b^2) / sin(beta)^2 / sin(2 * gamma),
+    (-sqrt((-2 * a^3 + 2 * a * b^2) * cos(beta) * sqrt(a^2 + b^2) - (a^2 + b^2)^2 * cos(beta)^2 - a^4 + 3 * a^2 * b^2) * sqrt(2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) + (-a^2 - b^2) * cos(2 * gamma)^2 + (-a^2 - b^2) * cos(beta)^2 + b^2) * sin(gamma) + cos(beta) * ((a^2 - b^2) * cos(2 * gamma) - a^2) * sin(gamma) * sqrt(a^2 + b^2) - (cos(gamma) * (cos(beta) - 1) * (cos(beta) + 1) * (a^2 + b^2) * sin(2 * gamma) - (cos(beta)^2 * (a^2 + b^2) * cos(2 * gamma) - a^2 + b^2) * sin(gamma)) * a) / (a^2 + b^2) / sin(beta)^2 / sin(2 * gamma)]
+  ML_simpl = [-c * sin(gamma), 0, c * cos(gamma)]
 
-  cos_psi1 = ((b^2-a^2) - a*sqrt(a^2+b^2)*cos(beta)) / (b*sqrt(a^2+b^2)*sin(beta))
-  sin_psi1 = sqrt(a^2*(3*b^2-a^2) + 2*a*(b^2-a^2)*sqrt(a^2+b^2)*cos(beta) - (a^2+b^2)^2*cos(beta)^2)/(b*sqrt(a^2+b^2)*sin(beta))
-  cos_psi5 = (sqrt(a^2+b^2)*cos(beta) - a*cos(2*gamma))/(b*sin(2*gamma))
-  sin_psi5 = sqrt(b^2 + 2*a*sqrt(a^2+b^2)*cos(beta)*cos(2*gamma) - (a^2+b^2)*(cos(beta)^2+cos(2*gamma)^2))/(b*sin(2*gamma))
-  cos_psi6 = (a - sqrt(a^2+b^2)*cos(beta)*cos(2*gamma))/(sqrt(a^2+b^2)*sin(beta)*sin(2*gamma))
-  sin_psi6 = sqrt(b^2 + 2*a*sqrt(a^2+b^2)*cos(beta)*cos(2*gamma) - (a^2+b^2)*(cos(beta)^2+cos(2*gamma)^2)) / (sqrt(a^2+b^2)*sin(beta)*sin(2*gamma))
+  cos_psi1 = ((b^2 - a^2) - a * sqrt(a^2 + b^2) * cos(beta)) / (b * sqrt(a^2 + b^2) * sin(beta))
+  sin_psi1 = sqrt(a^2 * (3 * b^2 - a^2) + 2 * a * (b^2 - a^2) * sqrt(a^2 + b^2) * cos(beta) - (a^2 + b^2)^2 * cos(beta)^2) / (b * sqrt(a^2 + b^2) * sin(beta))
+  cos_psi5 = (sqrt(a^2 + b^2) * cos(beta) - a * cos(2 * gamma)) / (b * sin(2 * gamma))
+  sin_psi5 = sqrt(b^2 + 2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) - (a^2 + b^2) * (cos(beta)^2 + cos(2 * gamma)^2)) / (b * sin(2 * gamma))
+  cos_psi6 = (a - sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma)) / (sqrt(a^2 + b^2) * sin(beta) * sin(2 * gamma))
+  sin_psi6 = sqrt(b^2 + 2 * a * sqrt(a^2 + b^2) * cos(beta) * cos(2 * gamma) - (a^2 + b^2) * (cos(beta)^2 + cos(2 * gamma)^2)) / (sqrt(a^2 + b^2) * sin(beta) * sin(2 * gamma))
 
-  cos_phi1 = cos_psi1*cos_psi6 - sin_psi1*sin_psi6
-  sin_phi1 = sin_psi1*cos_psi6 + cos_psi1*sin_psi6
+  cos_phi1 = cos_psi1 * cos_psi6 - sin_psi1 * sin_psi6
+  sin_phi1 = sin_psi1 * cos_psi6 + cos_psi1 * sin_psi6
   cos_phi2 = cos_psi5
   sin_phi2 = sin_psi5
 
-  sin_phi1phi2 = sin_psi1*cos_psi6*cos_psi5 - sin_psi1*sin_psi6*sin_psi5 + cos_psi1*sin_psi6*cos_psi5 + cos_psi1*cos_psi6*sin_psi5
-  cos_phi1phi2 = cos_psi1*cos_psi6*cos_psi5 - cos_psi1*sin_psi6*sin_psi5 - sin_psi1*sin_psi5*cos_psi5 - sin_psi1*cos_psi6*sin_psi5
+  sin_phi1phi2 = sin_psi1 * cos_psi6 * cos_psi5 - sin_psi1 * sin_psi6 * sin_psi5 + cos_psi1 * sin_psi6 * cos_psi5 + cos_psi1 * cos_psi6 * sin_psi5
+  cos_phi1phi2 = cos_psi1 * cos_psi6 * cos_psi5 - cos_psi1 * sin_psi6 * sin_psi5 - sin_psi1 * sin_psi5 * cos_psi5 - sin_psi1 * cos_psi6 * sin_psi5
 
-  W = 2*a*(1 - cos_phi1phi2)*(sin(2*gamma)^2*a*c^2 - (cos_phi2+cos_phi1)*(cos(2*gamma) - 1)*sin(2*gamma)*b*c^2 - 2*(cos_phi2 + cos_phi1)*sin(2*gamma)*a*b*c - 2*a*c*(2*a - c)*(cos(2*gamma) + 1) + 2*a*b^2*(cos_phi1phi2 + 1)) - (((a-c)^2 + b^2)*(cos_phi2^2 + cos_phi1^2) - 2*cos_phi1*cos_phi2*((a-c)^2 + cos_phi1phi2*b^2))*c^2*sin(2*gamma)^2
-  T_P = ((a-c)^2 + b^2) * (cos_phi1phi2 - 1) * ( a*(2*b^2*(cos_phi1phi2+1) + 4*a*(a-c))*cos(2*gamma) + 2*b*sin(2*gamma)*(b^2*cos_phi2*(cos_phi1phi2+1) + (a-c)*((a-c)*cos_phi2 + a*cos_phi2 + c*cos_phi1)) + 2*a*(2*a*(a-c) - b^2*(cos_phi1phi2+1)))
+  W = 2 * a * (1 - cos_phi1phi2) * (sin(2 * gamma)^2 * a * c^2 - (cos_phi2 + cos_phi1) * (cos(2 * gamma) - 1) * sin(2 * gamma) * b * c^2 - 2 * (cos_phi2 + cos_phi1) * sin(2 * gamma) * a * b * c - 2 * a * c * (2 * a - c) * (cos(2 * gamma) + 1) + 2 * a * b^2 * (cos_phi1phi2 + 1)) - (((a - c)^2 + b^2) * (cos_phi2^2 + cos_phi1^2) - 2 * cos_phi1 * cos_phi2 * ((a - c)^2 + cos_phi1phi2 * b^2)) * c^2 * sin(2 * gamma)^2
+  T_P = ((a - c)^2 + b^2) * (cos_phi1phi2 - 1) * (a * (2 * b^2 * (cos_phi1phi2 + 1) + 4 * a * (a - c)) * cos(2 * gamma) + 2 * b * sin(2 * gamma) * (b^2 * cos_phi2 * (cos_phi1phi2 + 1) + (a - c) * ((a - c) * cos_phi2 + a * cos_phi2 + c * cos_phi1)) + 2 * a * (2 * a * (a - c) - b^2 * (cos_phi1phi2 + 1)))
   # t = (2*b*(a-c)*(cos_phi1phi2 - 1)*sqrt((a-c)^2 + b^2)*sqrt(W) - 2*b*(a*b*c*sin_phi1phi2*(cos_phi1phi2 - 1)*cos(2*gamma) + (((a-c)^2 + b^2*cos_phi1phi2)*cos_phi2 - cos_phi1*((a-c)^2 + b^2))*sin_phi1phi2*c*sin(2*gamma) + a*b*sin_phi1phi2*(cos_phi1phi2 - 1)*(2*a - c))*sqrt((a-c)^2 + b^2)+ (cos_phi1phi2 - 1)*(2*b^2*cos_phi1phi2 + 4*(a-c)^2 + 2*b^2)*sqrt((a-c)^2 + b^2)*sqrt(4*a*b^2*(cos_phi2*sin(2*gamma)*b + (cos(2*gamma) + 1)*a) - (a^2 + b^2)*(cos_phi2*sin(2*gamma)*b + (cos(2*gamma) + 1)*a)^2)) / ((2*b*((a-c)^2 + b^2)*sin_phi1phi2 * sqrt(W) - T_P))
-  t = (2*b*(a-c)*(cos_phi1phi2 - 1)*sqrt((a-c)^2 + b^2)*sqrt(W) - 2*b*(a*b*c*sin_phi1phi2*(cos_phi1phi2 - 1)*cos(2*gamma) + (((a-c)^2 + b^2*cos_phi1phi2)*cos_phi2 - cos_phi1*((a-c)^2 + b^2))*sin_phi1phi2*c*sin(2*gamma) + a*b*sin_phi1phi2*(cos_phi1phi2 - 1)*(2*a - c))*sqrt((a-c)^2 + b^2)- (cos_phi1phi2 - 1)*(2*b^2*cos_phi1phi2 + 4*(a-c)^2 + 2*b^2)*sqrt((a-c)^2 + b^2)*sqrt(4*a*b^2*(cos_phi2*sin(2*gamma)*b + (cos(2*gamma) + 1)*a) - (a^2 + b^2)*(cos_phi2*sin(2*gamma)*b + (cos(2*gamma) + 1)*a)^2)) / ((2*b*((a-c)^2 + b^2)*sin_phi1phi2 * sqrt(W) - T_P))
+  t = (2 * b * (a - c) * (cos_phi1phi2 - 1) * sqrt((a - c)^2 + b^2) * sqrt(W) - 2 * b * (a * b * c * sin_phi1phi2 * (cos_phi1phi2 - 1) * cos(2 * gamma) + (((a - c)^2 + b^2 * cos_phi1phi2) * cos_phi2 - cos_phi1 * ((a - c)^2 + b^2)) * sin_phi1phi2 * c * sin(2 * gamma) + a * b * sin_phi1phi2 * (cos_phi1phi2 - 1) * (2 * a - c)) * sqrt((a - c)^2 + b^2) - (cos_phi1phi2 - 1) * (2 * b^2 * cos_phi1phi2 + 4 * (a - c)^2 + 2 * b^2) * sqrt((a - c)^2 + b^2) * sqrt(4 * a * b^2 * (cos_phi2 * sin(2 * gamma) * b + (cos(2 * gamma) + 1) * a) - (a^2 + b^2) * (cos_phi2 * sin(2 * gamma) * b + (cos(2 * gamma) + 1) * a)^2)) / ((2 * b * ((a - c)^2 + b^2) * sin_phi1phi2 * sqrt(W) - T_P))
   # t = (    -2*b*(a-c)*(cos_phi1phi2 - 1)*sqrt((a-c)^2 + b^2)*sqrt(W) - 2*b*(a*b*c*sin_phi1phi2*(cos_phi1phi2 - 1)*cos(2*gamma) + (((a-c)^2 + b^2*cos_phi1phi2)*cos_phi2 - cos_phi1*((a-c)^2 + b^2))*sin_phi1phi2*c*sin(2*gamma) + a*b*sin_phi1phi2*(cos_phi1phi2 - 1)*(2*a - c))*sqrt((a-c)^2 + b^2)+ (cos_phi1phi2 - 1)*(2*b^2*cos_phi1phi2 + 4*(a-c)^2 + 2*b^2)*sqrt((a-c)^2 + b^2)*sqrt(4*a*b^2*(cos_phi2*sin(2*gamma)*b + (cos(2*gamma) + 1)*a) - (a^2 + b^2)*(cos_phi2*sin(2*gamma)*b + (cos(2*gamma) + 1)*a)^2)) / ((-2*b*((a-c)^2 + b^2)*sin_phi1phi2 * sqrt(W) - T_P))
   # t = (    -2*b*(a-c)*(cos_phi1phi2 - 1)*sqrt((a-c)^2 + b^2)*sqrt(W) - 2*b*(a*b*c*sin_phi1phi2*(cos_phi1phi2 - 1)*cos(2*gamma) + (((a-c)^2 + b^2*cos_phi1phi2)*cos_phi2 - cos_phi1*((a-c)^2 + b^2))*sin_phi1phi2*c*sin(2*gamma) + a*b*sin_phi1phi2*(cos_phi1phi2 - 1)*(2*a - c))*sqrt((a-c)^2 + b^2)- (cos_phi1phi2 - 1)*(2*b^2*cos_phi1phi2 + 4*(a-c)^2 + 2*b^2)*sqrt((a-c)^2 + b^2)*sqrt(4*a*b^2*(cos_phi2*sin(2*gamma)*b + (cos(2*gamma) + 1)*a) - (a^2 + b^2)*(cos_phi2*sin(2*gamma)*b + (cos(2*gamma) + 1)*a)^2)) / ((-2*b*((a-c)^2 + b^2)*sin_phi1phi2 * sqrt(W) - T_P))
 
 
-  T_Q = ((a-c)^2 + b^2) * (cos_phi1phi2 - 1) * ( a*(2*b^2*(cos_phi1phi2+1) + 4*a*(a-c))*cos(2*gamma)+ 2*b*sin(2*gamma)*(b^2*cos_phi1*(cos_phi1phi2+1) + (a-c)*((a-c)*cos_phi1 + a*cos_phi1 + c*cos_phi2)) + 2*a*(2*a*(a-c) - b^2*(cos_phi1phi2 + 1)))
+  T_Q = ((a - c)^2 + b^2) * (cos_phi1phi2 - 1) * (a * (2 * b^2 * (cos_phi1phi2 + 1) + 4 * a * (a - c)) * cos(2 * gamma) + 2 * b * sin(2 * gamma) * (b^2 * cos_phi1 * (cos_phi1phi2 + 1) + (a - c) * ((a - c) * cos_phi1 + a * cos_phi1 + c * cos_phi2)) + 2 * a * (2 * a * (a - c) - b^2 * (cos_phi1phi2 + 1)))
   # u = (2*b*(a-c)*(cos_phi1phi2 - 1)*sqrt((a-c)^2 + b^2)*sqrt(W) - 2*b*(a*b*c*sin_phi1phi2*(cos_phi1phi2 - 1)*cos(2*gamma) + (((a-c)^2 + b^2*cos_phi1phi2)*cos_phi1 - cos_phi2*((a-c)^2 + b^2))*sin_phi1phi2*c*sin(2*gamma) + a*b*sin_phi1phi2*(cos_phi1phi2 - 1)*(2*a - c))*sqrt((a-c)^2 + b^2)+ (cos_phi1phi2 - 1)*(2*b^2*cos_phi1phi2 + 4*(a-c)^2 + 2*b^2)*sqrt((a-c)^2 + b^2)*sqrt(4*a*b^2*(cos_phi1*sin(2*gamma)*b + (cos(2*gamma) + 1)*a) - (a^2 + b^2)*(cos_phi1*sin(2*gamma)*b + (cos(2*gamma) + 1)*a)^2)) / ((2*b*((a-c)^2 + b^2)*sin_phi1phi2 * sqrt(W) - T_Q))
-  u = (2*b*(a-c)*(cos_phi1phi2 - 1)*sqrt((a-c)^2 + b^2)*sqrt(W) - 2*b*(a*b*c*sin_phi1phi2*(cos_phi1phi2 - 1)*cos(2*gamma) + (((a-c)^2 + b^2*cos_phi1phi2)*cos_phi1 - cos_phi2*((a-c)^2 + b^2))*sin_phi1phi2*c*sin(2*gamma) + a*b*sin_phi1phi2*(cos_phi1phi2 - 1)*(2*a - c))*sqrt((a-c)^2 + b^2)- (cos_phi1phi2 - 1)*(2*b^2*cos_phi1phi2 + 4*(a-c)^2 + 2*b^2)*sqrt((a-c)^2 + b^2)*sqrt(4*a*b^2*(cos_phi1*sin(2*gamma)*b + (cos(2*gamma) + 1)*a) - (a^2 + b^2)*(cos_phi1*sin(2*gamma)*b + (cos(2*gamma) + 1)*a)^2)) / ((2*b*((a-c)^2 + b^2)*sin_phi1phi2 * sqrt(W) - T_Q))
+  u = (2 * b * (a - c) * (cos_phi1phi2 - 1) * sqrt((a - c)^2 + b^2) * sqrt(W) - 2 * b * (a * b * c * sin_phi1phi2 * (cos_phi1phi2 - 1) * cos(2 * gamma) + (((a - c)^2 + b^2 * cos_phi1phi2) * cos_phi1 - cos_phi2 * ((a - c)^2 + b^2)) * sin_phi1phi2 * c * sin(2 * gamma) + a * b * sin_phi1phi2 * (cos_phi1phi2 - 1) * (2 * a - c)) * sqrt((a - c)^2 + b^2) - (cos_phi1phi2 - 1) * (2 * b^2 * cos_phi1phi2 + 4 * (a - c)^2 + 2 * b^2) * sqrt((a - c)^2 + b^2) * sqrt(4 * a * b^2 * (cos_phi1 * sin(2 * gamma) * b + (cos(2 * gamma) + 1) * a) - (a^2 + b^2) * (cos_phi1 * sin(2 * gamma) * b + (cos(2 * gamma) + 1) * a)^2)) / ((2 * b * ((a - c)^2 + b^2) * sin_phi1phi2 * sqrt(W) - T_Q))
   # u = (    -2*b*(a-c)*(cos_phi1phi2 - 1)*sqrt((a-c)^2 + b^2)*sqrt(W) - 2*b*(a*b*c*sin_phi1phi2*(cos_phi1phi2 - 1)*cos(2*gamma) + (((a-c)^2 + b^2*cos_phi1phi2)*cos_phi1 - cos_phi2*((a-c)^2 + b^2))*sin_phi1phi2*c*sin(2*gamma) + a*b*sin_phi1phi2*(cos_phi1phi2 - 1)*(2*a - c))*sqrt((a-c)^2 + b^2)+ (cos_phi1phi2 - 1)*(2*b^2*cos_phi1phi2 + 4*(a-c)^2 + 2*b^2)*sqrt((a-c)^2 + b^2)*sqrt(4*a*b^2*(cos_phi1*sin(2*gamma)*b + (cos(2*gamma) + 1)*a) - (a^2 + b^2)*(cos_phi1*sin(2*gamma)*b + (cos(2*gamma) + 1)*a)^2)) / ((-2*b*((a-c)^2 + b^2)*sin_phi1phi2 * sqrt(W) - T_Q))
   # u = (    -2*b*(a-c)*(cos_phi1phi2 - 1)*sqrt((a-c)^2 + b^2)*sqrt(W) - 2*b*(a*b*c*sin_phi1phi2*(cos_phi1phi2 - 1)*cos(2*gamma) + (((a-c)^2 + b^2*cos_phi1phi2)*cos_phi1 - cos_phi2*((a-c)^2 + b^2))*sin_phi1phi2*c*sin(2*gamma) + a*b*sin_phi1phi2*(cos_phi1phi2 - 1)*(2*a - c))*sqrt((a-c)^2 + b^2)- (cos_phi1phi2 - 1)*(2*b^2*cos_phi1phi2 + 4*(a-c)^2 + 2*b^2)*sqrt((a-c)^2 + b^2)*sqrt(4*a*b^2*(cos_phi1*sin(2*gamma)*b + (cos(2*gamma) + 1)*a) - (a^2 + b^2)*(cos_phi1*sin(2*gamma)*b + (cos(2*gamma) + 1)*a)^2)) / ((-2*b*((a-c)^2 + b^2)*sin_phi1phi2 * sqrt(W) - T_Q))
 
-  P = [(2 * sqrt(a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2) * cos(gamma) * sin_phi1 * b * c * t + ((t ^ 2 + 1) * c ^ 3 + (-t ^ 2 - 1) * a * c ^ 2 + ((t ^ 2 - 1) * b ^ 2 - a ^ 2 * (t ^ 2 + 1)) * c + a * (t ^ 2 + 1) * (a ^ 2 + b ^ 2)) * sin(gamma) - ((t ^ 2 - 1) * c ^ 2 - 2 * a * c * t ^ 2 + (t ^ 2 + 1) * (a ^ 2 + b ^ 2)) * cos(gamma) * cos_phi1 * b) / (t ^ 2 + 1) / (a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2),(2 * sqrt(a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2) * cos_phi1 * c * t + ((t ^ 2 - 1) * c ^ 2 - 2 * a * c * t ^ 2 + (t ^ 2 + 1) * (a ^ 2 + b ^ 2)) * sin_phi1) * b / (t ^ 2 + 1) / (a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2),(-2 * sqrt(a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2) * sin(gamma) * sin_phi1 * b * c * t + ((t ^ 2 + 1) * c ^ 3 + (-t ^ 2 - 1) * a * c ^ 2 + ((t ^ 2 - 1) * b ^ 2 - a ^ 2 * (t ^ 2 + 1)) * c + a * (t ^ 2 + 1) * (a ^ 2 + b ^ 2)) * cos(gamma) + ((t ^ 2 - 1) * c ^ 2 - 2 * a * c * t ^ 2 + (t ^ 2 + 1) * (a ^ 2 + b ^ 2)) * sin(gamma) * cos_phi1 * b) / (t ^ 2 + 1) / (a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2)]
-  Q = [(2 * cos(gamma) * sqrt(a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2) * sin_phi2 * b * c * u + ((u ^ 2 + 1) * c ^ 3 + (-u ^ 2 - 1) * a * c ^ 2 + ((u ^ 2 - 1) * b ^ 2 - a ^ 2 * (u ^ 2 + 1)) * c + a * (u ^ 2 + 1) * (a ^ 2 + b ^ 2)) * sin(gamma) - ((u ^ 2 - 1) * c ^ 2 - 2 * a * c * u ^ 2 + (u ^ 2 + 1) * (a ^ 2 + b ^ 2)) * cos(gamma) * cos_phi2 * b) / (u ^ 2 + 1) / (a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2),-(2 * sqrt(a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2) * cos_phi2 * c * u + ((u ^ 2 - 1) * c ^ 2 - 2 * a * c * u ^ 2 + (u ^ 2 + 1) * (a ^ 2 + b ^ 2)) * sin_phi2) * b / (u ^ 2 + 1) / (a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2),(-2 * sin(gamma) * sqrt(a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2) * sin_phi2 * b * c * u + ((u ^ 2 + 1) * c ^ 3 + (-u ^ 2 - 1) * a * c ^ 2 + ((u ^ 2 - 1) * b ^ 2 - a ^ 2 * (u ^ 2 + 1)) * c + a * (u ^ 2 + 1) * (a ^ 2 + b ^ 2)) * cos(gamma) + ((u ^ 2 - 1) * c ^ 2 - 2 * a * c * u ^ 2 + (u ^ 2 + 1) * (a ^ 2 + b ^ 2)) * sin(gamma) * cos_phi2 * b) / (u ^ 2 + 1) / (a ^ 2 - 2 * a * c + b ^ 2 + c ^ 2)]
+  P = [(2 * sqrt(a^2 - 2 * a * c + b^2 + c^2) * cos(gamma) * sin_phi1 * b * c * t + ((t^2 + 1) * c^3 + (-t^2 - 1) * a * c^2 + ((t^2 - 1) * b^2 - a^2 * (t^2 + 1)) * c + a * (t^2 + 1) * (a^2 + b^2)) * sin(gamma) - ((t^2 - 1) * c^2 - 2 * a * c * t^2 + (t^2 + 1) * (a^2 + b^2)) * cos(gamma) * cos_phi1 * b) / (t^2 + 1) / (a^2 - 2 * a * c + b^2 + c^2), (2 * sqrt(a^2 - 2 * a * c + b^2 + c^2) * cos_phi1 * c * t + ((t^2 - 1) * c^2 - 2 * a * c * t^2 + (t^2 + 1) * (a^2 + b^2)) * sin_phi1) * b / (t^2 + 1) / (a^2 - 2 * a * c + b^2 + c^2), (-2 * sqrt(a^2 - 2 * a * c + b^2 + c^2) * sin(gamma) * sin_phi1 * b * c * t + ((t^2 + 1) * c^3 + (-t^2 - 1) * a * c^2 + ((t^2 - 1) * b^2 - a^2 * (t^2 + 1)) * c + a * (t^2 + 1) * (a^2 + b^2)) * cos(gamma) + ((t^2 - 1) * c^2 - 2 * a * c * t^2 + (t^2 + 1) * (a^2 + b^2)) * sin(gamma) * cos_phi1 * b) / (t^2 + 1) / (a^2 - 2 * a * c + b^2 + c^2)]
+  Q = [(2 * cos(gamma) * sqrt(a^2 - 2 * a * c + b^2 + c^2) * sin_phi2 * b * c * u + ((u^2 + 1) * c^3 + (-u^2 - 1) * a * c^2 + ((u^2 - 1) * b^2 - a^2 * (u^2 + 1)) * c + a * (u^2 + 1) * (a^2 + b^2)) * sin(gamma) - ((u^2 - 1) * c^2 - 2 * a * c * u^2 + (u^2 + 1) * (a^2 + b^2)) * cos(gamma) * cos_phi2 * b) / (u^2 + 1) / (a^2 - 2 * a * c + b^2 + c^2), -(2 * sqrt(a^2 - 2 * a * c + b^2 + c^2) * cos_phi2 * c * u + ((u^2 - 1) * c^2 - 2 * a * c * u^2 + (u^2 + 1) * (a^2 + b^2)) * sin_phi2) * b / (u^2 + 1) / (a^2 - 2 * a * c + b^2 + c^2), (-2 * sin(gamma) * sqrt(a^2 - 2 * a * c + b^2 + c^2) * sin_phi2 * b * c * u + ((u^2 + 1) * c^3 + (-u^2 - 1) * a * c^2 + ((u^2 - 1) * b^2 - a^2 * (u^2 + 1)) * c + a * (u^2 + 1) * (a^2 + b^2)) * cos(gamma) + ((u^2 - 1) * c^2 - 2 * a * c * u^2 + (u^2 + 1) * (a^2 + b^2)) * sin(gamma) * cos_phi2 * b) / (u^2 + 1) / (a^2 - 2 * a * c + b^2 + c^2)]
 
 
   cell1 = hcat(O, LOparam_simpl, ROparam_simpl, MR_simpl, RUparam_simpl, LUparam_simpl, ML_simpl)
-  
+
   # second cell
   A = affinemap(hcat(O, ML_simpl, LUparam_simpl, cross(ML_simpl, LUparam_simpl)), hcat(P, ROparam_simpl, MR_simpl, P + cross(ROparam_simpl - P, MR_simpl - P)))
   cell2 = hcat([A(cell1[:, i]) for i in 1:size(cell1, 2)]...)
@@ -78,9 +78,9 @@ function waterbomb_cells(eta::Real, zeta::Real, gamma::Real, del_beta::Real = 0,
 
   faces = [[1, 2, 3], [1, 3, 4], [1, 4, 5], [1, 5, 6], [1, 6, 7], [1, 7, 2], [8, 3, 9], [8, 9, 10], [8, 10, 11], [8, 11, 12], [8, 12, 4], [8, 4, 3], [13, 4, 12], [13, 12, 14], [13, 14, 15], [13, 15, 16], [13, 16, 5], [13, 5, 4]]
   coordinates = hcat([
-      cell1[:, 1], cell1[:, 2], cell1[:, 3], cell1[:, 4], cell1[:, 5], cell1[:, 6], cell1[:, 7],
-      cell2[:, 1], cell2[:, 2], cell2[:, 3], cell2[:, 4], cell2[:, 5],
-      cell3[:, 1], cell3[:, 4], cell3[:, 5], cell3[:, 6]
+    cell1[:, 1], cell1[:, 2], cell1[:, 3], cell1[:, 4], cell1[:, 5], cell1[:, 6], cell1[:, 7],
+    cell2[:, 1], cell2[:, 2], cell2[:, 3], cell2[:, 4], cell2[:, 5],
+    cell3[:, 1], cell3[:, 4], cell3[:, 5], cell3[:, 6]
   ]...)
 
   # faces = [[0,1,2], [0,2,3], [0,3,4], [0,4,5], [0,5,6], [0,6,1],
@@ -88,7 +88,7 @@ function waterbomb_cells(eta::Real, zeta::Real, gamma::Real, del_beta::Real = 0,
   # [14,15,16], [14,16,17], [14,17,18], [14,18,19], [14,19,20], [14,20,15]]
   # coordinates = vstack((cell1, cell2, cell3))
 
-  pattern1 = SimplicialSurface(verts = coordinates, facets = faces)
+  pattern1 = SimplicialSurface(verts=coordinates, facets=faces)
   # surf = deepcopy(pattern1)
   # surf = merge(pattern1, surf, [11,12,14], [1,6,5], atol=1e-1)
   # surf1 = glue_surfs_along_path(surf, pattern1, [8,9,10,17,21], [5,4,15,14,13], atol=1)
@@ -100,8 +100,8 @@ end
 # n-gon
 function ngon(n::Integer)
   verts = collect(1:n+1)
-  edges = vcat([[1, k] for k in 2:n+1], [[mod1(k, n) + 1, mod1(k+1, n) + 1] for k in 1:n])
-  facets = [[1, mod1(k,n) + 1, mod1(k+1,n) + 1] for k in 1:n]
+  edges = vcat([[1, k] for k in 2:n+1], [[mod1(k, n) + 1, mod1(k + 1, n) + 1] for k in 1:n])
+  facets = [[1, mod1(k, n) + 1, mod1(k + 1, n) + 1] for k in 1:n]
   return CombSimplicialSurface(verts, edges, facets)
 end
 
@@ -140,31 +140,31 @@ end
 TBW
 """
 function nprism(n::Integer)
-  alpha = 1/dist([1,0], [cos(2*pi/n), sin(2*pi/n)])
-  verts = vcat([[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 0] for k in 0:n-1], [[alpha * cos(2*pi*k/n), alpha * sin(2*pi*k/n), 1] for k in 0:n-1])
-  facets = vcat([[1:n...]], [[(n+1):(2*n)...]], [[k, k+1, k+n+1, k+n] for k in 1:(n-1)], [[n,1,n+1,2*n]])
-  edges = vcat([[k, k+1] for k in 1:(n-1)], [[n,1]], [[n+k, n+k+1] for k in 1:(n-1)], [[2*n, n+1]], [[k, k+n] for k in 1:n])
+  alpha = 1 / dist([1, 0], [cos(2 * pi / n), sin(2 * pi / n)])
+  verts = vcat([[alpha * cos(2 * pi * k / n), alpha * sin(2 * pi * k / n), 0] for k in 0:n-1], [[alpha * cos(2 * pi * k / n), alpha * sin(2 * pi * k / n), 1] for k in 0:n-1])
+  facets = vcat([[1:n...]], [[(n+1):(2*n)...]], [[k, k + 1, k + n + 1, k + n] for k in 1:(n-1)], [[n, 1, n + 1, 2 * n]])
+  edges = vcat([[k, k + 1] for k in 1:(n-1)], [[n, 1]], [[n + k, n + k + 1] for k in 1:(n-1)], [[2 * n, n + 1]], [[k, k + n] for k in 1:n])
   return Polyhedron(verts, edges, facets)
 end
 
-function tiblock(n1::Integer, n2::Integer, nmerges::Integer; atol::Real = 1e-8)
+function tiblock(n1::Integer, n2::Integer, nmerges::Integer; atol::Real=1e-8)
   @assert mod(n1, nmerges) == 0 "Number of blocks on the side needs to divide n1."
 
   if n2 == 3
     sideelem = nprism(3)
-    merge!(sideelem, nprism(3), [[3,1,6,4]], [[1,2,4,5]], atol = atol)
-    merge!(sideelem, nprism(3), [[2,3,5,6]], [[1,2,4,5]], atol = atol)
+    merge!(sideelem, nprism(3), [[3, 1, 6, 4]], [[1, 2, 4, 5]], atol=atol)
+    merge!(sideelem, nprism(3), [[2, 3, 5, 6]], [[1, 2, 4, 5]], atol=atol)
   elseif n2 == 4
     sideelem = nprism(4)
-    merge!(sideelem, nprism(4), [[2,3,6,7]], [[1,2,5,6]], atol = atol)
-    merge!(sideelem, nprism(4), [[4,1,8,5]], [[1,2,5,6]], atol = atol)
+    merge!(sideelem, nprism(4), [[2, 3, 6, 7]], [[1, 2, 5, 6]], atol=atol)
+    merge!(sideelem, nprism(4), [[4, 1, 8, 5]], [[1, 2, 5, 6]], atol=atol)
   else
     sideelem = nprism(n2)
   end
 
   block = nprism(n1)
   for k in 3:Int(n1 / nmerges):length(get_facets(nprism(n1)))
-    merge!(block, sideelem, [reverse(get_facets(nprism(n1))[k])], [[n2+1,1,2, n2+2]], atol = atol)
+    merge!(block, sideelem, [reverse(get_facets(nprism(n1))[k])], [[n2 + 1, 1, 2, n2 + 2]], atol=atol)
   end
 
   return block
@@ -174,7 +174,7 @@ end
 ##################################################################################
 ################# paper assemblies
 ##################################################################################
-function assembly1(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
+function assembly1(n1::Int=6, n2::Int=3, nmerges::Int=2, nblocks::Int=7)
   @assert n1 > 3 "not possible for triangle prisma"
   assembly = Polyhedron[]
 
@@ -183,18 +183,18 @@ function assembly1(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
   rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
   set_verts!(block, rotmat * get_verts(block))
   push!(assembly, block)
-  
+
   for i in 2:nblocks
     lastblock = assembly[end]
     newblock = deepcopy(lastblock)
     lastcoords = get_verts(lastblock)
     newcoords = get_verts(newblock)
 
-    preim = [newcoords[:,1], newcoords[:,2], newcoords[:,3], newcoords[:,1] + cross(newcoords[:,2] - newcoords[:,1], newcoords[:,3] - newcoords[:,1])]
+    preim = [newcoords[:, 1], newcoords[:, 2], newcoords[:, 3], newcoords[:, 1] + cross(newcoords[:, 2] - newcoords[:, 1], newcoords[:, 3] - newcoords[:, 1])]
     if mod(i, 2) == 0
-      im = [lastcoords[:,n1 + 2], lastcoords[:,n1 + 3], lastcoords[:,n1+4], lastcoords[:, n1+2] + cross(lastcoords[:, n1+3] - lastcoords[:, n1+2], lastcoords[:, n1+4] - lastcoords[:, n1+2])]
+      im = [lastcoords[:, n1+2], lastcoords[:, n1+3], lastcoords[:, n1+4], lastcoords[:, n1+2] + cross(lastcoords[:, n1+3] - lastcoords[:, n1+2], lastcoords[:, n1+4] - lastcoords[:, n1+2])]
     else
-      im = [lastcoords[:, 2 * n1], lastcoords[:,n1+1], lastcoords[:, n1+2], lastcoords[:, 2*n1] + cross(lastcoords[:, n1+1] - lastcoords[:, 2*n1], lastcoords[:, n1+2] - lastcoords[:, 2*n1])]
+      im = [lastcoords[:, 2*n1], lastcoords[:, n1+1], lastcoords[:, n1+2], lastcoords[:, 2*n1] + cross(lastcoords[:, n1+1] - lastcoords[:, 2*n1], lastcoords[:, n1+2] - lastcoords[:, 2*n1])]
     end
     aff = rigidmap(preim, im)
     set_verts!(newblock, aff(newcoords))
@@ -207,27 +207,27 @@ function assembly1(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
   return assembly, frame
 end
 
-function assembly2(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
+function assembly2(n1::Int=6, n2::Int=3, nmerges::Int=2, nblocks::Int=7)
   @assert n1 > 3 "not possible for triangle prisma"
   assembly = Polyhedron[]
 
   block = flattenfacets(tiblock(n1, n2, nmerges))
   theta = -pi / n1
   rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
-  set_verts!(block, rotmat*get_verts(block))
+  set_verts!(block, rotmat * get_verts(block))
   push!(assembly, block)
-  
+
   for i in 2:nblocks
     lastblock = assembly[end]
     newblock = deepcopy(lastblock)
     lastcoords = get_verts(lastblock)
     newcoords = get_verts(newblock)
 
-    preim = [newcoords[:,1], newcoords[:,2], newcoords[:,3], newcoords[:,1] + cross(newcoords[:,2] - newcoords[:,1], newcoords[:,3] - newcoords[:,1])]
+    preim = [newcoords[:, 1], newcoords[:, 2], newcoords[:, 3], newcoords[:, 1] + cross(newcoords[:, 2] - newcoords[:, 1], newcoords[:, 3] - newcoords[:, 1])]
     if mod(i, 3) != 0
-      im = [lastcoords[:,n1 + 2], lastcoords[:,n1 + 3], lastcoords[:,n1+4], lastcoords[:,n1+2] + cross(lastcoords[:,n1+3] - lastcoords[:,n1+2], lastcoords[:,n1+4] - lastcoords[:,n1+2])]
+      im = [lastcoords[:, n1+2], lastcoords[:, n1+3], lastcoords[:, n1+4], lastcoords[:, n1+2] + cross(lastcoords[:, n1+3] - lastcoords[:, n1+2], lastcoords[:, n1+4] - lastcoords[:, n1+2])]
     else
-      im = [lastcoords[:,2*n1 - 1], lastcoords[:,2*n1], lastcoords[:,n1+1], lastcoords[:,2*n1 - 1] + cross(lastcoords[:,2*n1] - lastcoords[:,2*n1 - 1], lastcoords[:,n1+1] - lastcoords[:,2*n1 - 1])]
+      im = [lastcoords[:, 2*n1-1], lastcoords[:, 2*n1], lastcoords[:, n1+1], lastcoords[:, 2*n1-1] + cross(lastcoords[:, 2*n1] - lastcoords[:, 2*n1-1], lastcoords[:, n1+1] - lastcoords[:, 2*n1-1])]
     end
     aff = rigidmap(preim, im)
     set_verts!(newblock, aff(newcoords))
@@ -235,34 +235,34 @@ function assembly2(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
     push!(assembly, newblock)
   end
 
-  frame = Int[1,nblocks]
+  frame = Int[1, nblocks]
 
   return assembly, frame
 end
 
-function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::Int = 2; atol::Real = 1e-8)
+function assembly3(n1::Int=6, towerheight::Int=7, ntowers::Int=3, nlinks::Int=2; atol::Real=1e-8)
   assembly, frame = assembly2(n1, 3, 2, towerheight)
   link = Int[]
 
   # offset between blocks of a tower to attach a link between towers
   offset = max(towerheight ÷ 3 ÷ nlinks, 1) * 3
   # corrected number of links that are possible for the towers
-  correct_nlinks = length(filter(i -> 4 + (i-1) * offset <= towerheight, collect(1:nlinks)))
+  correct_nlinks = length(filter(i -> 4 + (i - 1) * offset <= towerheight, collect(1:nlinks)))
   # base building block
-  linkblock = flattenfacets(tiblock(n1,3,2))
+  linkblock = flattenfacets(tiblock(n1, 3, 2))
 
   function attachlinks(tower)
     for i in 1:correct_nlinks
       newblock = deepcopy(linkblock)
       newcoords = get_verts(newblock)
-      towerblocks = tower[[j + (i-1) * offset for j in collect(1:4)]]
+      towerblocks = tower[[j + (i - 1) * offset for j in collect(1:4)]]
       towerblockcoords = get_verts.(towerblocks)
 
-      preim = newcoords[:,[n1÷2+1, n1÷2+2, n1÷2+1+n1, n1÷2+2+n1, collect((2*n1+7):(2*n1+12))...]]
-      im = hcat(towerblockcoords[1][:,[2*n1+5, 2*n1+6]], towerblockcoords[4][:,[2*n1+3, 2*n1+4]], towerblockcoords[2][:,[2*n1, n1+1, n1, 1]], towerblockcoords[3][:,[n1+2,n1+3]])
+      preim = newcoords[:, [n1 ÷ 2 + 1, n1 ÷ 2 + 2, n1 ÷ 2 + 1 + n1, n1 ÷ 2 + 2 + n1, collect((2*n1+7):(2*n1+12))...]]
+      im = hcat(towerblockcoords[1][:, [2 * n1 + 5, 2 * n1 + 6]], towerblockcoords[4][:, [2 * n1 + 3, 2 * n1 + 4]], towerblockcoords[2][:, [2 * n1, n1 + 1, n1, 1]], towerblockcoords[3][:, [n1 + 2, n1 + 3]])
       display(preim)
       display(im)
-      aff = rigidmap(preim, im, atol = atol)
+      aff = rigidmap(preim, im, atol=atol)
       set_verts!(newblock, aff(newcoords))
 
       push!(assembly, newblock)
@@ -271,8 +271,8 @@ function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::
   end
 
   attachlinks(assembly)
-  
-  
+
+
   for i in 2:ntowers
     newassembly, newframe = assembly2(n1, 3, 2, towerheight)
     newframe = newframe .+ length(assembly)
@@ -284,8 +284,8 @@ function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::
     refcoords = get_verts(reflink)
     towercoords = get_verts.(newassembly)
 
-    preim = hcat(towercoords[1][:,[2*n1+11, 2*n1+12]], towercoords[4][:,[2*n1+9, 2*n1+10]], towercoords[2][:,[n1÷2+n1, n1÷2+n1+1, n1÷2, n1÷2+1]], towercoords[3][:,[n1÷2+n1+2, n1÷2+n1+3]])
-    im = refcoords[:,[1, 2, n1+1, n1+2, collect((2*n1+1):2*n1+6)]]
+    preim = hcat(towercoords[1][:, [2 * n1 + 11, 2 * n1 + 12]], towercoords[4][:, [2 * n1 + 9, 2 * n1 + 10]], towercoords[2][:, [n1 ÷ 2 + n1, n1 ÷ 2 + n1 + 1, n1 ÷ 2, n1 ÷ 2 + 1]], towercoords[3][:, [n1 ÷ 2 + n1 + 2, n1 ÷ 2 + n1 + 3]])
+    im = refcoords[:, [1, 2, n1 + 1, n1 + 2, collect((2*n1+1):2*n1+6)]]
     aff = rigidmap(preim, im)
 
     for block in newassembly
@@ -299,7 +299,7 @@ function assembly3(n1::Int = 6, towerheight::Int = 7, ntowers::Int = 3, nlinks::
   return assembly, frame, link
 end
 
-function assembly4(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
+function assembly4(n1::Int=6, n2::Int=3, nmerges::Int=2, nblocks::Int=7)
   @assert n1 > 3 "not possible for triangle prisma"
   assembly = Polyhedron[]
 
@@ -308,7 +308,7 @@ function assembly4(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
   rotmat = [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]
   set_verts!(block, [rotmat * coords for coords in get_verts(block)])
   push!(assembly, block)
-  
+
   for i in 2:nblocks
     lastblock = assembly[end]
     newblock = deepcopy(lastblock)
@@ -316,14 +316,14 @@ function assembly4(n1::Int = 6, n2::Int = 3, nmerges::Int = 2, nblocks::Int = 7)
     newcoords = get_verts(newblock)
 
     preim = [newcoords[1], newcoords[2], newcoords[3], newcoords[1] + cross(newcoords[2] - newcoords[1], newcoords[3] - newcoords[1])]
-    im = [lastcoords[n1 + 2], lastcoords[n1 + 3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
+    im = [lastcoords[n1+2], lastcoords[n1+3], lastcoords[n1+4], lastcoords[n1+2] + cross(lastcoords[n1+3] - lastcoords[n1+2], lastcoords[n1+4] - lastcoords[n1+2])]
     aff = rigidmap(preim, im)
     set_verts!(newblock, aff(newcoords))
 
     push!(assembly, newblock)
   end
 
-  frame = Int[1,nblocks]
+  frame = Int[1, nblocks]
 
   return assembly, frame
 end
@@ -393,73 +393,73 @@ end
 
 ####Tetrahedron 
 
-Tetrahedron=Polyhedron([[0.5,0,0],[-0.5,0.,0.],[0.,0.5,sqrt(3.)/2.],[0.,-0.5,sqrt(3.)/2.]],
-[ [ 1, 2 ], [1, 3 ], [ 1, 4 ], [ 2, 3 ], [ 2, 4 ], [ 3, 4 ] ],
-[ [ 1, 2, 3 ], [ 1, 2, 4 ], [ 2, 3, 4 ], [ 1, 3, 4 ] ])
+Tetrahedron = Polyhedron([[0.5, 0, 0], [-0.5, 0.0, 0.0], [0.0, 0.5, sqrt(3.0) / 2.0], [0.0, -0.5, sqrt(3.0) / 2.0]],
+  [[1, 2], [1, 3], [1, 4], [2, 3], [2, 4], [3, 4]],
+  [[1, 2, 3], [1, 2, 4], [2, 3, 4], [1, 3, 4]])
 
 
 ####Octahedron
-v=1.0*[[1,0,1],[ 1, 1, 0 ], [ 2, 1, 1 ],[ 1, 1, 2 ], [ 0, 1, 1 ],[ 1, 2, 1 ]]
-f=[ [ 1, 2, 3 ], [ 2, 5, 6 ], [ 1, 2, 5 ], [ 2, 3, 6 ], [ 1, 4, 5 ], 
-  [ 3, 4, 6 ], [ 1, 3, 4 ], [ 4, 5, 6 ] ]
-e=[ [ 1, 2 ], [ 1, 3 ], [ 1, 4 ], [ 1, 5 ], [ 2, 3 ], [ 2, 5 ], [ 2, 6 ], 
-  [ 3, 4 ], [ 3, 6 ], [ 4, 5 ], [ 4, 6 ], [ 5, 6 ] ]
-Octahedron=Polyhedron(v,e,f)
+v = 1.0 * [[1, 0, 1], [1, 1, 0], [2, 1, 1], [1, 1, 2], [0, 1, 1], [1, 2, 1]]
+f = [[1, 2, 3], [2, 5, 6], [1, 2, 5], [2, 3, 6], [1, 4, 5],
+  [3, 4, 6], [1, 3, 4], [4, 5, 6]]
+e = [[1, 2], [1, 3], [1, 4], [1, 5], [2, 3], [2, 5], [2, 6],
+  [3, 4], [3, 6], [4, 5], [4, 6], [5, 6]]
+Octahedron = Polyhedron(v, e, f)
 
 ####Cube 
-Cube=Polyhedron(1.0*[[0,0,0],[ 1, 0, 0 ], [ 1, 1, 0 ],[ 0, 1, 0 ], [0,0,1],[ 1, 0, 1 ], [ 1, 1, 1 ],[ 0, 1, 1 ]],[ [ 1, 2 ], [ 2, 3 ], [ 3, 4 ], [ 1, 4 ], [ 2, 6 ], [ 3, 7 ], [ 4, 8 ], [ 1, 5 ], [ 6, 7 ], [ 7, 8 ], [ 5, 8 ], [ 5, 6 ] ],[[1,2,3,4],[5,6,7,8],[5,6,2,1],[6,7,3,2],[7,8,4,3],[1,4,8,5]])
+Cube = Polyhedron(1.0 * [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], [[1, 2], [2, 3], [3, 4], [1, 4], [2, 6], [3, 7], [4, 8], [1, 5], [6, 7], [7, 8], [5, 8], [5, 6]], [[1, 2, 3, 4], [5, 6, 7, 8], [5, 6, 2, 1], [6, 7, 3, 2], [7, 8, 4, 3], [1, 4, 8, 5]])
 
 ####icosahedron
-phi=(1+sqrt(5.))/2
-v=1.0*[[0,1,phi],[0,-1,phi],[0,1,-phi],[0,-1,-phi],[1,phi,0],[-1,phi,0],[1,-phi,0],[-1,-phi,0],[phi,0,1],[-phi,0,1],[phi,0,-1],[-phi,0,-1]]
+phi = (1 + sqrt(5.0)) / 2
+v = 1.0 * [[0, 1, phi], [0, -1, phi], [0, 1, -phi], [0, -1, -phi], [1, phi, 0], [-1, phi, 0], [1, -phi, 0], [-1, -phi, 0], [phi, 0, 1], [-phi, 0, 1], [phi, 0, -1], [-phi, 0, -1]]
 
-e=[ [ 1, 2 ], [ 1, 5 ], [ 1, 6 ], [ 1, 9 ], [ 1, 10 ], [ 2, 7 ], [ 2, 8 ], 
-  [ 2, 9 ], [ 2, 10 ], [ 3, 4 ], [ 3, 5 ], [ 3, 6 ], [ 3, 11 ], [ 3, 12 ], 
-  [ 4, 7 ], [ 4, 8 ], [ 4, 11 ], [ 4, 12 ], [ 5, 6 ], [ 5, 9 ], [ 5, 11 ], 
-  [ 6, 10 ], [ 6, 12 ], [ 7, 8 ], [ 7, 9 ], [ 7, 11 ], [ 8, 10 ], [ 8, 12 ], 
-  [ 9, 11 ], [ 10, 12 ] ]
-f=[[1,2,9],[1,2,10],[1,5,6],[1,5,9],[1,6,10],[2,7,8],[2,7,9],[2,8,10],[3,4,11],[3,4,12],[3,5,6],[3,5,11],[3,6,12],[4,7,8],[4,7,11],[4,8,12],[5,9,11],[6,10,12],[7,9,11],[8,10,12]]
-Icosahedron=Polyhedron(v,e,f)
+e = [[1, 2], [1, 5], [1, 6], [1, 9], [1, 10], [2, 7], [2, 8],
+  [2, 9], [2, 10], [3, 4], [3, 5], [3, 6], [3, 11], [3, 12],
+  [4, 7], [4, 8], [4, 11], [4, 12], [5, 6], [5, 9], [5, 11],
+  [6, 10], [6, 12], [7, 8], [7, 9], [7, 11], [8, 10], [8, 12],
+  [9, 11], [10, 12]]
+f = [[1, 2, 9], [1, 2, 10], [1, 5, 6], [1, 5, 9], [1, 6, 10], [2, 7, 8], [2, 7, 9], [2, 8, 10], [3, 4, 11], [3, 4, 12], [3, 5, 6], [3, 5, 11], [3, 6, 12], [4, 7, 8], [4, 7, 11], [4, 8, 12], [5, 9, 11], [6, 10, 12], [7, 9, 11], [8, 10, 12]]
+Icosahedron = Polyhedron(v, e, f)
 
 ####Dodecahedron
-f=[[1,4,3,5,2],[1,7,6,8,2],[9,12,11,13,10],[9,15,14,16,10],[3,11,12,17,4],[3,11,13,18,5],[6,14,15,19,7],[6,14,16,20,8],[1,7,19,17,4],[2,8,20,18,5],[9,15,19,17,12],[10,16,20,18,13]]
-v=1.0*[[0.539345,0,1.41202],[-0.539345,0,1.41202],[0,1.41202,0.539345],[0.872678,0.872678,0.872678],[-0.872678,0.872678,0.872678],[0,-1.41202,0.539345],[0.872678,-0.872678,0.872678],[-0.872678,-0.872678,0.872678],[0.539345,0,-1.41202],[-0.539345,0,-1.41202],[0,1.41202,-0.539345],[0.872678,0.872678,-0.872678],[-0.872678,0.872678,-0.872678],[0,-1.41202,-0.539345],[0.872678,-0.872678,-0.872678],[-0.872678,-0.872678,-0.872678],[1.41202,0.539345,0],[-1.41202,0.539345,0],[1.41202,-0.539345,0],[-1.41202,-0.539345,0]]
+f = [[1, 4, 3, 5, 2], [1, 7, 6, 8, 2], [9, 12, 11, 13, 10], [9, 15, 14, 16, 10], [3, 11, 12, 17, 4], [3, 11, 13, 18, 5], [6, 14, 15, 19, 7], [6, 14, 16, 20, 8], [1, 7, 19, 17, 4], [2, 8, 20, 18, 5], [9, 15, 19, 17, 12], [10, 16, 20, 18, 13]]
+v = 1.0 * [[0.539345, 0, 1.41202], [-0.539345, 0, 1.41202], [0, 1.41202, 0.539345], [0.872678, 0.872678, 0.872678], [-0.872678, 0.872678, 0.872678], [0, -1.41202, 0.539345], [0.872678, -0.872678, 0.872678], [-0.872678, -0.872678, 0.872678], [0.539345, 0, -1.41202], [-0.539345, 0, -1.41202], [0, 1.41202, -0.539345], [0.872678, 0.872678, -0.872678], [-0.872678, 0.872678, -0.872678], [0, -1.41202, -0.539345], [0.872678, -0.872678, -0.872678], [-0.872678, -0.872678, -0.872678], [1.41202, 0.539345, 0], [-1.41202, 0.539345, 0], [1.41202, -0.539345, 0], [-1.41202, -0.539345, 0]]
 
-e=[ [ 1, 2 ], [ 1, 4 ], [ 1, 7 ], [ 2, 5 ], [ 2, 8 ], [ 3, 4 ], [ 3, 5 ], 
-  [ 3, 11 ], [ 4, 17 ], [ 5, 18 ], [ 6, 7 ], [ 6, 8 ], [ 6, 14 ], [ 7, 19 ], 
-  [ 8, 20 ], [ 9, 10 ], [ 9, 12 ], [ 9, 15 ], [ 10, 13 ], [ 10, 16 ], 
-  [ 11, 12 ], [ 11, 13 ], [ 12, 17 ], [ 13, 18 ], [ 14, 15 ], [ 14, 16 ], 
-  [ 15, 19 ], [ 16, 20 ], [ 17, 19 ], [ 18, 20 ] ]
-Dodecahedron=Polyhedron(v,e,f, atol = 1e-4)
+e = [[1, 2], [1, 4], [1, 7], [2, 5], [2, 8], [3, 4], [3, 5],
+  [3, 11], [4, 17], [5, 18], [6, 7], [6, 8], [6, 14], [7, 19],
+  [8, 20], [9, 10], [9, 12], [9, 15], [10, 13], [10, 16],
+  [11, 12], [11, 13], [12, 17], [13, 18], [14, 15], [14, 16],
+  [15, 19], [16, 20], [17, 19], [18, 20]]
+Dodecahedron = Polyhedron(v, e, f, atol=1e-4)
 
 ####(flexible) candy
-f=[ [ 1, 2, 3, 4, 5, 6 ], [ 7, 8, 9, 10, 11, 12 ],[ 2, 3, 9, 8 ], 
-  [ 3, 4, 10, 9 ], [ 5, 6, 12, 11 ], [ 1, 6, 12, 7 ], [ 2, 8, 13 ], 
-  [ 1, 7, 14 ], [ 5, 11, 15 ], [ 4, 10, 16 ], [ 7, 14, 17 ], 
-  [ 13, 14, 17, 18 ], [ 7, 8, 18, 17 ], [ 8, 13, 18 ], [ 1, 14, 19 ], 
-  [ 13, 14, 19, 20 ], [ 1, 2, 20, 19 ], [ 2, 13, 20 ], [ 10, 16, 21 ], 
-  [ 15, 16, 21, 22 ], [ 10, 11, 22, 21 ], [ 11, 15, 22 ], [ 5, 15, 23 ], 
-  [ 4, 5, 23, 24 ], [ 15, 16, 24, 23 ], [ 4, 16, 24 ] ]
-v= 1.0*[ [ 0.5, 0.866025, 0. ], [ -0.5, 0.866025, 0. ], 
-          [ -1., 0., 0. ], [ -0.5, -0.866025, 0. ], [ 1/2, -0.866025, 0 ], 
-          [ 1., 0, 0 ], [ 1/2, 0.866025, 1 ], [ -1/2, 0.866025, 1 ], 
-          [ -1., 0., 1 ], [ -1/2, -0.866025, 1 ], [ 1/2, -0.866025, 1 ], 
-          [ 1., 0, 1 ], [ -0.5, 1.73205, 0.5 ], [ 0.5, 1.73205, 0.5 ], 
-          [ 0.5, -1.73205, 0.5 ], [ -0.5, -1.73205, 0.5 ], 
-          [ 0.5, 1.73205, 1.5 ], [ -0.5, 1.73205, 1.5 ], 
-          [ 0.5, 1.73205, -0.5 ], [ -0.5, 1.73205, -0.5 ], 
-          [ -0.5, -1.73205, 1.5 ], [ 0.5, -1.73205, 1.5 ], 
-          [ 0.5, -1.73205, -0.5 ], [ -0.5, -1.73205, -0.5 ]]
-e=[ [ 1, 2 ], [ 1, 6 ], [ 1, 7 ], [ 1, 14 ], [ 1, 19 ], [ 2, 3 ], [ 2, 8 ], 
-  [ 2, 13 ], [ 2, 20 ], [ 3, 4 ], [ 3, 9 ], [ 4, 5 ], [ 4, 10 ], [ 4, 16 ], 
-  [ 4, 24 ], [ 5, 6 ], [ 5, 11 ], [ 5, 15 ], [ 5, 23 ], [ 6, 12 ], [ 7, 8 ], 
-  [ 7, 12 ], [ 7, 14 ], [ 7, 17 ], [ 8, 9 ], [ 8, 13 ], [ 8, 18 ], [ 9, 10 ], 
-  [ 10, 11 ], [ 10, 16 ], [ 10, 21 ], [ 11, 12 ], [ 11, 15 ], [ 11, 22 ], 
-  [ 13, 14 ], [ 13, 18 ], [ 13, 20 ], [ 14, 17 ], [ 14, 19 ], [ 15, 16 ], 
-  [ 15, 22 ], [ 15, 23 ], [ 16, 21 ], [ 16, 24 ], [ 17, 18 ], [ 19, 20 ], 
-  [ 21, 22 ], [ 23, 24 ] ]
+f = [[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12], [2, 3, 9, 8],
+  [3, 4, 10, 9], [5, 6, 12, 11], [1, 6, 12, 7], [2, 8, 13],
+  [1, 7, 14], [5, 11, 15], [4, 10, 16], [7, 14, 17],
+  [13, 14, 17, 18], [7, 8, 18, 17], [8, 13, 18], [1, 14, 19],
+  [13, 14, 19, 20], [1, 2, 20, 19], [2, 13, 20], [10, 16, 21],
+  [15, 16, 21, 22], [10, 11, 22, 21], [11, 15, 22], [5, 15, 23],
+  [4, 5, 23, 24], [15, 16, 24, 23], [4, 16, 24]]
+v = 1.0 * [[0.5, 0.866025, 0.0], [-0.5, 0.866025, 0.0],
+  [-1.0, 0.0, 0.0], [-0.5, -0.866025, 0.0], [1 / 2, -0.866025, 0],
+  [1.0, 0, 0], [1 / 2, 0.866025, 1], [-1 / 2, 0.866025, 1],
+  [-1.0, 0.0, 1], [-1 / 2, -0.866025, 1], [1 / 2, -0.866025, 1],
+  [1.0, 0, 1], [-0.5, 1.73205, 0.5], [0.5, 1.73205, 0.5],
+  [0.5, -1.73205, 0.5], [-0.5, -1.73205, 0.5],
+  [0.5, 1.73205, 1.5], [-0.5, 1.73205, 1.5],
+  [0.5, 1.73205, -0.5], [-0.5, 1.73205, -0.5],
+  [-0.5, -1.73205, 1.5], [0.5, -1.73205, 1.5],
+  [0.5, -1.73205, -0.5], [-0.5, -1.73205, -0.5]]
+e = [[1, 2], [1, 6], [1, 7], [1, 14], [1, 19], [2, 3], [2, 8],
+  [2, 13], [2, 20], [3, 4], [3, 9], [4, 5], [4, 10], [4, 16],
+  [4, 24], [5, 6], [5, 11], [5, 15], [5, 23], [6, 12], [7, 8],
+  [7, 12], [7, 14], [7, 17], [8, 9], [8, 13], [8, 18], [9, 10],
+  [10, 11], [10, 16], [10, 21], [11, 12], [11, 15], [11, 22],
+  [13, 14], [13, 18], [13, 20], [14, 17], [14, 19], [15, 16],
+  [15, 22], [15, 23], [16, 21], [16, 24], [17, 18], [19, 20],
+  [21, 22], [23, 24]]
 
-Candy=Polyhedron(v,e,f)
+Candy = Polyhedron(v, e, f)
 
 
 
@@ -527,36 +527,36 @@ Candy=Polyhedron(v,e,f)
 #  EloncatedDodecahedron=Polyhedron([ [ 0.8660254037844386, 0, 3/2 ], [ 1.7320508075688772, 0, 1 ], [ 1.7320508075688772, 0, 0 ], [ 0.8660254037844386, 0, -1/2 ], [ 0, 0, 0 ], [ 0, 0, 1 ], [ 1.7320508075688772, 0.8660254037844386, 3/2 ], [ 1.7320508075688772, 1.7320508075688772, 1 ], [ 1.7320508075688772, 1.7320508075688772, 0 ], [ 1.7320508075688772, 0.8660254037844386, -1/2 ], [ 0.8660254037844386, 1.7320508075688772, 3/2 ], [ 0, 1.7320508075688772, 1 ], [ 0, 1.7320508075688772, 0 ], [ 0.8660254037844386, 1.7320508075688772, -1/2 ], [ 0, 0.8660254037844386, 3/2 ], [ 0, 0.8660254037844386, -1/2 ], [ 0.8660254037844386, 0.8660254037844386, -1 ], [ 0.8660254037844386, 0.8660254037844386, 2 ] ],[ [ 1, 2 ], [ 1, 6 ], [ 1, 18 ], [ 2, 3 ], [ 2, 7 ], [ 3, 4 ], [ 3, 10 ], [ 4, 5 ], [ 4, 17 ], [ 5, 6 ], [ 5, 16 ], [ 6, 15 ], [ 7, 8 ], [ 7, 18 ], [ 8, 9 ], [ 8, 11 ], [ 9, 10 ], [ 9, 14 ], [ 10, 17 ], [ 11, 12 ], [ 11, 18 ], [ 12, 13 ], [ 12, 15 ], [ 13, 14 ], [ 13, 16 ], [ 14, 17 ], [ 15, 18 ], [ 16, 17 ] ],[ [ 1, 2, 3, 4, 5, 6 ], [ 2, 3, 7, 8, 9, 10 ], [ 8, 9, 11, 12, 13, 14 ], [ 5, 6, 12, 13, 15, 16 ], [ 1, 6, 15, 18 ], [ 1, 2, 7, 18 ], [ 7, 8, 11, 18 ], [ 11, 12, 15, 18 ], [ 4, 5, 16, 17 ], [ 3, 4, 10, 17 ], [ 9, 10, 14, 17 ], [ 13, 14, 16, 17 ] ])
 
 
-# ##################################################################################
-# ################# Bricard Octahedron 
-# ##################################################################################
-# """
-#     bricard_octahedron(n::Integer)
+##################################################################################
+################# Bricard Octahedron 
+##################################################################################
+"""
+    bricard_octahedron(n::Integer)
 
-# Return the bricard octahedron. n determines, what symmetry is used to calculate the position of the second pole. 1, 2 = plane reflection, 3 = line reflection
-# """
-# function bricard_octahedron(n::Integer)
-#   equator = [[-1,0,0], [0,-1,-1], [1,0,0], [0,1,-1]]
-#   north = [-0.5,0.5,2]
+Return the bricard octahedron. n determines, what symmetry is used to calculate the position of the second pole. 1, 2 = plane reflection, 3 = line reflection
+"""
+function bricard_octahedron(n::Integer)
+  equator = [[-1, 0, 0], [0, -1, -1], [1, 0, 0], [0, 1, -1]]
+  north = [-0.5, 0.5, 2]
 
-#   if n == 1
-#     aff = rigidmap(hcat(equator..., [0,0,1]), hcat(equator[3], equator[4], equator[1], equator[2], [0,0,1]))
-#   elseif n == 2
-#     aff = rigidmap(hcat(equator..., [0,0,1]), hcat(equator[1], equator[4], equator[3], equator[2], [0,0,1]))
-#   elseif n == 3
-#     aff = rigidmap(hcat(equator..., [0,0,1]), hcat(equator[3], equator[2], equator[1], equator[4], [0,0,1]))
-#   else
-#     @error "n needs to be either 1,2 or 3, but it is $n."
-#   end
+  if n == 1
+    aff = rigidmap(hcat(equator..., [0, 0, 1]), hcat(equator[3], equator[4], equator[1], equator[2], [0, 0, 1]))
+  elseif n == 2
+    aff = rigidmap(hcat(equator..., [0, 0, 1]), hcat(equator[1], equator[4], equator[3], equator[2], [0, 0, 1]))
+  elseif n == 3
+    aff = rigidmap(hcat(equator..., [0, 0, 1]), hcat(equator[3], equator[2], equator[1], equator[4], [0, 0, 1]))
+  else
+    @error "n needs to be either 1,2 or 3, but it is $n."
+  end
 
-#   south = aff(north)
+  south = aff(north)
 
-#   verts = vcat(equator, [north, south])
-#   edges = [[1,2], [2,3], [3,4], [4,1], [1,5], [2,5], [3,5], [4,5], [1,6], [2,6], [3,6], [4,6]]
-#   faces = [[1,2,5], [2,3,5], [3,4,5], [1,4,5], [1,2,6], [2,3,6], [3,4,6], [1,4,6]]
+  verts = vcat(equator, [north, south])
+  edges = [[1, 2], [2, 3], [3, 4], [4, 1], [1, 5], [2, 5], [3, 5], [4, 5], [1, 6], [2, 6], [3, 6], [4, 6]]
+  faces = [[1, 2, 5], [2, 3, 5], [3, 4, 5], [1, 4, 5], [1, 2, 6], [2, 3, 6], [3, 4, 6], [1, 4, 6]]
 
-#   return Polyhedron(verts, edges, faces)
-# end
+  return Polyhedron(verts, edges, faces)
+end
 
 # ##################################################################################
 # ################# further example
