@@ -2,6 +2,11 @@
 /Images/*.jpg
 
 /*.ipynb
-/Interlocking/*.txt
-/Interlocking/*.obj
-/Interlocking/*.ipynb
+*/*.ipynb
+/src/Interlocking/*.txt
+/src/Interlocking/*.obj
+/src/Interlocking/*.ipynb
+
+/.vscode/*
+
+/devel.jl

@@ -1,7 +1,3 @@
-import Graphs
-import Base.Multimedia.display
-using StaticArrays
-
 # ################## Simple combinatorial Graphs
 # abstract type AbstractSimpleGraph{T<:Integer} end
 
@@ -109,8 +105,6 @@ using StaticArrays
 
 ################## Embedded Graphs
 
-abstract type AbstractEmbeddedGraph{S<:Real,T<:Integer} end
-
 mutable struct Framework{S<:Real,T<:Integer} <: AbstractEmbeddedGraph{S,T}
     verts::Matrix{S}
     edges::Vector{MVector{2,T}}
@@ -160,7 +154,7 @@ function adjacency_matrix(f::AbstractEmbeddedGraph)
     return m
 end
 
-SimpleGraph(g::AbstractEmbeddedGraph) = Graphs.SimpleGraph(adjacency_matrix(g))
+Graphs.SimpleGraph(g::AbstractEmbeddedGraph) = Graphs.SimpleGraph(adjacency_matrix(g))
 
 convert(::Type{T}, f::AbstractEmbeddedGraph) where {T<:Graphs.AbstractSimpleGraph} = T(adjacency_matrix(f))
 

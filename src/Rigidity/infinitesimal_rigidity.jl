@@ -1,7 +1,3 @@
-import Graphs
-include("../Framework.jl")
-include("../affine_geometry.jl")
-
 """
     rigidity_matrix(f::AbstractEmbeddedGraph)
 
@@ -9,7 +5,7 @@ Construct the rigidity matrix of the embedded graph f.
 """
 function rigidity_matrix(f::AbstractEmbeddedGraph)
     d, n = size(get_verts(f))
-    r = zeros((length(get_edges(f)), d*n))
+    r = zeros((length(get_edges(f)), d * n))
     coords = get_verts(f)
     for (i, e) in enumerate(get_edges(f))
         v = e[1]
@@ -26,13 +22,13 @@ end
 
 Calculate a basis for the space of infinitesimal motions of the embedded graph f.
 """
-function basis_inf_motions(f::AbstractEmbeddedGraph; atol = 1e-10)
-    return nullspace(rigidity_matrix(f), atol = atol)
+function basis_inf_motions(f::AbstractEmbeddedGraph; atol=1e-10)
+    return nullspace(rigidity_matrix(f), atol=atol)
 end
 
 function is_infrigid(f::AbstractEmbeddedGraph)
     d = dimension(f)
-    return size(basis_inf_motions(f))[2] == binomial(d+1, 2)
+    return size(basis_inf_motions(f))[2] == binomial(d + 1, 2)
 end
 
 """
@@ -49,14 +45,14 @@ end
 
 Calculate the index of the embedded graph f.
 """
-function index(f::Union{AbstractEmbeddedGraph, Graphs.AbstractSimpleGraph})
+function index(f::Union{AbstractEmbeddedGraph,Graphs.AbstractSimpleGraph})
     d, n = size(get_verts(f))
-    return length(get_edges(f)) - d*n + binomial(d+1, 2)
+    return length(get_edges(f)) - d * n + binomial(d + 1, 2)
 end
 
 function index(g::Graphs.AbstractSimpleGraph, d::Integer)
     n = length(get_verts(g))
-    return length(get_edges(g)) - d*n + binomial(d+1, 2)
+    return length(get_edges(g)) - d * n + binomial(d + 1, 2)
 end
 
 """
@@ -64,6 +60,6 @@ end
 
 Return whether the graph g is generically rigid in d-space.
 """
-is_genrigid(g::Graphs.AbstractSimpleGraph, d::Integer = 2) = d == 2 ? index(g, d) >= 0 : (index(g, d) >= 0 ? is_infrigid(Framework(g, d)) : false)
+is_genrigid(g::Graphs.AbstractSimpleGraph, d::Integer=2) = d == 2 ? index(g, d) >= 0 : (index(g, d) >= 0 ? is_infrigid(Framework(g, d)) : false)
 
-is_genrigid(f::AbstractEmbeddedGraph, d::Integer = 2) = is_genrigid(SimpleGraph(f), d)
+is_genrigid(f::AbstractEmbeddedGraph, d::Integer=2) = is_genrigid(SimpleGraph(f), d)

@@ -1,12 +1,3 @@
-using JuMP
-import HiGHS
-import Polyhedra
-
-include("../Polyhedron.jl")
-include("../affine_geometry.jl")
-include("../decomposition.jl")
-
-
 function contacts(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol = 1e-8)
     coords_facets1 = [get_verts(poly1)[:, facet] for facet in get_facets(poly1)]
     coords_facets2 = [get_verts(poly2)[:, facet] for facet in get_facets(poly2)]

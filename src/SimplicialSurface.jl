@@ -1,19 +1,7 @@
-import Graphs.connected_components, Graphs.SimpleGraph
-import Base.Multimedia.display
-using StaticArrays
-
-include("Framework.jl")
-include("Polyhedron.jl")
-include("decomposition.jl")
-
 ################################################################################################################################################
 ###################################################### Type decalarations and constructors ######################################################
 ################################################################################################################################################
 
-abstract type AbstractCombSimplicialSurface{T<:Integer} <: AbstractCombPolyhedron{T} end
-abstract type AbstractSimplicialSurface{S<:Real,T<:Integer} <: AbstractPolyhedron{S,T} end
-
-AbstractEmbOrCombSimplicialSurface{S<:Real,T<:Integer} = Union{AbstractSimplicialSurface{S,T},AbstractCombSimplicialSurface{T}}
 
 
 mutable struct CombSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurface{T}
@@ -496,7 +484,6 @@ end
 ################################################################################################################################################
 ###################################################### Coloured Simplicial Surfaces ############################################################
 ################################################################################################################################################
-abstract type AbstractColoredSimplicialSurface{T<:Integer} <: AbstractCombSimplicialSurface{T} end
 
 mutable struct ColoredSimplicialSurface{T<:Integer} <: AbstractColoredSimplicialSurface{T}
     verts::Vector{T}
