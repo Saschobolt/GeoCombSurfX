@@ -1,20 +1,7 @@
-using GenericLinearAlgebra
-using PolygonOps
-import Base.Multimedia.display
-import Base.==
-import Graphs.connected_components
-
-include("Framework.jl")
-include("affine_geometry.jl")
-include("polygonal_geometry.jl")
-
 ################################################################################################################################################
 ###################################################### Type decalarations and constructors ######################################################
 ################################################################################################################################################
-abstract type AbstractPolyhedron{S<:Real,T<:Integer} <: AbstractEmbeddedGraph{S,T} end
-abstract type AbstractCombPolyhedron{T<:Integer} end
 
-AbstractEmbOrCombPolyhedron = Union{AbstractPolyhedron,AbstractCombPolyhedron}
 
 # Half edge data type: https://www.wikiwand.com/de/Half-Edge-Datenstruktur
 mutable struct HalfEdge{T<:AbstractVector{<:Integer}}
@@ -58,7 +45,7 @@ mutable struct Polyhedron{S<:Real,T<:Integer} <: AbstractPolyhedron{S,T}
         T = typeof(edges[1][1])
         poly = new{S,T}(verts, edges, facets)
 
-        if length(connected_components(SimpleGraph(poly))) > 1
+        if length(Graphs.connected_components(Graphs.SimpleGraph(poly))) > 1
             error("Skeleton of polyhedron is not connected.")
         end
 
@@ -225,33 +212,33 @@ function set_facets!(poly::AbstractEmbOrCombPolyhedron, facets::AbstractVector{<
     set_halfedges!(poly, is_oriented=is_oriented)
 end
 
-function ==(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol=1e-12)
-    verts1 = get_verts(poly1)
-    verts2 = get_verts(poly2)
-    if size(verts1)[2] != size(verts2)[2]
-        return false
-    end
+# function ==(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron; atol=1e-12)
+#     verts1 = get_verts(poly1)
+#     verts2 = get_verts(poly2)
+#     if size(verts1)[2] != size(verts2)[2]
+#         return false
+#     end
 
-    edges1 = get_edges(poly1)
-    edges2 = get_edges(poly2)
-    if length(edges1) != length(edges2)
-        return false
-    end
-    if length(Base.intersect(Set.(edges1), Set.(edges2))) < length(edges1)
-        return false
-    end
+#     edges1 = get_edges(poly1)
+#     edges2 = get_edges(poly2)
+#     if length(edges1) != length(edges2)
+#         return false
+#     end
+#     if length(Base.intersect(Set.(edges1), Set.(edges2))) < length(edges1)
+#         return false
+#     end
 
-    facets1 = get_facets(poly1)
-    facets2 = get_facets(poly2)
-    if length(facets1) != length(facets2)
-        return false
-    end
-    if length(Base.intersect(Set.(facets1), Set.(facets2))) < length(facets1)
-        return false
-    end
+#     facets1 = get_facets(poly1)
+#     facets2 = get_facets(poly2)
+#     if length(facets1) != length(facets2)
+#         return false
+#     end
+#     if length(Base.intersect(Set.(facets1), Set.(facets2))) < length(facets1)
+#         return false
+#     end
 
-    return true
-end
+#     return true
+# end
 
 """
     iscongruent(poly1::AbstractPolyhedron, poly2::AbstractPolyhedron)

@@ -1,5 +1,3 @@
-include("affine_geometry.jl")
-
 """
     to_xyplane_map(polygon::AbstractMatrix{T}; atol::Real = 1e-8) where T<:Real
 

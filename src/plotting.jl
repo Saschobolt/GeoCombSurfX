@@ -1,11 +1,3 @@
-using PlotlyJS
-using Colors
-import PlotlyJS.plot
-
-include("Polyhedron.jl")
-include("decomposition.jl")
-include("SimplicialSurface.jl")
-
 function trace(f::AbstractEmbeddedGraph; 
                 vertexcolors::Union{AbstractDict{Any, <:Color}, AbstractVector{<:Color}} = [RGB(0,0,0)], vertexsizes::Union{AbstractDict{Any, <:Real}, AbstractVector{<:Real}} = [4],
                 edgecolors::Union{AbstractDict{Any, <:Color}, AbstractVector{<:Color}} = [RGB(0,0,0)], edgewidths::Union{AbstractDict{Any, <:Real}, AbstractVector{<:Real}} = [2],

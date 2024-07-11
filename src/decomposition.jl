@@ -1,9 +1,3 @@
-include("Polyhedron.jl")
-include("Combinatorics//combinatorics.jl")
-include("affine_geometry.jl")
-include("polygonal_geometry.jl")
-
-
 # triangulate surface of AbstractPolyhedron
 """
 returns a polyhedron containing the vertices and edges of poly such that every facet is triangular.
