@@ -14,6 +14,8 @@ using StaticArrays
 using PlotlyJS
 using Colors
 using JuMP
+using Nemo
+using Groebner
 
 import HiGHS
 import Polyhedra
@@ -76,6 +78,7 @@ include("plotting.jl")
 
 include("Interlocking/interlocking.jl")
 include("Rigidity/infinitesimal_rigidity.jl")
+include("Rigidity/BracketAlgebra.jl")
 
 
 end # module
