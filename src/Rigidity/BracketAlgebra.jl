@@ -22,6 +22,14 @@ mutable struct BracketAlgebra
     end
 end
 
+function BracketAlgebra(g::Graphs.AbstractSimpleGraph, d::Integer)
+    return BracketAlgebra(d, Graphs.nv(g))
+end
+
+function BracketAlgebra(poly::AbstractEmbOrCombPolyhedron, d::Integer)
+    return BracketAlgebra(d, Graphs.SimpleGraph(poly))
+end
+
 function sizyges(B::BracketAlgebra)
     # Sturmfels: Algorithms in invariant theory p.81 & p.84 exercise 3
     # in Sturmfels d is length of brackets, for us it is dimension. So every d in Sturmfels needs to be substituted by d+1
