@@ -40,7 +40,7 @@ export halfedge, halfedges, set_halfedges!, get_verts, set_verts!, set_edges!, g
 
 export AbstractCombSimplicialSurface, AbstractSimplicialSurface, AbstractEmbOrCombSimplicialSurface, AbstractColoredSimplicialSurface
 export CombSimplicialSurface, SimplicialSurface, ColoredSimplicialSurface
-export vertex_degree, characterictic, iscactus, is_SimplicialSurface, set_facets!, remove_vertex!, insert_butterfly!, insert_butterfly, random_simplsphere, random_emb_simplsphere, edgeturn!, edgeturn, remove_tetrahedron!, append_tetrahedron!, random_cactus, random_emb_cactus
+export vertex_degree, characterictic, iscactus, is_SimplicialSurface, set_facets!, remove_vertex!, insert_butterfly!, insert_butterfly, random_simplsphere, random_emb_simplsphere, edgeturn!, edgeturn, remove_tetrahedron!, append_tetrahedron!, random_cactus, random_emb_cactus, double_ngon, emb_double_ngon
 export colors, color, colortype, congruencetypes, is_congcolored, edge_type, is_tamecolored
 
 export merge!, merge # merge and merge! are also exported by Base
@@ -54,7 +54,7 @@ export titest
 export rigidity_matrix, basis_inf_motions, is_infrigid, basis_inf_flex, index, is_genrigid, is_isostatic
 
 export BracketAlgebra, sizyges, Tabloid, is_standard, bracket_monomial, reduced_groebner_basis!
-export tiedown
+export tiedown, condition
 
 include("affine_geometry.jl")
 include("polygonal_geometry.jl")
