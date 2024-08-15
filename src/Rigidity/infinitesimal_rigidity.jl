@@ -63,3 +63,5 @@ Return whether the graph g is generically rigid in d-space.
 is_genrigid(g::Graphs.AbstractSimpleGraph, d::Integer=2) = d == 2 ? index(g, d) >= 0 : (index(g, d) >= 0 ? is_infrigid(Framework(g, d)) : false)
 
 is_genrigid(f::AbstractEmbeddedGraph, d::Integer=2) = is_genrigid(SimpleGraph(f), d)
+
+is_isostatic(g::Graphs.AbstractSimpleGraph, d::Integer=2) = (index(g, d) == 0)
