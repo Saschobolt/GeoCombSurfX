@@ -119,10 +119,11 @@ function iscactus(surf::AbstractCombSimplicialSurface)
 
     cactus = deepcopy(surf)
     while length(cactus.verts) > 4
-        v = get_verts(cactus)[findfirst(x -> vertex_degree(cactus, x) == 3, cactus.verts)]
-        if isnothing(v)
+        i = findfirst(x -> vertex_degree(cactus, x) == 3, cactus.verts)
+        if isnothing(i)
             return false
         end
+        v = get_verts(cactus)[i]
         remove_tetrahedron!(cactus, v)
     end
 
@@ -138,6 +139,7 @@ end
 
 TBW
 """
+# TODO
 function cactus_distance_greedy(surf::AbstractCombSimplicialSurface)
     edgeturns = SVector{2,Int}[]
 
