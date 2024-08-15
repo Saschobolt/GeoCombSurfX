@@ -22,12 +22,12 @@ mutable struct BracketAlgebra
     end
 end
 
-function BracketAlgebra(g::Graphs.AbstractSimpleGraph, d::Integer)
+function BracketAlgebra(g::Graphs.AbstractSimpleGraph, d::Integer=2)
     return BracketAlgebra(d, Graphs.nv(g))
 end
 
-function BracketAlgebra(poly::AbstractEmbOrCombPolyhedron, d::Integer)
-    return BracketAlgebra(d, Graphs.SimpleGraph(poly))
+function BracketAlgebra(poly::AbstractEmbOrCombPolyhedron, d::Integer=3)
+    return BracketAlgebra(Graphs.SimpleGraph(poly), d)
 end
 
 function sizyges(B::BracketAlgebra)
@@ -133,6 +133,10 @@ function reduced_groebner_basis!(B::BracketAlgebra)
 
     basis = sizyges_vector(B)
     tobereduced = [bracket_monomial(t, B) for t in collect(nonstandard_tabloids(B))]
+
+    if length(tobereduced) == 0
+        return basis
+    end
 
     reduced = tobereduced .- Groebner.normalform(basis, tobereduced, ordering=B.ordering)
     filter!(b -> b != 0, reduced)
