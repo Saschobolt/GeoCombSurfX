@@ -10,8 +10,9 @@
 module GeoCombSurfX
 
 using LinearAlgebra
+using Combinatorics
 using StaticArrays
-using PlotlyJS
+# using PlotlyJS
 using Colors
 using JuMP
 using Nemo
@@ -20,7 +21,7 @@ using Groebner
 import HiGHS
 import Polyhedra
 import Graphs
-import Graphs.SimpleGraphs, Graphs.connected_components
+import Graphs.SimpleGraph, Graphs.connected_components
 import Base.Multimedia.display
 import PlotlyJS.plot
 
@@ -46,11 +47,14 @@ export merge!, merge # merge and merge! are also exported by Base
 
 export triangulate!, triangulate, outward_normal, isflatedge, edgetype, remove_flatedge!, remove_edge, flattenfacets!, flattenfacets, isconvex
 
-export plot
+# export plot
 
 export titest
 
-export rigidity_matrix, basis_inf_motions, is_infrigid, basis_inf_flex, index, is_genrigid
+export rigidity_matrix, basis_inf_motions, is_infrigid, basis_inf_flex, index, is_genrigid, is_isostatic
+
+export BracketAlgebra, sizyges, Tabloid, is_standard, bracket_monomial, reduced_groebner_basis
+export tiedown
 
 include("affine_geometry.jl")
 include("polygonal_geometry.jl")
@@ -74,11 +78,11 @@ abstract type AbstractColoredSimplicialSurface{T<:Integer} <: AbstractCombSimpli
 include("SimplicialSurface.jl")
 include("merging.jl")
 include("decomposition.jl")
-include("plotting.jl")
+# include("plotting.jl")
 
 include("Interlocking/interlocking.jl")
 include("Rigidity/infinitesimal_rigidity.jl")
 include("Rigidity/BracketAlgebra.jl")
-
+include("Rigidity/PureCondition.jl")
 
 end # module

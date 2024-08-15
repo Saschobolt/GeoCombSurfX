@@ -1,8 +1,3 @@
-using Combinatorics
-using Groebner
-using Nemo
-using StaticArrays
-
 mutable struct BracketAlgebra
     d::Int
     n::Int
@@ -125,7 +120,6 @@ end
 
 function reduced_groebner_basis(B::BracketAlgebra)
     if !isnothing(B.groebner_basis)
-        println("hello")
         return B.groebner_basis
     end
 
