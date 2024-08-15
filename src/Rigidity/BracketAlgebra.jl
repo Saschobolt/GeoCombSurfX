@@ -126,7 +126,7 @@ function nonstandard_tabloids(B::BracketAlgebra)
     return (Tabloid([row1, row2]) for row1 in combinations(1:n, d + 1), row2 in combinations(1:n, d + 1) if (row1 < row2 && !is_standard(Tabloid([row1, row2]))))
 end
 
-function reduced_groebner_basis(B::BracketAlgebra)
+function reduced_groebner_basis!(B::BracketAlgebra)
     if !isnothing(B.groebner_basis)
         return B.groebner_basis
     end
