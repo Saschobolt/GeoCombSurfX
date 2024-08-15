@@ -327,25 +327,6 @@ function insert_butterfly(surf::AbstractCombSimplicialSurface, edge1::AbstractVe
     return surf_copy
 end
 
-"""
-    random_simplsphere(n::Integer)
-
-Construct a random simplicial sphere with n vertices. The sphere is constructed by starting with a tetrahedron and applying random butterfly insertions.
-"""
-function random_simplsphere(n::Integer)
-    sphere = CombSimplicialSurface(verts=[1, 2, 3, 4], edges=[[1, 2], [2, 3], [3, 1], [1, 4], [2, 4], [3, 4]], facets=[[1, 2, 3], [4, 2, 1], [4, 3, 2], [1, 3, 4]])
-    for _ in 1:n-4
-        v = rand(1:length(sphere.verts))
-        e1 = rand(incedges(sphere, v))
-        e2 = rand(setdiff(incedges(sphere, v), [e1]))
-        insert_butterfly!(sphere, e1, e2; is_oriented=true)
-    end
-
-    return sphere
-end
-
-random_emb_simplsphere(n::Integer) = SimplicialSurface(random_simplsphere(n))
-
 # function isadjacent(surf::AbstractEmbOrCombSimplicialSurface, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool=true)
 #     if check
 #         @assert facetoredge in union(get_edges(surf), get_facets(surf)) || reverse(facetoredge) in union(get_edges(surf), get_facets(surf)) "facetoredge has to be an edge or facet of the surface, but got $(facetoredge)."
@@ -462,6 +443,15 @@ function append_tetrahedron!(surf::AbstractEmbOrCombSimplicialSurface, f::Abstra
     end
 end
 
+
+################################################################################################################################################
+###################################################### Simplicial Surface creation #############################################################
+################################################################################################################################################
+"""
+    random_cactus(n::Integer; colored::Bool=false)
+
+Construct a random combinatorial cactus consiisting of n tetrahedra. If colored is set to true, the cactus is colored.
+"""
 function random_cactus(n::Integer; colored::Bool=false)
     cactus = CombSimplicialSurface(verts=[1, 2, 3, 4], edges=[[1, 2], [2, 3], [3, 1], [1, 4], [2, 4], [3, 4]], facets=[[1, 2, 3], [4, 2, 1], [4, 3, 2], [1, 3, 4]])
     if colored
@@ -477,11 +467,78 @@ function random_cactus(n::Integer; colored::Bool=false)
     return cactus
 end
 
+
+"""
+    random_emb_cactus(n::Integer)
+
+Constraction of a random embedded cactus consisting of n tetrahedra.
+"""
 function random_emb_cactus(n::Integer)
     cactus = random_cactus(n)
 
     return SimplicialSurface(cactus)
 end
+
+
+"""
+    random_simplsphere(n::Integer)
+
+Construct a random simplicial sphere with n vertices. The sphere is constructed by starting with a tetrahedron and applying random butterfly insertions.
+"""
+function random_simplsphere(n::Integer)
+    sphere = CombSimplicialSurface(verts=[1, 2, 3, 4], edges=[[1, 2], [2, 3], [3, 1], [1, 4], [2, 4], [3, 4]], facets=[[1, 2, 3], [4, 2, 1], [4, 3, 2], [1, 3, 4]])
+    for _ in 1:n-4
+        v = rand(1:length(sphere.verts))
+        e1 = rand(incedges(sphere, v))
+        e2 = rand(setdiff(incedges(sphere, v), [e1]))
+        insert_butterfly!(sphere, e1, e2; is_oriented=true)
+    end
+
+    return sphere
+end
+
+
+"""
+    random_emb_simplsphere(n::Integer)
+
+Construct a random embedded simplicial sphere with n vertices. The sphere is constructed by starting with a tetrahedron and applying random butterfly insertions.
+"""
+random_emb_simplsphere(n::Integer) = SimplicialSurface(random_simplsphere(n))
+
+
+"""
+    double_ngon(n::Integer)
+
+Construct a combinatorial double ngon.
+"""
+function double_ngon(n::Integer)
+    north = n + 1
+    south = n + 2
+    equator_verts = collect(1:n)
+
+    faces = union(
+        [[north, i, mod1(i + 1, n)] for i in equator_verts],
+        [[south, i, mod1(i + 1, n)] for i in equator_verts]
+    )
+
+    return CombSimplicialSurface(facets=faces)
+end
+
+"""
+    emb_double_ngon(n::Integer)
+
+Construct an embedded double ngon. The equator edges lie on a circle in the xy-plane with edge lengths 1. Northpole is located at (0, 0, 1) and southpole at (0, 0, -1).
+"""
+function emb_double_ngon(n::Integer)
+    faces = get_facets(double_ngon(n))
+    theta = 2 * pi / n
+    r = 0.5 / sin(theta / 2)
+
+    verts = hcat([r * [cos(theta * i), sin(theta * i), 0] for i in 0:n-1]..., [0, 0, 1], [0, 0, -1])
+
+    return SimplicialSurface(verts=verts, facets=faces)
+end
+
 
 ################################################################################################################################################
 ###################################################### Coloured Simplicial Surfaces ############################################################
