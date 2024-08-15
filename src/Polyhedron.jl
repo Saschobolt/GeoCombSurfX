@@ -379,6 +379,9 @@ function orient_facets(poly::AbstractEmbOrCombPolyhedron; atol::Real=1e-8)
     return polycopy
 end
 
+# construct Graphs.SimpleGraph from AbstractEmbOrCombPolyhedron
+Graphs.SimpleGraph(poly::AbstractEmbOrCombPolyhedron) = Graphs.SimpleGraph(Graphs.Edge.(Tuple.(poly.edges)))
+
 ################################################################################################################################################
 ###################################################### Adjacency and incidence ######################################################
 ################################################################################################################################################
