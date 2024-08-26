@@ -54,7 +54,7 @@ export titest
 export rigidity_matrix, basis_inf_motions, is_infrigid, basis_inf_flex, index, is_genrigid, is_isostatic
 
 export BracketAlgebra, sizyges, Tabloid, is_standard, bracket_monomial, reduced_groebner_basis!
-export tiedown, condition
+export tiedown, condition, pure_condition3d
 
 include("affine_geometry.jl")
 include("polygonal_geometry.jl")

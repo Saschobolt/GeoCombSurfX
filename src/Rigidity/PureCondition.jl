@@ -197,3 +197,7 @@ function condition(poly::AbstractEmbOrCombPolyhedron, d::Integer=3; tiedown_vert
 
     return condition(g, d, tiedown_verts=tiedown_verts)
 end
+
+function pure_condition3d(surf::AbstractEmbOrCombSimplicialSurface)
+    return condition(surf, 3)
+end
