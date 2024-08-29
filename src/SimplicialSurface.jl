@@ -327,6 +327,70 @@ function insert_butterfly(surf::AbstractCombSimplicialSurface, edge1::AbstractVe
     return surf_copy
 end
 
+"""
+    contract_edge!(surf::AbstractCombSimplicialSurface, edge::AbstractVector{<:Integer})
+
+Contract an edge of the simplicial surface. The edge has to be a contractible edge, i.e. it has to be an interior edge of the surface 
+and the wingtips of the butterfly with edge as an interior edge must not be connected by an edge.
+If check is set to true, it is checked that edge is an edge of the surface.
+"""
+function contract_edge!(surf::AbstractCombSimplicialSurface, edge::AbstractVector{<:Integer}; check::Bool=true)
+    if check
+        @assert edge in get_edges(surf) || reverse(edge) in get_edges(surf) "edge has to be an edge of the surface, but got $(edge)."
+    end
+
+    v, w = sort(edge)
+
+    # get incident facets of edge
+    inc_facets = incfacets(surf, edge)
+
+    to_update = setdiff(union(incfacets(surf, v), incfacets(surf, w)), inc_facets)
+
+    # update facets
+    new_facets = map(f -> replace(f, w => v), to_update)
+
+    if length(unique(sort.(new_facets))) == length(new_facets)
+        # remove edge from surf
+        setdiff!(surf.edges, [edge, reverse(edge)])
+
+        # remove inc_facets from surf
+        setdiff!(surf.facets, inc_facets)
+
+        # remove to_update facets from surf and add new_facets
+        setdiff!(surf.facets, to_update)
+        append!(surf.facets, new_facets)
+
+        # identify vertices of edge for all edges
+        for e in surf.edges
+            replace!(e, w => v)
+        end
+
+        # update vertices so that vertices are labeled 1:n
+        vertexmap = x -> x > w ? x - 1 : x
+        surf.verts = collect(1:length(surf.verts)-1)
+        surf.edges = unique(sort.([vertexmap.(e) for e in surf.edges]))
+        surf.facets = [vertexmap.(f) for f in surf.facets]
+        set_halfedges!(surf; is_oriented=true)
+
+        return surf
+    end
+
+    error("$(edge) is not an contractible of the surface.")
+end
+
+"""
+    contract_edge(surf::AbstractCombSimplicialSurface, edge::AbstractVector{<:Integer})
+
+Contract an edge of the simplicial surface. The edge has to be a contractible edge, i.e. it has to be an interior edge of the surface 
+and the wingtips of the butterfly with edge as an interior edge must not be connected by an edge.
+"""
+function contract_edge(surf::AbstractCombSimplicialSurface, edge::AbstractVector{<:Integer})
+    surf_copy = deepcopy(surf)
+    contract_edge!(surf_copy, edge)
+
+    return surf_copy
+end
+
 # function isadjacent(surf::AbstractEmbOrCombSimplicialSurface, facetoredge::AbstractVector{<:Integer}, facet::AbstractVector{<:Integer}; check::Bool=true)
 #     if check
 #         @assert facetoredge in union(get_edges(surf), get_facets(surf)) || reverse(facetoredge) in union(get_edges(surf), get_facets(surf)) "facetoredge has to be an edge or facet of the surface, but got $(facetoredge)."
@@ -336,6 +400,11 @@ end
 #     return length(Base.intersect(facetoredge, facet)) == 2
 # end
 
+"""
+    edgeturn!(surf::AbstractEmbOrCombSimplicialSurface, e::AbstractVector{<:Integer})
+
+TBW
+"""
 function edgeturn!(surf::AbstractEmbOrCombSimplicialSurface, e::AbstractVector{<:Integer})
     if !(e in get_edges(surf) || reverse(e) in get_edges(surf))
         error("e has to be an edge of surf, but got $(e).")
