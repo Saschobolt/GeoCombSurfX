@@ -124,20 +124,32 @@ end
 # This is done by iterating Laplace expansion of the rigidity matrix of g by expanding aling the columns corresponding to the vertices.
 # The expansion can be read off the graph without actually constructing the rigidity matrix.
 # For reference see https://omni.wikiwand.com/en/articles/Laplace_expansion#General_statement 
-function condition(g::Graphs.SimpleDiGraph, B::BracketAlgebra)
+function condition(g::Graphs.SimpleDiGraph, B::BracketAlgebra; remaining_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing, tiedown_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing)
     d = B.d
 
-    if Graphs.ne(g) == 0
+    if isnothing(tiedown_verts)
+        tiedown_verts = filter(v -> length(Graphs.outneighbors(g, v)) == 0, Graphs.vertices(g))
+    end
+
+    if isnothing(remaining_verts)
+        remaining_verts = setdiff(Graphs.vertices(g), tiedown_verts)
+    end
+
+
+    if length(remaining_verts) == 0
         return 1
     end
 
-    relevant_verts = filter(v -> length(Graphs.outneighbors(g, v)) > 0, Graphs.vertices(g))
+    # if any vertex v has outdegree less than d, every d×d submatrix containing the columns corresponding to v has determinant zero.
+    if any(map(v -> length(Graphs.outneighbors(g, v)) < d, remaining_verts))
+        return 0
+    end
 
     # select the vertex with smallest defect: d - (outdegree - indegree).
-    (defect, i) = findmin(v -> d - (length(Graphs.outneighbors(g, v)) - length(Graphs.inneighbors(g, v))), relevant_verts)
-    v = relevant_verts[i]
+    (defect, i) = findmin(v -> d - (length(Graphs.outneighbors(g, v)) - length(Graphs.inneighbors(g, v))), remaining_verts)
+    v = remaining_verts[i]
 
-    if defect <= 0
+    if defect == 0
         # if defect == 0 that means the vertex with minimum defect satisfies (outdegree - indegree) = d. 
         # This means the rigidity matrix can be rearranged as a upper left triangular block matrix with a d×d block in the upper left corner. 
         # Thus, we get the determinant of the matrix by multiplying the determinant of this block with the determinant of the matrix after deleting rows and columns of the block.
@@ -147,7 +159,7 @@ function condition(g::Graphs.SimpleDiGraph, B::BracketAlgebra)
         edges = setdiff([Graphs.Edge(v, w) for w in Graphs.outneighbors(g, v)], [Graphs.Edge(v, w) for w in Graphs.inneighbors(g, v)])[1:d]
 
         # recursive call. The determinant of the rigiditymatrix is via Laplace: ± [v, e1_2, …, ed_2]  * (determinant of matrix after deleting rows corresponding to edges and columns corresponding to v)
-        return sign(g, v, edges, d) * bracket_monomial(Tabloid([pushfirst!([Graphs.dst(e) for e in edges], v)]), B) * condition(reduction(g, v, edges, d), B)
+        return sign(g, v, edges, d) * bracket_monomial(Tabloid([pushfirst!([Graphs.dst(e) for e in edges], v)]), B) * condition(reduction(g, v, edges, d), B; remaining_verts=setdiff(remaining_verts, [v]), tiedown_verts=tiedown_verts)
     elseif defect > 0
         # If defect > 0 the determinant has to be calculated using Laplace expansion that involve more than one nonzero summand. 
         # See Wikipedia article.
@@ -157,7 +169,7 @@ function condition(g::Graphs.SimpleDiGraph, B::BracketAlgebra)
 
         # recursive call for Laplace expansion
         sum_index = map(edges -> union(edges, edges_onlyout), combinations(edges_both, defect))
-        return sum(edges -> sign(g, v, edges, d) * bracket_monomial(Tabloid([pushfirst!([Graphs.dst(e) for e in edges], v)]), B) * condition(reduction(g, v, edges, d), B), sum_index)
+        return sum(edges -> sign(g, v, edges, d) * bracket_monomial(Tabloid([pushfirst!([Graphs.dst(e) for e in edges], v)]), B) * condition(reduction(g, v, edges, d), B; remaining_verts=setdiff(remaining_verts, [v]), tiedown_verts=tiedown_verts), sum_index)
     elseif defect < 0
         # If defect < 0 the determinant is zero as after Laplace expansion along the columns of v and d outedges of v, the matrix has a zero row.
         return 0
