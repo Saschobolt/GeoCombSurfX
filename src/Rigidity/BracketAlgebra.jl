@@ -1,15 +1,16 @@
-mutable struct BracketAlgebra
+abstract type AbstractBracketAlgebra <: Nemo.Ring end
+
+mutable struct BracketAlgebra <: AbstractBracketAlgebra
     d::Int
     n::Int
     R::QQMPolyRing
-    x::Vector{Nemo.QQMPolyRingElem}
-    variable_dict::Dict{Vector{Int},Nemo.QQMPolyRingElem}
+    variables::Dict{Vector{Int},Nemo.QQMPolyRingElem}
     ordering::DegRevLex{QQMPolyRingElem}
     groebner_basis::Union{Nothing,Vector{Nemo.QQMPolyRingElem}}
 
-    function BracketAlgebra(d, n)
-        variables = Nemo.AbstractAlgebra.variable_names(:x => combinations(1:n, d + 1))
-        R, x = polynomial_ring(QQ, variables)
+    function BracketAlgebra(n, d)
+        vars = Nemo.AbstractAlgebra.variable_names(:x => combinations(1:n, d + 1))
+        R, x = polynomial_ring(QQ, vars; internal_ordering=:degrevlex)
         variable_dict = Dict{Vector{Int},typeof(x[1])}()
 
         for (i, bracket) in enumerate(combinations(1:n, d + 1))
@@ -18,12 +19,12 @@ mutable struct BracketAlgebra
 
         ordering = Groebner.DegRevLex(x)
 
-        return new(d, n, R, x, variable_dict, ordering, nothing)
+        return new(d, n, R, variable_dict, ordering, nothing)
     end
 end
 
 function BracketAlgebra(g::Graphs.AbstractSimpleGraph, d::Integer=2)
-    return BracketAlgebra(d, Graphs.nv(g))
+    return BracketAlgebra(Graphs.nv(g), d)
 end
 
 function BracketAlgebra(poly::AbstractEmbOrCombPolyhedron, d::Integer=3)
@@ -37,8 +38,7 @@ function sizyges(B::BracketAlgebra)
     n = B.n
     d = B.d
     R = B.R
-    x = B.x
-    variable_dict = B.variable_dict
+    variable_dict = B.variables
 
     function sign(λ::AbstractVector{<:Integer}, k)
         # Sturmfels p.79
@@ -117,7 +117,7 @@ function is_standard(t::Tabloid)
 end
 
 function bracket_monomial(t::Tabloid, B::BracketAlgebra)
-    return prod(B.variable_dict[row] for row in t.rows)
+    return prod(B.variables[row] for row in t.rows)
 end
 
 function nonstandard_tabloids(B::BracketAlgebra)
@@ -144,3 +144,87 @@ function reduced_groebner_basis!(B::BracketAlgebra)
     B.groebner_basis = reduced
     return reduced
 end
+
+abstract type AbstractBracketAlgebraElem end
+
+mutable struct BracketAlgebraElem <: AbstractBracketAlgebraElem
+    parent::BracketAlgebra
+    polynomial::Nemo.QQMPolyRingElem
+end
+
+# function Base.display(b::BracketAlgebraElem)
+#     exponents = Nemo.exponent_vectors(b)
+#     str = ""
+
+#     for (i, exp) in enumerate(exponents)
+#         coeff = Nemo.coeff(b, i)
+
+#         if Nemo.sign(coeff) == -1
+#             str = str * " - "
+#         elseif i > 1
+#             str = str * " + "
+#         end
+
+#         if !(coeff in [Nemo.one(Nemo.base_ring(b)), -Nemo.one(Nemo.base_ring(b))])
+#             str = str * "$coeff"
+#         end
+
+#         for (j, val) in enumerate(exp)
+#             if val == 0
+#                 continue
+#             elseif val == 1
+#                 str = str * "$(collect(keys(parent(b).variables))[j])"
+#             else
+#                 str = str * "$(collect(keys(parent(b).variables))[j])" * "^$val"
+#             end
+#         end
+#     end
+
+#     display(str)
+# end
+
+Base.display(b::BracketAlgebraElem) = display(b.polynomial)
+
+Base.parent(b::BracketAlgebraElem) = b.parent
+Nemo.elem_type(::BracketAlgebra) = BracketAlgebraElem
+Nemo.parent_type(::BracketAlgebraElem) = BracketAlgebra
+Nemo.base_ring(b::BracketAlgebraElem) = Nemo.base_ring(Base.parent(b).R)
+Nemo.base_ring(B::BracketAlgebra) = Nemo.base_ring(B.R)
+
+Base.one(B::BracketAlgebra) = BracketAlgebraElem(B, Base.one(B.R))
+Base.zero(B::BracketAlgebra) = BracketAlgebraElem(B, Base.zero(B.R))
+(B::BracketAlgebra)(A::Vector{T}, m::Vector{Vector{Int}}) where {T<:Nemo.RingElem} = BracketAlgebraElem(B, B.R(A, m))
+(B::BracketAlgebra)(p::Nemo.MPolyRingElem) = BracketAlgebraElem(B, p)
+
+# Bracket expression from array: B([1,2,3,4]) = [1,2,3,4]
+(B::BracketAlgebra)(bracket::Vector{<:Integer}) = length(unique(bracket)) == length(bracket) ? BracketAlgebraElem(B, B.variables[sort(bracket)]) : zero(B)
+
+# Bracket polynomial from array of array of arrays. They encode the bracket polynomial as a sum of monomials. B([[[1,2], [3,4]], [2,3]]) = [1,2]*[3,4] + [2,3]
+(B::BracketAlgebra)(A::Vector{<:Vector{<:Vector{<:Integer}}}) = sum(prod(B(bracket) for bracket in monomial) for monomial in A)
+
+Nemo.length(b::BracketAlgebraElem) = Nemo.length(b.polynomial)
+Nemo.degrees(b::BracketAlgebraElem) = Nemo.degrees(b.polynomial)
+Nemo.total_degree(b::BracketAlgebraElem) = Nemo.total_degree(b.polynomial)
+Nemo.coefficients(b::BracketAlgebraElem) = Nemo.coefficients(b.polynomial)
+Nemo.monomials(b::BracketAlgebraElem) = (parent(b)(p) for p in Nemo.monomials(b.polynomial))
+Nemo.terms(b::BracketAlgebraElem) = (parent(b)(p) for p in Nemo.terms(b.polynomial))
+Nemo.exponent_vectors(b::BracketAlgebraElem) = Nemo.exponent_vectors(b.polynomial)
+Nemo.coeff(b::BracketAlgebraElem, n::Int) = Nemo.coeff(b.polynomial, n)
+Nemo.coeff(b::BracketAlgebraElem, exps::Vector{Int}) = Nemo.coeff(b.polynomial, exps)
+Nemo.monomial(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.monomial(b.polynomial, n))
+Nemo.term(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.term(b.polynomial, n))
+
+# return all brackets that appear in b as arrays
+brackets(b::BracketAlgebraElem) = collect(keys(parent(b).variables))[sum(Nemo.exponent_vectors(b)).>0]
+
+
+Base.:*(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial * b.polynomial)
+Base.:+(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial + b.polynomial)
+Base.:-(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial - b.polynomial)
+Base.:-(b::BracketAlgebraElem) = BracketAlgebraElem(b.parent, -b.polynomial)
+Base.:^(b::BracketAlgebraElem, n::Int) = BracketAlgebraElem(b.parent, b.polynomial^n)
+
+
+# function evaluate(b::BracketAlgebraElem, coordinization::Vector{<:Nemo.RingElem})
+
+# end
