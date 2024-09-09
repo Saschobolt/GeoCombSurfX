@@ -40,7 +40,7 @@ export halfedge, halfedges, set_halfedges!, get_verts, set_verts!, set_edges!, g
 
 export AbstractCombSimplicialSurface, AbstractSimplicialSurface, AbstractEmbOrCombSimplicialSurface, AbstractColoredSimplicialSurface
 export CombSimplicialSurface, SimplicialSurface, ColoredSimplicialSurface
-export vertex_degree, characterictic, iscactus, is_SimplicialSurface, set_facets!, remove_vertex!, insert_butterfly!, insert_butterfly, contract_edge!, contract_edge, random_simplsphere, random_emb_simplsphere, edgeturn!, edgeturn, remove_tetrahedron!, append_tetrahedron!, random_cactus, random_emb_cactus, double_ngon, emb_double_ngon
+export vertex_degree, characterictic, iscactus, is_SimplicialSurface, set_facets!, remove_vertex!, insert_butterfly!, insert_butterfly, is_contractible, contract_edge!, contract_edge, random_simplsphere, random_emb_simplsphere, edgeturn!, edgeturn, remove_tetrahedron!, append_tetrahedron!, random_cactus, random_emb_cactus, double_ngon, emb_double_ngon
 export colors, color, colortype, congruencetypes, is_congcolored, edge_type, is_tamecolored
 
 export merge!, merge # merge and merge! are also exported by Base

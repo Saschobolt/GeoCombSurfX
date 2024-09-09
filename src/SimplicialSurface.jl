@@ -322,9 +322,29 @@ Insert a butterfly along the vertex edge path described by edge1 and edge2. If i
 """
 function insert_butterfly(surf::AbstractCombSimplicialSurface, edge1::AbstractVector{<:Integer}, edge2::AbstractVector{<:Integer}; is_oriented::Bool=false)
     surf_copy = deepcopy(surf)
-    insert_butterfly!(surf_copy, edge1, edge2, is_oriented=is_oriented, update_he=true)
+    insert_butterfly!(surf_copy, edge1, edge2, is_oriented=is_oriented)
 
     return surf_copy
+end
+
+"""
+    is_contractible(surf::AbstractEmbOrCombSimplicialSurface, edge::AbstractVector{<:Integer}; check::Bool = true)
+
+Returns whether the edge edge of the simplicial surface surf is contractible, i.e. it is an interior edge of the surface and the wingtips of the butterfly with edge as an interior edge are not connected by an edge.
+If check is set to true, it is checked that edge is an edge of the surface.
+"""
+function is_contractible(surf::AbstractEmbOrCombSimplicialSurface, edge::AbstractVector{<:Integer}; check::Bool=true)
+    if check
+        @assert edge in get_edges(surf) || reverse(edge) in get_edges(surf) "edge has to be an edge of the surface, but got $(edge)."
+    end
+
+    v, w = sort(edge)
+
+    # get incident facets of edge
+    inc_facets = incfacets(surf, edge)
+
+    return !any(length(Base.intersect(f1, f2)) >= 2 for f1 in setdiff(incfacets(surf, v), inc_facets) for f2 in setdiff(incfacets(surf, w), inc_facets))
+
 end
 
 """
@@ -335,47 +355,33 @@ and the wingtips of the butterfly with edge as an interior edge must not be conn
 If check is set to true, it is checked that edge is an edge of the surface.
 """
 function contract_edge!(surf::AbstractCombSimplicialSurface, edge::AbstractVector{<:Integer}; check::Bool=true)
-    if check
-        @assert edge in get_edges(surf) || reverse(edge) in get_edges(surf) "edge has to be an edge of the surface, but got $(edge)."
-    end
-
     v, w = sort(edge)
 
     # get incident facets of edge
     inc_facets = incfacets(surf, edge)
 
-    to_update = setdiff(union(incfacets(surf, v), incfacets(surf, w)), inc_facets)
+    @assert is_contractible(surf, edge, check=check) "edge is not contractible as an incident facet of vertex $v and an incident facet of vertex $w share an edge."
 
     # update facets
-    new_facets = map(f -> replace(f, w => v), to_update)
+    setdiff!(surf.facets, inc_facets)
+    surf.facets = map(f -> replace(f, w => v), surf.facets)
 
-    if length(unique(sort.(new_facets))) == length(new_facets)
-        # remove edge from surf
-        setdiff!(surf.edges, [edge, reverse(edge)])
+    # remove edge from surf
+    setdiff!(surf.edges, [edge, reverse(edge)])
 
-        # remove inc_facets from surf
-        setdiff!(surf.facets, inc_facets)
-
-        # remove to_update facets from surf and add new_facets
-        setdiff!(surf.facets, to_update)
-        append!(surf.facets, new_facets)
-
-        # identify vertices of edge for all edges
-        for e in surf.edges
-            replace!(e, w => v)
-        end
-
-        # update vertices so that vertices are labeled 1:n
-        vertexmap = x -> x > w ? x - 1 : x
-        surf.verts = collect(1:length(surf.verts)-1)
-        surf.edges = unique(sort.([vertexmap.(e) for e in surf.edges]))
-        surf.facets = [vertexmap.(f) for f in surf.facets]
-        set_halfedges!(surf; is_oriented=true)
-
-        return surf
+    # identify vertices of edge for all edges
+    for e in surf.edges
+        replace!(e, w => v)
     end
 
-    error("$(edge) is not an contractible of the surface.")
+    # update vertices so that vertices are labeled 1:n
+    vertexmap = x -> x > w ? x - 1 : x
+    surf.verts = collect(1:length(surf.verts)-1)
+    surf.edges = unique(sort.([vertexmap.(e) for e in surf.edges]))
+    surf.facets = [vertexmap.(f) for f in surf.facets]
+    set_halfedges!(surf; is_oriented=false)
+
+    return surf
 end
 
 """
