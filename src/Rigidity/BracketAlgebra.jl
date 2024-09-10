@@ -12,7 +12,6 @@ mutable struct BracketAlgebra{T<:Union{Nemo.RingElem,Number}} <: AbstractBracket
         S = Nemo.parent_type(T)
         vars = Nemo.AbstractAlgebra.variable_names(:x => combinations(1:n, d + 1))
         R, x = Nemo.polynomial_ring(S(), vars; internal_ordering=:degrevlex)
-        display(typeof(R))
         variable_dict = Dict{Vector{Int},typeof(x[1])}()
 
         for (i, bracket) in enumerate(combinations(1:n, d + 1))
@@ -154,38 +153,38 @@ mutable struct BracketAlgebraElem{T<:Union{Nemo.RingElem,Number}} <: AbstractBra
     polynomial::Nemo.MPolyRingElem{T}
 end
 
-# function Base.display(b::BracketAlgebraElem)
-#     exponents = Nemo.exponent_vectors(b)
-#     str = ""
+function display(b::BracketAlgebraElem)
+    exponents = Nemo.exponent_vectors(b)
+    str = ""
 
-#     for (i, exp) in enumerate(exponents)
-#         coeff = Nemo.coeff(b, i)
+    for (i, exp) in enumerate(exponents)
+        coeff = Nemo.coeff(b, i)
 
-#         if Nemo.sign(coeff) == -1
-#             str = str * " - "
-#         elseif i > 1
-#             str = str * " + "
-#         end
+        if Nemo.sign(coeff) == -1
+            str = str * " - "
+        elseif i > 1
+            str = str * " + "
+        end
 
-#         if !(coeff in [Nemo.one(Nemo.base_ring(b)), -Nemo.one(Nemo.base_ring(b))])
-#             str = str * "$coeff"
-#         end
+        if !(coeff in [Nemo.one(Nemo.base_ring(b)), -Nemo.one(Nemo.base_ring(b))])
+            str = str * "$coeff"
+        end
 
-#         for (j, val) in enumerate(exp)
-#             if val == 0
-#                 continue
-#             elseif val == 1
-#                 str = str * "$(collect(keys(parent(b).variables))[j])"
-#             else
-#                 str = str * "$(collect(keys(parent(b).variables))[j])" * "^$val"
-#             end
-#         end
-#     end
+        for (j, val) in enumerate(exp)
+            if val == 0
+                continue
+            elseif val == 1
+                str = str * "$(sort(collect(keys(parent(b).variables)))[j])"
+            else
+                str = str * "$(sort(collect(keys(parent(b).variables)))[j])" * "^$val"
+            end
+        end
+    end
 
-#     display(str)
-# end
+    println(str)
+end
 
-display(b::BracketAlgebraElem) = display(b.polynomial)
+# display(b::BracketAlgebraElem) = display(b.polynomial)
 
 Base.parent(b::BracketAlgebraElem) = b.parent
 Nemo.elem_type(::BracketAlgebra) = BracketAlgebraElem
@@ -215,6 +214,8 @@ Nemo.coeff(b::BracketAlgebraElem, n::Int) = Nemo.coeff(b.polynomial, n)
 Nemo.coeff(b::BracketAlgebraElem, exps::Vector{Int}) = Nemo.coeff(b.polynomial, exps)
 Nemo.monomial(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.monomial(b.polynomial, n))
 Nemo.term(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.term(b.polynomial, n))
+
+Nemo.factor(b::BracketAlgebraElem) = Nemo.factor(b.polynomial)
 
 # return all brackets that appear in b as arrays
 brackets(b::BracketAlgebraElem) = sort(collect(keys(parent(b).variables)))[sum(Nemo.exponent_vectors(b)).>0]
