@@ -5,22 +5,23 @@ mutable struct BracketAlgebra{T<:Union{Nemo.RingElem,Number}} <: AbstractBracket
     n::Int
     R::Nemo.MPolyRing{T}
     variables::Dict{Vector{Int},<:Nemo.MPolyRingElem{T}}
-    ordering::DegRevLex{<:Nemo.MPolyRingElem{T}}
-    groebner_basis::Union{Nothing,Vector{<:Nemo.MPolyRingElem{T}}}
+    # ordering::DegRevLex{<:Nemo.MPolyRingElem{T}}
+    # groebner_basis::Union{Nothing,Vector{<:Nemo.MPolyRingElem{T}}}
 
     function BracketAlgebra(n, d, T::Type=Nemo.ZZRingElem)
         S = Nemo.parent_type(T)
-        vars = Nemo.AbstractAlgebra.variable_names(:x => combinations(1:n, d + 1))
-        R, x = Nemo.polynomial_ring(S(), vars; internal_ordering=:degrevlex)
+        brackets = reverse(collect(combinations(1:n, d + 1)))
+        vars = Nemo.AbstractAlgebra.variable_names("x#" => brackets)
+        R, x = Nemo.polynomial_ring(S(), vars; internal_ordering=:lex)
         variable_dict = Dict{Vector{Int},typeof(x[1])}()
 
-        for (i, bracket) in enumerate(combinations(1:n, d + 1))
+        for (i, bracket) in enumerate(brackets)
             variable_dict[bracket] = x[i]
         end
 
-        ordering = Groebner.DegRevLex(x)
+        # ordering = Groebner.DegRevLex(x)
 
-        return new{Nemo.elem_type(S)}(d, n, R, variable_dict, ordering, nothing)
+        return new{Nemo.elem_type(S)}(d, n, R, variable_dict)
     end
 end
 
@@ -32,119 +33,119 @@ function BracketAlgebra(poly::AbstractEmbOrCombPolyhedron, d::Integer=3, T::Type
     return BracketAlgebra(Graphs.SimpleGraph(poly), d, T)
 end
 
-function sizyges(B::BracketAlgebra)
-    # Sturmfels: Algorithms in invariant theory p.81 & p.84 exercise 3
-    # in Sturmfels d is length of brackets, for us it is dimension. So every d in Sturmfels needs to be substituted by d+1
+# function sizyges(B::BracketAlgebra)
+#     # Sturmfels: Algorithms in invariant theory p.81 & p.84 exercise 3
+#     # in Sturmfels d is length of brackets, for us it is dimension. So every d in Sturmfels needs to be substituted by d+1
 
-    n = B.n
-    d = B.d
-    R = B.R
-    variable_dict = B.variables
+#     n = B.n
+#     d = B.d
+#     R = B.R
+#     variable_dict = B.variables
 
-    function sign(λ::AbstractVector{<:Integer}, k)
-        # Sturmfels p.79
-        λ_ast = setdiff(collect(1:k), λ)
-        perm = Perm(vcat(λ, λ_ast))^(-1)
-        return Nemo.AbstractAlgebra.sign(perm)
-    end
+#     function sign(λ::AbstractVector{<:Integer}, k)
+#         # Sturmfels p.79
+#         λ_ast = setdiff(collect(1:k), λ)
+#         perm = Perm(vcat(λ, λ_ast))^(-1)
+#         return Nemo.AbstractAlgebra.sign(perm)
+#     end
 
-    function summand(α, β, γ, τ)
-        τ_ast = setdiff(collect(1:d+2), τ)
-        if length(unique(vcat(α, β[τ_ast]))) < length(vcat(α, β[τ_ast]))
-            return 0
-        elseif length(unique(vcat(β[τ], γ))) < length(vcat(β[τ], γ))
-            return 0
-        end
+#     function summand(α, β, γ, τ)
+#         τ_ast = setdiff(collect(1:d+2), τ)
+#         if length(unique(vcat(α, β[τ_ast]))) < length(vcat(α, β[τ_ast]))
+#             return 0
+#         elseif length(unique(vcat(β[τ], γ))) < length(vcat(β[τ], γ))
+#             return 0
+#         end
 
-        return sign(τ, d + 2) * variable_dict[sort(vcat(α, β[τ_ast]))] * variable_dict[sort(vcat(β[τ], γ))]
-    end
+#         return sign(τ, d + 2) * variable_dict[sort(vcat(α, β[τ_ast]))] * variable_dict[sort(vcat(β[τ], γ))]
+#     end
 
-    if d <= 2
-        s = 1
+#     if d <= 2
+#         s = 1
 
-        return (sum(τ -> summand(α, β, γ, τ), combinations(1:d+2, s)) for α in combinations(1:n, s - 1), β in combinations(1:n, d + 2), γ in combinations(1:n, d + 1 - s) if (α <= β && (length(α) > 0 ? α[end] < β[s+1] : true) && (β[s] < γ[1])))
-    end
+#         return (sum(τ -> summand(α, β, γ, τ), combinations(1:d+2, s)) for α in combinations(1:n, s - 1), β in combinations(1:n, d + 2), γ in combinations(1:n, d + 1 - s) if (α <= β && (length(α) > 0 ? α[end] < β[s+1] : true) && (β[s] < γ[1])))
+#     end
 
-    return (sum(τ -> summand(α, β, γ, τ), combinations(1:d+2, s)) for s in 1:d for α in combinations(1:n, s - 1), β in combinations(1:n, d + 2), γ in combinations(1:n, d + 1 - s) if (α <= β && (length(α) > 0 ? α[end] < β[s+1] : true) && (β[s] < γ[1])))
-end
-
-function sizyges_vector(B)
-    vec = collect(sizyges(B))
-    filter!(x -> x != 0, vec)
-    vec = leading_coefficient.(vec) .^ (-1) .* vec
-    unique!(vec)
-    return vec
-end
-
-mutable struct Tabloid{T<:Integer}
-    rows::Vector{Vector{T}}
-
-    function Tabloid(rows::AbstractVector{<:AbstractVector{T}}) where {T<:Integer}
-        @assert all(length(rows[1]) == length(row) for row in rows)
-        return new{T}(sort(sort.(rows)))
-    end
-end
-
-function Matrix(t::Tabloid)
-    return transpose(hcat(t.rows...))
-end
-
-# function Base.show(io::IO, t::Tabloid)
-#     println(io, "Tabloid with $(length(t.rows)) rows and matrix")
-#     show(io, Matrix(t))
+#     return (sum(τ -> summand(α, β, γ, τ), combinations(1:d+2, s)) for s in 1:d for α in combinations(1:n, s - 1), β in combinations(1:n, d + 2), γ in combinations(1:n, d + 1 - s) if (α <= β && (length(α) > 0 ? α[end] < β[s+1] : true) && (β[s] < γ[1])))
 # end
 
-# function Base.show(io::IO, ::MIME"text/plain", t::Tabloid)
-#     println(io, "Tabloid with $(length(t.rows)) rows and matrix")
-#     display(Matrix(t))
+# function sizyges_vector(B)
+#     vec = collect(sizyges(B))
+#     filter!(x -> x != 0, vec)
+#     vec = leading_coefficient.(vec) .^ (-1) .* vec
+#     unique!(vec)
+#     return vec
 # end
 
-function Base.vcat(t::Tabloid...)
-    return Tabloid(vcat([t[i].rows for i in 1:length(t)]...))
-end
+# mutable struct Tabloid{T<:Integer}
+#     rows::Vector{Vector{T}}
 
-function is_standard(t::Tabloid)
-    # tabloid is standard, if the entries in each column are increasing
-    mat = Matrix(t)
+#     function Tabloid(rows::AbstractVector{<:AbstractVector{T}}) where {T<:Integer}
+#         @assert all(length(rows[1]) == length(row) for row in rows)
+#         return new{T}(sort(sort.(rows)))
+#     end
+# end
 
-    for i in 1:size(mat, 2)
-        col = mat[:, i]
-        if any(col[1:end-1] .> col[2:end])
-            return false
-        end
-    end
+# function Matrix(t::Tabloid)
+#     return transpose(hcat(t.rows...))
+# end
 
-    return true
-end
+# # function Base.show(io::IO, t::Tabloid)
+# #     println(io, "Tabloid with $(length(t.rows)) rows and matrix")
+# #     show(io, Matrix(t))
+# # end
 
-function bracket_monomial(t::Tabloid, B::BracketAlgebra)
-    return prod(B.variables[row] for row in t.rows)
-end
+# # function Base.show(io::IO, ::MIME"text/plain", t::Tabloid)
+# #     println(io, "Tabloid with $(length(t.rows)) rows and matrix")
+# #     display(Matrix(t))
+# # end
 
-function nonstandard_tabloids(B::BracketAlgebra)
-    d = B.d
-    n = B.n
-    return (Tabloid([row1, row2]) for row1 in combinations(1:n, d + 1), row2 in combinations(1:n, d + 1) if (row1 < row2 && !is_standard(Tabloid([row1, row2]))))
-end
+# function Base.vcat(t::Tabloid...)
+#     return Tabloid(vcat([t[i].rows for i in 1:length(t)]...))
+# end
 
-function reduced_groebner_basis!(B::BracketAlgebra)
-    if !isnothing(B.groebner_basis)
-        return B.groebner_basis
-    end
+# function is_standard(t::Tabloid)
+#     # tabloid is standard, if the entries in each column are increasing
+#     mat = Matrix(t)
 
-    basis = sizyges_vector(B)
-    tobereduced = [bracket_monomial(t, B) for t in collect(nonstandard_tabloids(B))]
+#     for i in 1:size(mat, 2)
+#         col = mat[:, i]
+#         if any(col[1:end-1] .> col[2:end])
+#             return false
+#         end
+#     end
 
-    if length(tobereduced) == 0
-        return basis
-    end
+#     return true
+# end
 
-    reduced = tobereduced .- Groebner.normalform(basis, tobereduced, ordering=B.ordering)
-    filter!(b -> b != 0, reduced)
+# function bracket_monomial(t::Tabloid, B::BracketAlgebra)
+#     return prod(B.variables[row] for row in t.rows)
+# end
 
-    B.groebner_basis = reduced
-    return reduced
-end
+# function nonstandard_tabloids(B::BracketAlgebra)
+#     d = B.d
+#     n = B.n
+#     return (Tabloid([row1, row2]) for row1 in combinations(1:n, d + 1), row2 in combinations(1:n, d + 1) if (row1 < row2 && !is_standard(Tabloid([row1, row2]))))
+# end
+
+# function reduced_groebner_basis!(B::BracketAlgebra)
+#     if !isnothing(B.groebner_basis)
+#         return B.groebner_basis
+#     end
+
+#     basis = sizyges_vector(B)
+#     tobereduced = [bracket_monomial(t, B) for t in collect(nonstandard_tabloids(B))]
+
+#     if length(tobereduced) == 0
+#         return basis
+#     end
+
+#     reduced = tobereduced .- Groebner.normalform(basis, tobereduced, ordering=B.ordering)
+#     filter!(b -> b != 0, reduced)
+
+#     B.groebner_basis = reduced
+#     return reduced
+# end
 
 abstract type AbstractBracketAlgebraElem end
 
@@ -174,9 +175,9 @@ function display(b::BracketAlgebraElem)
             if val == 0
                 continue
             elseif val == 1
-                str = str * "$(sort(collect(keys(parent(b).variables)))[j])"
+                str = str * "$(sort(collect(keys(parent(b).variables)), rev = true)[j])"
             else
-                str = str * "$(sort(collect(keys(parent(b).variables)))[j])" * "^$val"
+                str = str * "$(sort(collect(keys(parent(b).variables)), rev = true)[j])" * "^$val"
             end
         end
     end
@@ -198,7 +199,7 @@ Nemo.zero(B::BracketAlgebra) = BracketAlgebraElem(B, zero(B.R))
 (B::BracketAlgebra)(p::Nemo.MPolyRingElem) = BracketAlgebraElem(B, p)
 
 # Bracket expression from array: B([1,2,3,4]) = [1,2,3,4]
-(B::BracketAlgebra)(bracket::Vector{<:Integer}) = length(unique(bracket)) == length(bracket) ? BracketAlgebraElem(B, B.variables[sort(bracket)]) : zero(B)
+(B::BracketAlgebra)(bracket::Vector{<:Integer}) = length(unique(bracket)) == length(bracket) ? Nemo.sign(Nemo.Perm(Int.(indexin(bracket, sort(bracket)))))BracketAlgebraElem(B, B.variables[sort(bracket)]) : zero(B)
 
 # Bracket polynomial from array of array of arrays. They encode the bracket polynomial as a sum of monomials. B([[[1,2], [3,4]], [2,3]]) = [1,2]*[3,4] + [2,3]
 (B::BracketAlgebra)(A::Vector{<:Vector{<:Vector{<:Integer}}}) = sum(prod(B(bracket) for bracket in monomial) for monomial in A)
@@ -214,18 +215,23 @@ Nemo.coeff(b::BracketAlgebraElem, n::Int) = Nemo.coeff(b.polynomial, n)
 Nemo.coeff(b::BracketAlgebraElem, exps::Vector{Int}) = Nemo.coeff(b.polynomial, exps)
 Nemo.monomial(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.monomial(b.polynomial, n))
 Nemo.term(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.term(b.polynomial, n))
+Nemo.leading_term(b::BracketAlgebraElem) = parent(b)(Nemo.leading_term(b.polynomial))
+Nemo.leading_monomial(b::BracketAlgebraElem) = parent(b)(Nemo.leading_monomial(b.polynomial))
+Nemo.leading_coefficient(b::BracketAlgebraElem) = Nemo.leading_coefficient(b.polynomial)
 
 Nemo.factor(b::BracketAlgebraElem) = Nemo.factor(b.polynomial)
 
 # return all brackets that appear in b as arrays
-brackets(b::BracketAlgebraElem) = sort(collect(keys(parent(b).variables)))[sum(Nemo.exponent_vectors(b)).>0]
+brackets(b::BracketAlgebraElem) = sort(collect(keys(parent(b).variables)), rev=true)[sum(Nemo.exponent_vectors(b)).>0]
 
-
+Base.:*(n::Integer, b::BracketAlgebraElem) = BracketAlgebraElem(b.parent, n * b.polynomial)
 Base.:*(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial * b.polynomial)
 Base.:+(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial + b.polynomial)
 Base.:-(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial - b.polynomial)
 Base.:-(b::BracketAlgebraElem) = BracketAlgebraElem(b.parent, -b.polynomial)
 Base.:^(b::BracketAlgebraElem, n::Int) = BracketAlgebraElem(b.parent, b.polynomial^n)
+Base.:>(a::BracketAlgebraElem, b::BracketAlgebraElem) = a.polynomial > b.polynomial
+Base.:<(a::BracketAlgebraElem, b::BracketAlgebraElem) = a.polynomial < b.polynomial
 
 function Nemo.evaluate(b::BracketAlgebraElem{T}, A::Vector{T}) where {T<:Union{Nemo.RingElem,Number}}
     Nemo.evaluate(b.polynomial, A)
@@ -237,6 +243,15 @@ end
 
 function Nemo.evaluate(b::BracketAlgebraElem{T}, coordinization::AbstractMatrix{<:Union{Nemo.RingElem,Number}}) where {T<:Union{Nemo.RingElem,Number}}
     bracks = brackets(b)
-    A = map(x -> x in bracks ? Nemo.det(T.(hcat(transpose(coordinization[:, x]), ones(parent(b).d + 1, 1)))) : 0, collect(keys(parent(b).variables)))
+    A = map(x -> x in bracks ? Nemo.det(T.(hcat(transpose(coordinization[:, x]), ones(parent(b).d + 1, 1)))) : 0, sort(collect(keys(parent(b).variables)), rev=true))
     Nemo.evaluate(b.polynomial, A)
+end
+
+function straightening_sizyge(α::Vector{<:Integer}, β::Vector{<:Integer}, γ::Vector{<:Integer}, B::BracketAlgebra)
+    s = length(α) + 1
+    d = B.d
+    @assert length(β) == d + 2 "β needs to have length d + 2, but got $(length(β))."
+    @assert length(γ) == d + 1 - s "γ needs to have length d + 1 - s, but got $(length(γ))."
+
+    return sum(Nemo.sign(Nemo.Perm(vcat(setdiff(collect(1:d+2), τ), τ))) * B(vcat(α, β[setdiff(collect(1:d+2), τ)])) * B(vcat(β[τ], γ)) for τ in combinations(1:d+2, s))
 end
