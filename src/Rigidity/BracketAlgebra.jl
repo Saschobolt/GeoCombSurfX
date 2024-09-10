@@ -1,16 +1,18 @@
 abstract type AbstractBracketAlgebra <: Nemo.Ring end
 
-mutable struct BracketAlgebra <: AbstractBracketAlgebra
+mutable struct BracketAlgebra{T<:Union{Nemo.RingElem,Number}} <: AbstractBracketAlgebra
     d::Int
     n::Int
-    R::QQMPolyRing
-    variables::Dict{Vector{Int},Nemo.QQMPolyRingElem}
-    ordering::DegRevLex{QQMPolyRingElem}
-    groebner_basis::Union{Nothing,Vector{Nemo.QQMPolyRingElem}}
+    R::Nemo.MPolyRing{T}
+    variables::Dict{Vector{Int},<:Nemo.MPolyRingElem{T}}
+    ordering::DegRevLex{<:Nemo.MPolyRingElem{T}}
+    groebner_basis::Union{Nothing,Vector{<:Nemo.MPolyRingElem{T}}}
 
-    function BracketAlgebra(n, d)
+    function BracketAlgebra(n, d, T::Type=Nemo.ZZRingElem)
+        S = Nemo.parent_type(T)
         vars = Nemo.AbstractAlgebra.variable_names(:x => combinations(1:n, d + 1))
-        R, x = polynomial_ring(QQ, vars; internal_ordering=:degrevlex)
+        R, x = Nemo.polynomial_ring(S(), vars; internal_ordering=:degrevlex)
+        display(typeof(R))
         variable_dict = Dict{Vector{Int},typeof(x[1])}()
 
         for (i, bracket) in enumerate(combinations(1:n, d + 1))
@@ -19,16 +21,16 @@ mutable struct BracketAlgebra <: AbstractBracketAlgebra
 
         ordering = Groebner.DegRevLex(x)
 
-        return new(d, n, R, variable_dict, ordering, nothing)
+        return new{Nemo.elem_type(S)}(d, n, R, variable_dict, ordering, nothing)
     end
 end
 
-function BracketAlgebra(g::Graphs.AbstractSimpleGraph, d::Integer=2)
-    return BracketAlgebra(Graphs.nv(g), d)
+function BracketAlgebra(g::Graphs.AbstractSimpleGraph, d::Integer=2, T::Type=Nemo.ZZRingElem)
+    return BracketAlgebra(Graphs.nv(g), d, T)
 end
 
-function BracketAlgebra(poly::AbstractEmbOrCombPolyhedron, d::Integer=3)
-    return BracketAlgebra(Graphs.SimpleGraph(poly), d)
+function BracketAlgebra(poly::AbstractEmbOrCombPolyhedron, d::Integer=3, T::Type=Nemo.ZZRingElem)
+    return BracketAlgebra(Graphs.SimpleGraph(poly), d, T)
 end
 
 function sizyges(B::BracketAlgebra)
@@ -147,9 +149,9 @@ end
 
 abstract type AbstractBracketAlgebraElem end
 
-mutable struct BracketAlgebraElem <: AbstractBracketAlgebraElem
-    parent::BracketAlgebra
-    polynomial::Nemo.QQMPolyRingElem
+mutable struct BracketAlgebraElem{T<:Union{Nemo.RingElem,Number}} <: AbstractBracketAlgebraElem
+    parent::BracketAlgebra{T}
+    polynomial::Nemo.MPolyRingElem{T}
 end
 
 # function Base.display(b::BracketAlgebraElem)
@@ -183,7 +185,7 @@ end
 #     display(str)
 # end
 
-Base.display(b::BracketAlgebraElem) = display(b.polynomial)
+display(b::BracketAlgebraElem) = display(b.polynomial)
 
 Base.parent(b::BracketAlgebraElem) = b.parent
 Nemo.elem_type(::BracketAlgebra) = BracketAlgebraElem
@@ -191,8 +193,8 @@ Nemo.parent_type(::BracketAlgebraElem) = BracketAlgebra
 Nemo.base_ring(b::BracketAlgebraElem) = Nemo.base_ring(Base.parent(b).R)
 Nemo.base_ring(B::BracketAlgebra) = Nemo.base_ring(B.R)
 
-Base.one(B::BracketAlgebra) = BracketAlgebraElem(B, Base.one(B.R))
-Base.zero(B::BracketAlgebra) = BracketAlgebraElem(B, Base.zero(B.R))
+Nemo.one(B::BracketAlgebra) = BracketAlgebraElem(B, one(B.R))
+Nemo.zero(B::BracketAlgebra) = BracketAlgebraElem(B, zero(B.R))
 (B::BracketAlgebra)(A::Vector{T}, m::Vector{Vector{Int}}) where {T<:Nemo.RingElem} = BracketAlgebraElem(B, B.R(A, m))
 (B::BracketAlgebra)(p::Nemo.MPolyRingElem) = BracketAlgebraElem(B, p)
 
@@ -215,7 +217,7 @@ Nemo.monomial(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.monomial(b.polynom
 Nemo.term(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.term(b.polynomial, n))
 
 # return all brackets that appear in b as arrays
-brackets(b::BracketAlgebraElem) = collect(keys(parent(b).variables))[sum(Nemo.exponent_vectors(b)).>0]
+brackets(b::BracketAlgebraElem) = sort(collect(keys(parent(b).variables)))[sum(Nemo.exponent_vectors(b)).>0]
 
 
 Base.:*(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial * b.polynomial)
@@ -224,7 +226,16 @@ Base.:-(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.par
 Base.:-(b::BracketAlgebraElem) = BracketAlgebraElem(b.parent, -b.polynomial)
 Base.:^(b::BracketAlgebraElem, n::Int) = BracketAlgebraElem(b.parent, b.polynomial^n)
 
+function Nemo.evaluate(b::BracketAlgebraElem{T}, A::Vector{T}) where {T<:Union{Nemo.RingElem,Number}}
+    Nemo.evaluate(b.polynomial, A)
+end
 
-# function evaluate(b::BracketAlgebraElem, coordinization::Vector{<:Nemo.RingElem})
+function Nemo.evaluate(b::BracketAlgebraElem{T}, A::Vector{U}) where {T<:Union{Nemo.RingElem,Number},U<:Integer}
+    Nemo.evaluate(b.polynomial, A)
+end
 
-# end
+function Nemo.evaluate(b::BracketAlgebraElem{T}, coordinization::AbstractMatrix{<:Union{Nemo.RingElem,Number}}) where {T<:Union{Nemo.RingElem,Number}}
+    bracks = brackets(b)
+    A = map(x -> x in bracks ? Nemo.det(T.(hcat(transpose(coordinization[:, x]), ones(parent(b).d + 1, 1)))) : 0, collect(keys(parent(b).variables)))
+    Nemo.evaluate(b.polynomial, A)
+end
