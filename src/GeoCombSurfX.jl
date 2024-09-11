@@ -12,6 +12,7 @@ module GeoCombSurfX
 using LinearAlgebra
 using Combinatorics
 using StaticArrays
+using Bijections
 # using PlotlyJS
 using Colors
 using JuMP
@@ -53,7 +54,7 @@ export titest
 
 export rigidity_matrix, basis_inf_motions, is_infrigid, basis_inf_flex, index, is_genrigid, is_isostatic
 
-export BracketAlgebra, sizyges, Tabloid, is_standard, bracket_monomial, reduced_groebner_basis!, BracketAlgebraElem
+export AbstractBracketAlgebra, BracketAlgebra, sizyges, Tabloid, is_standard, bracket_monomial, reduced_groebner_basis!, AbstractBracketAlgebraElem, BracketAlgebraElem, set_ordering!, straighten
 export tiedown, condition, pure_condition3d
 
 include("affine_geometry.jl")
@@ -82,6 +83,10 @@ include("decomposition.jl")
 
 include("Interlocking/interlocking.jl")
 include("Rigidity/infinitesimal_rigidity.jl")
+
+abstract type AbstractBracketAlgebra <: Nemo.Ring end
+abstract type AbstractBracketAlgebraElem <: Nemo.RingElem end
+
 include("Rigidity/BracketAlgebra.jl")
 include("Rigidity/PureCondition.jl")
 
