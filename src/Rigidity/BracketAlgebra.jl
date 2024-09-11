@@ -214,6 +214,7 @@ Nemo.exponent_vectors(b::BracketAlgebraElem) = Nemo.exponent_vectors(b.polynomia
 Nemo.coeff(b::BracketAlgebraElem, n::Int) = Nemo.coeff(b.polynomial, n)
 Nemo.coeff(b::BracketAlgebraElem, exps::Vector{Int}) = Nemo.coeff(b.polynomial, exps)
 Nemo.monomial(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.monomial(b.polynomial, n))
+Nemo.exponent_vector(b::BracketAlgebra, n::Int) = Nemo.exponent_vector(b.polynomial, n)
 Nemo.term(b::BracketAlgebraElem, n::Int) = parent(b)(Nemo.term(b.polynomial, n))
 Nemo.leading_term(b::BracketAlgebraElem) = parent(b)(Nemo.leading_term(b.polynomial))
 Nemo.leading_monomial(b::BracketAlgebraElem) = parent(b)(Nemo.leading_monomial(b.polynomial))
@@ -246,6 +247,74 @@ function Nemo.evaluate(b::BracketAlgebraElem{T}, coordinization::AbstractMatrix{
     A = map(x -> x in bracks ? Nemo.det(T.(hcat(transpose(coordinization[:, x]), ones(parent(b).d + 1, 1)))) : 0, sort(collect(keys(parent(b).variables)), rev=true))
     Nemo.evaluate(b.polynomial, A)
 end
+
+mutable struct Tabloid
+    matrix::Matrix{Int}
+    ordering::Vector{Int}
+
+    """
+    Tabloid(matrix::AbstractMatrix{<:Integer}, ordering::AbstractVector{<:Integer}=collect(1:maximum(matrix)))
+
+    Calculate the tabloid whose rows correspond to the rows of matrix with the ordering.
+        Example:
+        matrix = [4 2 1; 3 1 4], ordering = [3,1,2,4]
+        => result: [3 1 4; 1 2 4] 
+    """
+    function Tabloid(matrix::AbstractMatrix{<:Integer}, ordering::AbstractVector{<:Integer}=collect(1:maximum(matrix)))
+        rows = [matrix[i, :] for i in 1:size(matrix)[1]]
+        sort!.(rows, by=(x -> indexin(x, ordering)[1]))
+        sort!(rows, by=(row -> indexin(row, ordering)))
+        return new(transpose(hcat(rows...)), ordering)
+    end
+end
+
+Base.display(t::Tabloid) = display(t.matrix)
+
+function Tabloid(rows::AbstractVector{<:AbstractVector{<:Integer}}, ordering::AbstractVector{<:Integer}=collect(1:maximum(vcat(rows...))))
+    return Tabloid(transpose(hcat(rows...)), ordering)
+end
+
+Matrix(t::Tabloid) = t.matrix
+
+Base.vcat(t1::Tabloid, t2::Tabloid) = t1.ordering == t2.ordering ? Tabloid(t1.ordering, vcat(t1.matrix, t2.matrix)) : error("Tabloids need to have same number of columns.")
+
+
+"""
+    tabloid(b::BracketAlgebraElem, ordering::Vector{Int}=collect(1:parent(b).n))
+
+Return the tabloid corresponding to the bracket monomial b ordered by ordering. 
+ordering determines the order in which 
+
+Example:
+b = [1,2,3][3,4,5], ordering = [4,3,1,2,5]
+result: [4 3 5; 3 1 2]
+"""
+function Tabloid(b::BracketAlgebraElem, ordering::Vector{Int}=collect(1:parent(b).n))
+    # see Sturmfels 2008, page 81 on how to build the tabloids
+    if length(b) > 1
+        error("Only tabloids of bracket monomials can be calculated.")
+    end
+
+    exps = collect(Nemo.exponent_vectors(b))[1]
+    # all brackets that appear as rows 
+    rows = [(repeat(sort(collect(keys(parent(b).variables)), rev=true)[i], exps[i]) for i in eachindex(exps))...]
+    filter!(row -> length(row) > 0, rows)
+    return Tabloid(rows, ordering)
+end
+
+"""
+    standard_violation(t::Tabloid)
+
+Return the index of the first violation to the standardness of t, i.e. the first index where t[i,j] > t[i+1, j] with regard to the ordering. Otherwise return nothing.
+Example:
+t = [1 2 3; 1 4 5; 1 5 6; 2 3 4] with ordering [1,2,3,4,5,6] => return (3,2)
+t = [1 2 3; 1 2 4] with ordering [1,2,3,4] => return nothing
+"""
+function standard_violation(t::Tabloid)
+    return findfirst([indexin(t.matrix[row, col], t.ordering)[1] > indexin(t.matrix[row+1, col], t.ordering)[1] for row in 1:size(t.matrix)[1]-1, col in 1:size(t.matrix)[2]])
+end
+
+is_standard(t::Tabloid) = isnothing(standard_violation(t))
 
 function straightening_sizyge(α::Vector{<:Integer}, β::Vector{<:Integer}, γ::Vector{<:Integer}, B::BracketAlgebra)
     s = length(α) + 1
