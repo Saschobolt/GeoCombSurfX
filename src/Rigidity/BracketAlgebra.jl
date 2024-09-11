@@ -119,7 +119,7 @@ Base.zero(b::BracketAlgebraElem) = zero(parent(b))
 # Bracket polynomial from array of array of arrays. They encode the bracket polynomial as a sum of monomials. B([[[1,2], [3,4]], [2,3]]) = [1,2]*[3,4] + [2,3]
 (B::BracketAlgebra)(A::Vector{<:Vector{<:Vector{<:Integer}}}) = sum(prod(B(bracket) for bracket in monomial) for monomial in A)
 
-Nemo.length(b::BracketAlgebraElem) = Nemo.length(b.polynomial)
+Base.length(b::BracketAlgebraElem) = Nemo.length(b.polynomial)
 Nemo.degrees(b::BracketAlgebraElem) = Nemo.degrees(b.polynomial)
 Nemo.total_degree(b::BracketAlgebraElem) = Nemo.total_degree(b.polynomial)
 Nemo.coefficients(b::BracketAlgebraElem) = Nemo.coefficients(b.polynomial)
@@ -141,7 +141,7 @@ Nemo.factor(b::BracketAlgebraElem) = Nemo.factor(b.polynomial)
 brackets(b::BracketAlgebraElem) = sort(collect(keys(parent(b).variables)), rev=true)[sum(Nemo.exponent_vectors(b)).>0]
 
 Base.:*(n::Integer, b::BracketAlgebraElem) = BracketAlgebraElem(b.parent, n * b.polynomial)
-Base.:*(c::T, b::BracketAlgebraElem{T}) where {T<:Union{Nemo.RingElem,Number}} = parent(b)(c * b.polynomial)
+Base.:*(c::T, b::BracketAlgebraElem{T}) where {T<:Nemo.RingElem} = parent(b)(c * b.polynomial)
 Base.:*(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial * b.polynomial)
 Base.:+(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial + b.polynomial)
 Base.:-(a::BracketAlgebraElem, b::BracketAlgebraElem) = BracketAlgebraElem(a.parent, a.polynomial - b.polynomial)
