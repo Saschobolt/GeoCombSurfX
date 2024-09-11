@@ -16,9 +16,9 @@ using Bijections
 # using PlotlyJS
 using Colors
 using JuMP
-using Nemo
 using Groebner
 
+import Nemo
 import HiGHS
 import Polyhedra
 import Graphs
