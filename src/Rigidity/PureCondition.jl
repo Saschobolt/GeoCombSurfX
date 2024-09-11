@@ -100,7 +100,7 @@ end
 # - If an edge (v,w) in g still exists, this means that the row corresponding to {v,w} has not been eliminated via Laplace expansion in a previous step.
 # This function computes the sign of the bracket expression that occurs when deleting the rows indexed by edges and the columns indexed by v
 # from the submatrix of the original rigidity matrix represented by the graph g.
-function sign(g::Graphs.SimpleDiGraph, v::Integer, edges::Vector{<:Graphs.AbstractEdge}, d::Integer)
+function Base.sign(g::Graphs.SimpleDiGraph, v::Integer, edges::Vector{<:Graphs.AbstractEdge}, d::Integer)
     @assert all(map(e -> Graphs.has_edge(g, Graphs.src(e), Graphs.dst(e)), edges)) "edges needs to be subset of edges of g."
     @assert length(edges) == d "Number of edges needs to be equal to dimension, but got $(length(e)) edges and dimension $d."
     @assert all(Graphs.src.(edges) .== v) "All edges need to start at vertex $v, but edge sources are $(src.(e))."
