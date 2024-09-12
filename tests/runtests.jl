@@ -2,6 +2,8 @@ using Test
 using GeoCombSurfX
 using LinearAlgebra
 
+import Nemo
+
 
 @testset "affine_geometry.jl" begin
     # "test validity of matrix functions -> rank, colspace, ..."
@@ -200,4 +202,32 @@ end
 
     set_facets!(surf, [[1, 2, 3], [1, 2, 4], [2, 3, 4]])
     @test length(boundary(surf)) == 3
+end
+
+@testset "BracketAlgebra.jl" begin
+    # tableaux ordering
+    ordering = [3, 1, 2, 4]
+    lt = GeoCombSurfX._lt(ordering)
+    @test lt(3, 1)
+    @test !lt(2, 3)
+    @test lt([3, 1, 2], [1, 2, 4])
+    @test !lt([2, 1, 3], [3, 1, 2]) # [2,1,3] and [3,1,2] are equal to [3,1,2]
+    @test lt([1, 3, 4], [1, 2, 4])
+
+    # Bracket Algebra construction
+    BracketAlgebra(6, 2)
+    tetra = CombSimplicialSurface(facets=[[1, 2, 3], [1, 2, 4], [1, 3, 4], [2, 3, 4]])
+    BracketAlgebra(tetra)
+
+    # bracket algebra element ordering
+    B = BracketAlgebra(4, 2, ordering)
+    @test B([3, 1, 2]) < B([1, 2, 4])
+
+    # straightening
+    # Sturmfels example 3.1.11
+    B = BracketAlgebra(6, 2)
+    @test B([1, 2, 6]) * B([3, 4, 5]) == B([1, 2, 5]) * B([3, 4, 6]) - B([1, 2, 4]) * B([3, 5, 6]) + B([1, 2, 3]) * B([4, 5, 6])
+    # Sturmfels example 3.1.10
+    B = BracketAlgebra(6, 2)
+    @test B([1, 4, 5]) * B([1, 5, 6]) * B([2, 3, 4]) == B([1, 2, 3]) * B([1, 4, 5]) * B([4, 5, 6]) - B([1, 2, 4]) * B([1, 4, 5]) * B([3, 5, 6]) + B([1, 3, 4]) * B([1, 4, 5]) * B([2, 5, 6])
 end
