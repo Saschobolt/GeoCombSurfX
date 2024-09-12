@@ -21,10 +21,19 @@ mutable struct BracketAlgebra{T<:Union{Nemo.RingElem,Number}} <: AbstractBracket
     # groebner_basis::Union{Nothing,Vector{<:Nemo.MPolyRingElem{T}}}
 
     function BracketAlgebra(n, d, literal_ordering=collect(1:n), T::Type=Nemo.ZZRingElem)
+        if sort(literal_ordering) != collect(1:n)
+            error("ordering needs to order the literals 1:$n, but got $literal_ordering")
+        end
+
         S = Nemo.parent_type(T)
-        brackets = sort(sort.(collect(combinations(1:n, d + 1)), lt=_lt(literal_ordering)), lt=_lt(literal_ordering))
+        brackets = reverse!(sort(sort.(collect(combinations(1:n, d + 1)), lt=_lt(literal_ordering)), lt=_lt(literal_ordering))) # brackets are in the form [a,b,c,...] with a > b > c according to literal_ordering. They are sorted in decreasing order wrt the tableaux order extrapolated from literal_ordering.
         vars = Nemo.AbstractAlgebra.variable_names("x#" => brackets)
-        R, x = Nemo.polynomial_ring(S(), vars; internal_ordering=:degrevlex)
+
+        # the monomial ordering is extrapolated from vars[1] > vars[2] > vars[3]... 
+        # When storing monomials the constituents are stored from biggest to smallest. So vars[2] * vars[1] is stored as vars[1]*vars[2]
+        # thus deglex is the usual degrevlex (the monomial is larger, which contains the largest constituent at a larger degree), as exponent vectors are compared from left to right
+        R, x = Nemo.polynomial_ring(S(), vars; internal_ordering=:deglex)
+
         variables = Bijection{Vector{Int},typeof(x[1])}()
 
         for (i, bracket) in enumerate(brackets)
