@@ -2,7 +2,7 @@
 
 julia_version = "1.10.4"
 manifest_format = "2.0"
-project_hash = "24e92903fc23ff420065fe3c4ce2c31744c2acd6"
+project_hash = "4857fae4e4445c0b7959893f80767435b74ca9ca"
 
 [[deps.ASL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -15,6 +15,17 @@ deps = ["InteractiveUtils", "LinearAlgebra", "MacroTools", "Preferences", "Rando
 git-tree-sha1 = "20b4984a6fa7e22346b4f420125342142d367913"
 uuid = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
 version = "0.40.9"
+
+[[deps.AbstractLattices]]
+git-tree-sha1 = "763b6f3f6bfabd72c7e262cbb5ddfd43fd5c6398"
+uuid = "398f06c4-4d28-53ec-89ca-5b2656b7603d"
+version = "0.3.1"
+
+[[deps.AbstractTensors]]
+deps = ["AbstractLattices", "LinearAlgebra", "Random", "StaticVectors"]
+git-tree-sha1 = "599e0a31c497d3531a12c483a4638aa6dd0d6883"
+uuid = "a8e43f4a-99b7-5565-8bf1-0165161caaea"
+version = "0.8.4"
 
 [[deps.Antic_jll]]
 deps = ["Artifacts", "FLINT_jll", "GMP_jll", "JLLWrappers", "Libdl", "MPFR_jll", "Pkg"]
@@ -201,6 +212,11 @@ deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.1.1+0"
 
+[[deps.ComputedFieldTypes]]
+git-tree-sha1 = "d6bd73c50e427e04f29822576a3c9559d3e27fca"
+uuid = "459fdd68-db75-56b8-8c15-d717a790f88e"
+version = "1.0.2"
+
 [[deps.ConcurrentUtilities]]
 deps = ["Serialization", "Sockets"]
 git-tree-sha1 = "ea32b83ca4fefa1768dc84e504cc0a94fb1ab8d1"
@@ -280,6 +296,12 @@ deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialF
 git-tree-sha1 = "23163d55f885173722d1e4cf0f6110cdbaf7e272"
 uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
 version = "1.15.1"
+
+[[deps.DirectSum]]
+deps = ["AbstractTensors", "ComputedFieldTypes", "Leibniz", "LinearAlgebra", "Random"]
+git-tree-sha1 = "2f6486c1213e29b216b3d0ba9a52261075c2123d"
+uuid = "22fd7b30-a8c0-5bf2-aabe-97783860d07c"
+version = "0.8.13"
 
 [[deps.Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -465,6 +487,12 @@ deps = ["ArnoldiMethod", "Compat", "DataStructures", "Distributed", "Inflate", "
 git-tree-sha1 = "ebd18c326fa6cee1efb7da9a3b45cf69da2ed4d9"
 uuid = "86223c79-3864-5bf0-83f7-82e725a168b6"
 version = "1.11.2"
+
+[[deps.Grassmann]]
+deps = ["AbstractTensors", "ComputedFieldTypes", "DirectSum", "Leibniz", "LinearAlgebra", "Random", "Requires", "SparseArrays"]
+git-tree-sha1 = "859dce0ee3a532180881a82ee3b7d9bab9962eaf"
+uuid = "4df31cd9-4c27-5bea-88d0-e6a7146666d8"
+version = "0.8.22"
 
 [[deps.Grisu]]
 git-tree-sha1 = "53bb909d1151e57e2484c3d1b53e19552b887fb2"
@@ -691,6 +719,12 @@ deps = ["MacroTools"]
 git-tree-sha1 = "1370f8202dac30758f3c345f9909b97f53d87d3f"
 uuid = "50d2b5c4-7a5e-59d5-8109-a42b560f39c0"
 version = "0.15.1"
+
+[[deps.Leibniz]]
+deps = ["AbstractTensors", "Combinatorics", "LinearAlgebra"]
+git-tree-sha1 = "6ba6e42037810577bd550a38746f60c9cb51c376"
+uuid = "edad4870-8a01-11e9-2d75-8f02e448fc59"
+version = "0.2.8"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1257,6 +1291,12 @@ deps = ["CSTParser", "Serialization", "SymbolServer"]
 git-tree-sha1 = "36732c098f291ee3b867718bb9933e8b67ab4798"
 uuid = "b3cc710f-9c33-5bdb-a03d-a94903873e97"
 version = "8.2.2"
+
+[[deps.StaticVectors]]
+deps = ["LinearAlgebra", "Random"]
+git-tree-sha1 = "fcef0cfbe0b5c0ece01487e570f39bb3bc6b5526"
+uuid = "20fadf95-9e3d-483c-97cd-cab2760e7998"
+version = "1.0.5"
 
 [[deps.Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
