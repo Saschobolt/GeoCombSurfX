@@ -44,38 +44,6 @@ function tiedown(poly::AbstractEmbOrCombPolyhedron, d::Integer=3; tiedown_verts:
     return tiedown(Graphs.SimpleGraph(poly), d)
 end
 
-# tiedown factor of the standard tiedown at the vertices tiedown_verts as in White and Whiteley 1983. Tiedown is applied like in the function tiedown!
-#  Is only true, if induced subgraph by tiedown_verts is d-isostatic
-function tiedown_factor(g::Graphs.AbstractSimpleGraph, d::Integer=2; tiedown_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing)
-    @assert is_isostatic(g[tiedown_verts], d)
-
-    @assert Graphs.nv(g) >= d "Number of vertices needs to be larger than dimension, but got $(Graphs.nv(g)) vertices and dimension $d."
-    if isnothing(tiedown_verts)
-        tiedown_verts = collect(1:d)
-    else
-        @assert all(tiedown_verts .<= Graphs.nv(g)) "tiedown_verts need to consist of verts of g (1..$(nv(g)))"
-        @assert all(tiedown_verts .>= 1) "tiedown_verts need to consist of verts of g (1..$(Graphs.nv(g)))"
-        @assert length(tiedown_verts) == d "tiedown_verts needs to be vector of length d ($d), but got $(length(tiedown_verts))."
-    end
-
-    B = BracketAlgebra(d, Graphs.nv(g) + binomial(d + 1, 2))
-
-    factors = Vector{Int}[]
-    next = Graphs.nv(g) + 1
-
-    for i in eachindex(tiedown_verts)
-        factor = tiedown_verts[1:i]
-        for _ in i+1:d+1
-            push!(factor, next)
-            next += 1
-        end
-        push!(factors, factor)
-    end
-
-    tabloids = map(factor -> Tabloid([factor]), factors)
-    return prod(bracket_monomial(tabloid, B) for tabloid in tabloids)
-end
-
 # reduce the graph g by removing all edges in edges and their reverse edges and removing all outward edges from v
 # this corresponds to deleting the rows of the rigidity matrix indexed by edges and the columns indexed by v as during Laplace expansion.
 function reduction!(g::Graphs.SimpleDiGraph, v::Integer, edges::Vector{<:Graphs.AbstractEdge}, d::Integer)
@@ -124,25 +92,20 @@ end
 # This is done by iterating Laplace expansion of the rigidity matrix of g by expanding aling the columns corresponding to the vertices.
 # The expansion can be read off the graph without actually constructing the rigidity matrix.
 # For reference see https://omni.wikiwand.com/en/articles/Laplace_expansion#General_statement 
-function condition(g::Graphs.SimpleDiGraph, B::BracketAlgebra; remaining_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing, tiedown_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing)
+function condition(g::Graphs.SimpleDiGraph, B::BracketAlgebra; remaining_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing)
     d = B.d
 
-    if isnothing(tiedown_verts)
-        tiedown_verts = filter(v -> length(Graphs.outneighbors(g, v)) == 0, Graphs.vertices(g))
-    end
-
     if isnothing(remaining_verts)
-        remaining_verts = setdiff(Graphs.vertices(g), tiedown_verts)
+        remaining_verts = filter(v -> Graphs.outdegree(g, v)[1] > 0, 1:Graphs.nv(g))
     end
-
 
     if length(remaining_verts) == 0
-        return 1
+        return one(B)
     end
 
     # if any vertex v has outdegree less than d, every d×d submatrix containing the columns corresponding to v has determinant zero.
     if any(map(v -> length(Graphs.outneighbors(g, v)) < d, remaining_verts))
-        return 0
+        return zero(B)
     end
 
     # select the vertex with smallest defect: d - (outdegree - indegree).
@@ -159,7 +122,7 @@ function condition(g::Graphs.SimpleDiGraph, B::BracketAlgebra; remaining_verts::
         edges = setdiff([Graphs.Edge(v, w) for w in Graphs.outneighbors(g, v)], [Graphs.Edge(v, w) for w in Graphs.inneighbors(g, v)])[1:d]
 
         # recursive call. The determinant of the rigiditymatrix is via Laplace: ± [v, e1_2, …, ed_2]  * (determinant of matrix after deleting rows corresponding to edges and columns corresponding to v)
-        return sign(g, v, edges, d) * bracket_monomial(Tabloid([pushfirst!([Graphs.dst(e) for e in edges], v)]), B) * condition(reduction(g, v, edges, d), B; remaining_verts=setdiff(remaining_verts, [v]), tiedown_verts=tiedown_verts)
+        return sign(g, v, edges, d) * B(pushfirst!([Graphs.dst(e) for e in edges], v)) * condition(reduction(g, v, edges, d), B; remaining_verts=setdiff(remaining_verts, [v]))
     elseif defect > 0
         # If defect > 0 the determinant has to be calculated using Laplace expansion that involve more than one nonzero summand. 
         # See Wikipedia article.
@@ -169,10 +132,10 @@ function condition(g::Graphs.SimpleDiGraph, B::BracketAlgebra; remaining_verts::
 
         # recursive call for Laplace expansion
         sum_index = map(edges -> union(edges, edges_onlyout), combinations(edges_both, defect))
-        return sum(edges -> sign(g, v, edges, d) * bracket_monomial(Tabloid([pushfirst!([Graphs.dst(e) for e in edges], v)]), B) * condition(reduction(g, v, edges, d), B; remaining_verts=setdiff(remaining_verts, [v]), tiedown_verts=tiedown_verts), sum_index)
+        return sum(edges -> sign(g, v, edges, d) * B(pushfirst!([Graphs.dst(e) for e in edges], v)) * condition(reduction(g, v, edges, d), B; remaining_verts=setdiff(remaining_verts, [v])), sum_index)
     elseif defect < 0
         # If defect < 0 the determinant is zero as after Laplace expansion along the columns of v and d outedges of v, the matrix has a zero row.
-        return 0
+        return zero(B)
     end
 end
 
@@ -184,12 +147,35 @@ function condition(g::Graphs.SimpleDiGraph, d::Integer=2)
 end
 
 function condition(g::Graphs.AbstractSimpleGraph, d::Integer=2; tiedown_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing)
-    if !isnothing(tiedown_verts) && is_isostatic(g[tiedown_verts], d)
-        tiedown_fac = tiedown_factor(g, d; tiedown_verts=tiedown_verts)
-        return condition(tiedown(g, d; tiedown_verts=tiedown_verts), d) / tiedown_fac
+    if isnothing(tiedown_verts)
+        tiedown_verts = collect(1:d)
     end
 
     return condition(tiedown(g, d; tiedown_verts=tiedown_verts), d)
+end
+
+function pure_condition(g::Graphs.AbstractSimpleGraph, d::Integer=2; tiedown_verts::AbstractVector{<:Integer}=nothing)
+    if !is_isostatic(g[tiedown_verts], d)
+        error("Subgraph spanned by tiedown vertices has to be $d-isostatic, but it has $(Graphs.nv(g[tiedown_verts])) vertices and $(Graphs.ne(g[tiedown_verts])) edges and thus index $(index(g[tiedown_verts], d)).")
+    end
+
+    g_tiedown = tiedown(g, d; tiedown_verts=tiedown_verts)
+
+    # perform reduction of tiedown verts: first vertex has d new edges attached to it, second has d-1, and so on.
+    v = tiedown_verts[1]
+    onlyout_neis = setdiff(Graphs.outneighbors(g_tiedown, v), Graphs.inneighbors(g_tiedown, v))
+    edges = [Graphs.Edge(v, w) for w in onlyout_neis]
+    reduction!(g_tiedown, v, edges, d)
+
+    for (i, v) in enumerate(tiedown_verts[2:end])
+        onlyout_neis = setdiff(Graphs.outneighbors(g_tiedown, v), Graphs.inneighbors(g_tiedown, v))
+        edges = union([Graphs.Edge(v, w) for w in onlyout_neis], [Graphs.Edge(v, w) for w in tiedown_verts[1:i]])
+        reduction!(g_tiedown, v, edges, d)
+    end
+
+    remaining_verts = setdiff(1:Graphs.nv(g), tiedown_verts)
+
+    return condition(g_tiedown, BracketAlgebra(g, d); remaining_verts=remaining_verts)
 end
 
 function condition(poly::AbstractEmbOrCombPolyhedron, d::Integer=3; tiedown_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing)
@@ -210,6 +196,54 @@ function condition(poly::AbstractEmbOrCombPolyhedron, d::Integer=3; tiedown_vert
     return condition(g, d, tiedown_verts=tiedown_verts)
 end
 
-function pure_condition3d(surf::AbstractEmbOrCombSimplicialSurface)
-    return condition(surf, 3)
+function pure_condition(poly::AbstractEmbOrCombPolyhedron, d::Integer=3; tiedown_verts::AbstractVector{<:Integer})
+    return pure_condition(Graphs.SimpleGraph(poly), d; tiedown_verts=tiedown_verts)
+end
+
+function pure_condition3d(surf::AbstractEmbOrCombSimplicialSurface; tiedown_verts::Union{Nothing,AbstractVector{<:Integer}}=nothing)
+    if isnothing(tiedown_verts)
+        tiedown_verts = get_facets(surf)[1]
+    end
+
+    return pure_condition(surf, 3, tiedown_verts=tiedown_verts)
+end
+
+# tiedown factor of the standard tiedown at the vertices tiedown_verts as in White and Whiteley 1983. Tiedown is applied like in the function tiedown!
+#  Is only true, if induced subgraph by tiedown_verts is d-isostatic
+function tiedown_factor(g::Graphs.AbstractSimpleGraph, d::Integer=2; tiedown_verts::AbstractVector{<:Integer})
+    @assert is_isostatic(g[tiedown_verts], d)
+
+    @assert Graphs.nv(g) >= d "Number of vertices needs to be larger than dimension, but got $(Graphs.nv(g)) vertices and dimension $d."
+
+    @assert all(tiedown_verts .<= Graphs.nv(g)) "tiedown_verts need to consist of verts of g (1..$(nv(g)))"
+    @assert all(tiedown_verts .>= 1) "tiedown_verts need to consist of verts of g (1..$(Graphs.nv(g)))"
+    @assert length(tiedown_verts) == d "tiedown_verts needs to be vector of length d ($d), but got $(length(tiedown_verts))."
+
+    B = BracketAlgebra(Graphs.nv(g) + binomial(d + 1, 2), d)
+
+    brackets = Vector{Int}[]
+    next = Graphs.nv(g) + 1
+
+    for i in eachindex(tiedown_verts)
+        bracket = tiedown_verts[1:i]
+        for _ in i+1:d+1
+            push!(bracket, next)
+            next += 1
+        end
+        push!(brackets, bracket)
+    end
+
+    return prod(B(bracket) for bracket in brackets)
+end
+
+function tiedown_factor(poly::AbstractEmbOrCombPolyhedron, d::Integer=3; tiedown_verts::AbstractVector{<:Integer})
+    return tiedown_factor(Graphs.SimpleGraph(poly), d; tiedown_verts=tiedown_verts)
+end
+
+function tiedown_factor(surf::AbstractEmbOrCombSimplicialSurface, d::Integer=3; tiedown_verts::Union{AbstractVector{<:Integer},Nothing}=nothing)
+    if isnothing(tiedown_verts)
+        tiedown_verts = get_facets(surf)[1]
+    end
+
+    return tiedown_factor(Graphs.SimpleGraph(surf), d; tiedown_verts=tiedown_verts)
 end
