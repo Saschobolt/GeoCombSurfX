@@ -45,7 +45,7 @@ end
 
 Calculate the index of the embedded graph f.
 """
-function index(f::Union{AbstractEmbeddedGraph,Graphs.AbstractSimpleGraph})
+function index(f::AbstractEmbeddedGraph)
     d, n = size(get_verts(f))
     return length(get_edges(f)) - d * n + binomial(d + 1, 2)
 end
