@@ -223,6 +223,12 @@ end
     B = BracketAlgebra(4, 2, ordering)
     @test B([3, 1, 2]) < B([1, 2, 4])
 
+    # bracket algebra element conversion between different bracket algebras
+    B1 = BracketAlgebra(4, 2, [3, 1, 2, 4])
+    B2 = BracketAlgebra(4, 2, [1, 2, 3, 4])
+    b = B1([3, 1, 2]) * B1([1, 2, 4]) + B1([1, 3, 4]) * B1([2, 3, 4])
+    @test B2(b) == B2([3, 1, 2]) * B2([1, 2, 4]) + B2([1, 3, 4]) * B2([2, 3, 4])
+
     # straightening
     # Sturmfels example 3.1.11
     B = BracketAlgebra(6, 2)
