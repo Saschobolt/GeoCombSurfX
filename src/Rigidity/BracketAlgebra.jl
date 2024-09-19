@@ -326,3 +326,21 @@ function straighten(b::BracketAlgebraElem)
     sizyge = straightening_sizyge(α, β, γ, parent(b))
     return straighten(b - (Nemo.coeff(b, first_nonstandard_ind)) * prod(parent(b)(mat[i, :]) for i in setdiff(1:size(mat)[1], [r, r + 1]); init=one(parent(b))) * sizyge)
 end
+
+# function to find atomic extensors of BracketAlgebraElem as in Sturmfels 2008, Alg. 3.5.6 step 1
+"""
+    atomic_extensors(b::BracketAlgebraElem)
+
+Find all atomic extensors of the bracket algebra elem b. These are the equivalence classes of the relation p1 ~ p2 iff substituting p1 = p2 in b results in the zero element of the bracket algebra.
+"""
+function atomic_extensors(b::BracketAlgebraElem)
+    B = parent(b)
+
+    extensors = Vector{Int}[]
+
+    exps = Nemo.exponent_vectors(b)
+    coeffs = Nemo.coefficients(b)
+    function ~(p, q)
+
+    end
+end
